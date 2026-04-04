@@ -181,22 +181,20 @@
                 <!-- Avertissement découvert (affiché par JS) -->
                 <div id="overdraft-warning" style="display:none; margin-bottom:0.75rem;">
                     <?php $typeAllows = \App\Models\Account::typeAllowsOverdraft($account['type'] ?? 'standard'); ?>
-                    <div class="alert <?= ($typeAllows || $isModerator) ? 'alert-warning' : 'alert-danger' ?>" style="margin-bottom:0.5rem;">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
+                    <div class="alert <?= ($typeAllows || $isModerator) ? 'alert-warning' : 'alert-danger' ?>" style="margin-bottom:0.5rem;display:flex;align-items:baseline;gap:0.5rem;">
+                        <i class="bi bi-exclamation-triangle-fill" style="flex-shrink:0;"></i>
+                        <span>
                         <?php if ($typeAllows): ?>
                             <strong>Attention</strong> : cette opération dépasse le découvert autorisé.
                             Solde prévu&nbsp;: <strong id="overdraft-preview"></strong>.
                         <?php elseif ($isModerator): ?>
-                            <strong>Exception modérateur</strong> : ce type de compte
-                            (<em><?= e(\App\Models\Account::TYPES[$account['type'] ?? 'standard']['label'] ?? '') ?></em>)
-                            n'autorise pas normalement le solde négatif.
+                            <strong>Exception modérateur</strong> : le type «&nbsp;<?= e(\App\Models\Account::TYPES[$account['type'] ?? 'standard']['label'] ?? '') ?>&nbsp;» n'autorise pas normalement le solde négatif.
                             Solde prévu&nbsp;: <strong id="overdraft-preview"></strong>.
                         <?php else: ?>
-                            <strong>Opération impossible</strong> : ce type de compte
-                            (<em><?= e(\App\Models\Account::TYPES[$account['type'] ?? 'standard']['label'] ?? '') ?></em>)
-                            n'autorise pas le solde négatif.
+                            <strong>Opération impossible</strong> : le type «&nbsp;<?= e(\App\Models\Account::TYPES[$account['type'] ?? 'standard']['label'] ?? '') ?>&nbsp;» n'autorise pas le solde négatif.
                             Solde prévu&nbsp;: <strong id="overdraft-preview"></strong>.
                         <?php endif; ?>
+                        </span>
                     </div>
                     <?php if ($typeAllows || $isModerator): ?>
                     <div class="form-group" style="margin-bottom:0;">
