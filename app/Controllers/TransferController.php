@@ -7,18 +7,21 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Models\Account;
 use App\Models\Transaction;
+use App\Models\Transfer;
 use App\Models\User;
 
 class TransferController extends Controller
 {
     private Account $accountModel;
     private Transaction $transactionModel;
+    private Transfer $transferModel;
     private User $userModel;
 
     public function __construct()
     {
         $this->accountModel     = new Account();
         $this->transactionModel = new Transaction();
+        $this->transferModel    = new Transfer();
         $this->userModel        = new User();
     }
 
@@ -188,7 +191,7 @@ class TransferController extends Controller
         $label = 'Virement' . ($motif !== '' ? ' — ' . $motif : '');
 
         // Débit sur le compte émetteur
-        $this->transactionModel->addTransaction(
+        $debitTxId = $this->transactionModel->addTransaction(
             $fromId,
             'expense',
             $amount,
@@ -199,7 +202,7 @@ class TransferController extends Controller
         );
 
         // Crédit sur le compte destinataire
-        $this->transactionModel->addTransaction(
+        $creditTxId = $this->transactionModel->addTransaction(
             $toId,
             'income',
             $amount,
@@ -207,6 +210,18 @@ class TransferController extends Controller
             $label,
             $userId,
             $scheduledAt
+        );
+
+        // Enregistrer le virement avec les IDs des deux transactions
+        $this->transferModel->createTransfer(
+            $fromId,
+            $toId,
+            $userId,
+            $amount,
+            $motif,
+            $scheduledAt,
+            $debitTxId,
+            $creditTxId
         );
 
         $verb = $scheduledAt !== null ? 'planifié pour le ' . date('d/m/Y à H:i', strtotime($scheduledAt)) : 'effectué';
