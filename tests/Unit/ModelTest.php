@@ -5,24 +5,23 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
+use App\Core\Database;
 use App\Core\Model;
+use Tests\TestDatabase;
 
 class ModelTest extends TestCase
 {
-    private string $tmpDir;
     private ConcreteModelStub $model;
 
     protected function setUp(): void
     {
-        $this->tmpDir = sys_get_temp_dir() . '/bankapp_test_' . uniqid();
-        mkdir($this->tmpDir, 0755, true);
-        $this->model = new ConcreteModelStub($this->tmpDir);
+        TestDatabase::make();
+        $this->model = new ConcreteModelStub();
     }
 
     protected function tearDown(): void
     {
-        array_map('unlink', glob($this->tmpDir . '/*'));
-        rmdir($this->tmpDir);
+        Database::reset();
     }
 
     public function testFindReturnsNullWhenNotFound(): void
@@ -197,24 +196,18 @@ class ModelTest extends TestCase
         $this->assertArrayHasKey('updated_at', $item);
     }
 
-    public function testDataPersistedToJsonFile(): void
+    public function testDataPersistedToDatabase(): void
     {
         $this->model->create(['name' => 'Persistent']);
-        $filePath = $this->tmpDir . '/items.json';
-        $this->assertFileExists($filePath);
-
-        $data = json_decode(file_get_contents($filePath), true);
-        $this->assertCount(1, $data);
-        $this->assertSame('Persistent', $data[0]['name']);
+        $all = $this->model->findAll();
+        $this->assertCount(1, $all);
+        $this->assertSame('Persistent', $all[0]['name']);
     }
 }
 
 class ConcreteModelStub extends Model
 {
-    protected string $file = 'items.json';
-
-    public function __construct(string $dataDir)
-    {
-        parent::__construct($dataDir);
-    }
+    protected string $table = 'items';
 }
+
+

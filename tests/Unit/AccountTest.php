@@ -5,29 +5,28 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
+use App\Core\Database;
 use App\Models\Account;
 use App\Models\Transaction;
 use App\Models\AccountAccess;
 use App\Models\User;
+use Tests\TestDatabase;
 
 class AccountTest extends TestCase
 {
-    private string $tmpDir;
     private Account $account;
     private User $user;
 
     protected function setUp(): void
     {
-        $this->tmpDir = sys_get_temp_dir() . '/bankapp_account_test_' . uniqid();
-        mkdir($this->tmpDir, 0755, true);
-        $this->account = new Account($this->tmpDir);
-        $this->user = new User($this->tmpDir);
+        TestDatabase::make();
+        $this->account = new Account();
+        $this->user    = new User();
     }
 
     protected function tearDown(): void
     {
-        array_map('unlink', glob($this->tmpDir . '/*'));
-        rmdir($this->tmpDir);
+        Database::reset();
     }
 
     public function testCreateAccount(): void
@@ -65,7 +64,7 @@ class AccountTest extends TestCase
     public function testGetBalanceWithTransactions(): void
     {
         $accId = $this->account->createAccount(1, 'Test', 'EUR');
-        $tx = new Transaction($this->tmpDir);
+        $tx = new Transaction();
 
         $tx->addTransaction($accId, 'income', 1000.0, 'Salaire', 'Janvier');
         $tx->addTransaction($accId, 'expense', 200.0, 'Alimentation', 'Courses');
@@ -92,7 +91,7 @@ class AccountTest extends TestCase
     public function testHasAccessShared(): void
     {
         $accId = $this->account->createAccount(1, 'Partagé', 'EUR');
-        $access = new AccountAccess($this->tmpDir);
+        $access = new AccountAccess();
 
         $this->assertFalse($this->account->hasAccess($accId, 2));
 
@@ -105,7 +104,7 @@ class AccountTest extends TestCase
         $this->account->createAccount(1, 'Compte 1', 'EUR');
         $acc2 = $this->account->createAccount(2, 'Compte 2', 'USD');
 
-        $access = new AccountAccess($this->tmpDir);
+        $access = new AccountAccess();
         $access->grantAccess($acc2, 1, 'permanent');
 
         $result = $this->account->getAccessibleAccounts(1);
@@ -117,7 +116,7 @@ class AccountTest extends TestCase
     public function testNegativeBalance(): void
     {
         $accId = $this->account->createAccount(1, 'Découvert', 'EUR', 500.0);
-        $tx = new Transaction($this->tmpDir);
+        $tx = new Transaction();
 
         $tx->addTransaction($accId, 'expense', 300.0, 'Factures', 'Loyer');
         $balance = $this->account->getBalance($accId);

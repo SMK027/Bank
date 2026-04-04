@@ -2,17 +2,13 @@
 
 /**
  * Bootstrap PHPUnit : charge l'autoloader Composer
- * et prépare un environnement minimal pour les tests.
+ * et prépare l'environnement minimal pour les tests.
+ * Les modèles utilisent une base SQLite en mémoire (via TestDatabase::make()).
  */
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-// Variables d'environnement pour les tests (base de données non requise pour les tests unitaires)
-putenv('DB_HOST=127.0.0.1');
-putenv('DB_PORT=3306');
-putenv('DB_DATABASE=toolbox_test');
-putenv('DB_USERNAME=root');
-putenv('DB_PASSWORD=');
+// Variables d'environnement pour les tests
 putenv('APP_KEY=test_secret_key_for_jwt');
 putenv('APP_URL=http://localhost:8080');
 putenv('APP_DEBUG=true');

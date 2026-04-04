@@ -67,6 +67,30 @@ class TransferController extends Controller
                 ];
             }
             $allAccountsJson = json_encode($enriched, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE);
+
+            // Liste enrichie de tous les virements pour l'historique modération
+            $accountsMap  = array_column($this->accountModel->findAll('id', 'ASC'), null, 'id');
+            $rawTransfers = $this->transferModel->findAll('created_at', 'DESC');
+            $enrichedTransfers = [];
+            foreach ($rawTransfers as $t) {
+                $tUid    = (int) ($t['user_id'] ?? 0);
+                $fromAcc = $accountsMap[$t['from_account_id']] ?? null;
+                $toAcc   = $accountsMap[$t['to_account_id']]   ?? null;
+                $tUser   = $usersMap[$tUid] ?? null;
+                $enrichedTransfers[] = [
+                    'id'           => (int) $t['id'],
+                    'user_name'    => $tUser ? ($tUser['username'] ?? 'Utilisateur #' . $tUid) : 'Utilisateur #' . $tUid,
+                    'from_account' => $fromAcc ? ($fromAcc['name'] ?? 'Compte #' . $t['from_account_id']) : 'Compte #' . $t['from_account_id'],
+                    'to_account'   => $toAcc   ? ($toAcc['name']   ?? 'Compte #' . $t['to_account_id'])   : 'Compte #' . $t['to_account_id'],
+                    'amount'       => (float) ($t['amount'] ?? 0),
+                    'motif'        => $t['motif'] ?? '',
+                    'status'       => $t['status'] ?? Transfer::STATUS_SUCCESS,
+                    'scheduled_at' => $t['scheduled_at'] ?? null,
+                    'executed_at'  => $t['executed_at']  ?? null,
+                    'created_at'   => $t['created_at']   ?? null,
+                ];
+            }
+            $transfersJson = json_encode($enrichedTransfers, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE);
         }
 
         // Pré-sélection du compte émetteur si passé en GET
@@ -84,6 +108,7 @@ class TransferController extends Controller
             'allUsers'       => $allUsers,
             'accountTypes'   => Account::TYPES,
             'activeTab'      => $activeTab,
+            'transfersJson'  => $transfersJson ?? null,
         ]);
     }
 
@@ -93,7 +118,7 @@ class TransferController extends Controller
         $this->validateCSRF();
 
         $userId = $this->getCurrentUserId();
-        $data   = $this->getPostData(['from_account_id', 'to_account_id', 'amount', 'motif', 'mode', 'scheduled_at']);
+        $data   = $this->getPostData(['from_account_id', 'to_account_id', 'amount', 'motif', 'mode']);
 
         $fromId  = (int) $data['from_account_id'];
         $toId    = (int) $data['to_account_id'];
@@ -145,22 +170,7 @@ class TransferController extends Controller
             $this->redirect('/transfers/create?tab=' . ($modMode ? 'moderation' : 'personal'));
             return;
         }
-        // Traiter la date programmée
-        $scheduledAt = null;
-        if (!empty($data['scheduled_at'])) {
-            $ts = strtotime($data['scheduled_at']);
-            if ($ts === false || $ts <= time()) {
-                $this->setFlash('danger', 'La date de planification doit être dans le futur.');
-                $this->redirect('/transfers/create?tab=' . ($modMode ? 'moderation' : 'personal'));
-                return;
-            }
-            $scheduledAt = date('Y-m-d H:i:s', $ts);
-        }
-
-        // Utiliser le solde futur (incl. opérations planifiées) pour le contrôle
-        $balance     = $scheduledAt !== null
-            ? $this->accountModel->getFutureBalance($fromId)
-            : $this->accountModel->getBalance($fromId);
+        $balance     = $this->accountModel->getBalance($fromId);
         $overdraft   = (float) ($fromAccount['overdraft'] ?? 0);
         $accountType = $fromAccount['type'] ?? 'standard';
 
@@ -191,45 +201,29 @@ class TransferController extends Controller
         $label = 'Virement' . ($motif !== '' ? ' — ' . $motif : '');
 
         // Débit sur le compte émetteur
-        $debitTxId = $this->transactionModel->addTransaction(
+        $this->transactionModel->addTransaction(
             $fromId,
             'expense',
             $amount,
             'Virement',
             $label,
-            $userId,
-            $scheduledAt
+            $userId
         );
 
         // Crédit sur le compte destinataire
-        $creditTxId = $this->transactionModel->addTransaction(
+        $this->transactionModel->addTransaction(
             $toId,
             'income',
             $amount,
             'Virement',
             $label,
-            $userId,
-            $scheduledAt
+            $userId
         );
 
-        // Enregistrer le virement avec les IDs des deux transactions
-        $this->transferModel->createTransfer(
-            $fromId,
-            $toId,
-            $userId,
-            $amount,
-            $motif,
-            $scheduledAt,
-            $debitTxId,
-            $creditTxId
-        );
-
-        $verb = $scheduledAt !== null ? 'planifié pour le ' . date('d/m/Y à H:i', strtotime($scheduledAt)) : 'effectué';
         $this->setFlash('success', sprintf(
-            'Virement de %s %s %s de « %s » vers « %s ».',
+            'Virement de %s %s effectué de « %s » vers « %s ».',
             number_format($amount, 2, ',', ' '),
             $fromAccount['currency'],
-            $verb,
             $fromAccount['name'],
             $toAccount['name']
         ));

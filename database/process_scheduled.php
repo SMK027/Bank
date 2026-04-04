@@ -22,9 +22,8 @@ require_once dirname(__DIR__) . '/vendor/autoload.php';
 use App\Models\Transaction;
 use App\Models\Transfer;
 
-$dataDir          = dirname(__DIR__) . '/data';
-$transferModel    = new Transfer($dataDir);
-$transactionModel = new Transaction($dataDir);
+$transferModel    = new Transfer();
+$transactionModel = new Transaction();
 
 $now      = time();
 $executed = 0;

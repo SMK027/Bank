@@ -6,13 +6,14 @@ RUN apt-get update && apt-get install -y \
     libjpeg-dev \
     libfreetype6-dev \
     libzip-dev \
+    default-mysql-client \
     zip \
     unzip \
     git \
     curl \
     cron \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install gd zip \
+    && docker-php-ext-install gd zip pdo pdo_mysql \
     && a2enmod rewrite \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 

@@ -8,7 +8,7 @@ use App\Core\Model;
 
 class AccountAccess extends Model
 {
-    protected string $file = 'accesses.json';
+    protected string $table = 'account_accesses';
 
     public function grantAccess(int $accountId, int $userId, string $type = 'permanent', ?string $expiresAt = null): int
     {
@@ -37,13 +37,7 @@ class AccountAccess extends Model
 
     public function findExisting(int $accountId, int $userId): ?array
     {
-        $records = $this->readAll();
-        foreach ($records as $r) {
-            if ((int) $r['account_id'] === $accountId && (int) $r['user_id'] === $userId) {
-                return $r;
-            }
-        }
-        return null;
+        return $this->findOneBy(['account_id' => $accountId, 'user_id' => $userId]);
     }
 
     public function hasValidAccess(int $accountId, int $userId): bool

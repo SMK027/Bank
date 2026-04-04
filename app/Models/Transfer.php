@@ -26,7 +26,7 @@ use App\Core\Model;
  */
 class Transfer extends Model
 {
-    protected string $file = 'transfers.json';
+    protected string $table = 'transfers';
 
     public const STATUS_SCHEDULED = 'scheduled';
     public const STATUS_SUCCESS   = 'success';

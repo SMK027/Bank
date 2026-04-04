@@ -8,7 +8,7 @@ use App\Core\Model;
 
 class Account extends Model
 {
-    protected string $file = 'accounts.json';
+    protected string $table = 'accounts';
 
     /**
      * Types de comptes : label + droit au découvert.
@@ -48,8 +48,8 @@ class Account extends Model
 
     public function getBalance(int $accountId): float
     {
-        $transactionModel = new Transaction($this->dataDir);
-        $transactions = $transactionModel->findBy(['account_id' => (string) $accountId]);
+        $transactionModel = new Transaction();
+        $transactions = $transactionModel->findBy(['account_id' => $accountId]);
         $balance = 0.0;
         foreach ($transactions as $t) {
             if (Transaction::isPending($t)) {
@@ -66,8 +66,8 @@ class Account extends Model
 
     public function getFutureBalance(int $accountId): float
     {
-        $transactionModel = new Transaction($this->dataDir);
-        $transactions = $transactionModel->findBy(['account_id' => (string) $accountId]);
+        $transactionModel = new Transaction();
+        $transactions = $transactionModel->findBy(['account_id' => $accountId]);
         $balance = 0.0;
         foreach ($transactions as $t) {
             if ($t['type'] === 'income') {
@@ -90,7 +90,7 @@ class Account extends Model
         if ($this->isOwner($accountId, $userId)) {
             return true;
         }
-        $accessModel = new AccountAccess($this->dataDir);
+        $accessModel = new AccountAccess();
         return $accessModel->hasValidAccess($accountId, $userId);
     }
 
@@ -114,7 +114,7 @@ class Account extends Model
     {
         $ownAccounts = $this->getByUser($userId);
 
-        $accessModel = new AccountAccess($this->dataDir);
+        $accessModel = new AccountAccess();
         $sharedAccesses = $accessModel->getValidAccessesForUser($userId);
 
         $sharedAccounts = [];

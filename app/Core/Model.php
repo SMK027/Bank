@@ -4,171 +4,168 @@ declare(strict_types=1);
 
 namespace App\Core;
 
+use PDO;
+
 /**
- * Modèle abstrait de base avec opérations CRUD sur fichiers JSON.
- * Chaque modèle concret doit définir la propriété $file (nom du fichier JSON).
+ * Modèle abstrait de base avec opérations CRUD via PDO (MariaDB / SQLite).
+ * Chaque modèle concret doit définir la propriété $table (nom de la table SQL).
  */
 abstract class Model
 {
-    protected string $file = '';
-    protected string $dataDir;
+    protected string $table = '';
 
-    public function __construct(?string $dataDir = null)
+    protected function getPdo(): PDO
     {
-        $this->dataDir = $dataDir ?? dirname(__DIR__, 2) . '/data';
-        $this->ensureDataDir();
+        return Database::getInstance();
     }
 
-    private function ensureDataDir(): void
+    /**
+     * Valide un identifiant SQL (nom de colonne / table) pour prévenir l'injection.
+     */
+    private function col(string $name): string
     {
-        if (!is_dir($this->dataDir)) {
-            mkdir($this->dataDir, 0755, true);
+        if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $name)) {
+            throw new \InvalidArgumentException("Identifiant SQL invalide : {$name}");
         }
+        return $name;
     }
 
-    protected function getFilePath(): string
-    {
-        return $this->dataDir . '/' . $this->file;
-    }
-
-    protected function readAll(): array
-    {
-        $path = $this->getFilePath();
-        if (!file_exists($path)) {
-            return [];
-        }
-        $content = file_get_contents($path);
-        $data = json_decode($content, true);
-        return is_array($data) ? $data : [];
-    }
-
-    protected function writeAll(array $data): void
-    {
-        $path = $this->getFilePath();
-        file_put_contents($path, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
-    }
-
-    private function getNextId(array $records): int
-    {
-        if (empty($records)) {
-            return 1;
-        }
-        return max(array_column($records, 'id')) + 1;
-    }
+    // ─── Lecture ────────────────────────────────────────────────────────────
 
     public function find(int $id): ?array
     {
-        $records = $this->readAll();
-        foreach ($records as $record) {
-            if ((int) $record['id'] === $id) {
-                return $record;
-            }
-        }
-        return null;
+        $stmt = $this->getPdo()->prepare(
+            "SELECT * FROM `{$this->table}` WHERE id = ?"
+        );
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+        return $row !== false ? $row : null;
     }
 
     public function findAll(string $orderBy = 'id', string $direction = 'ASC'): array
     {
-        $records = $this->readAll();
-        $direction = strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC';
-
-        usort($records, function ($a, $b) use ($orderBy, $direction) {
-            $valA = $a[$orderBy] ?? '';
-            $valB = $b[$orderBy] ?? '';
-            $cmp = $valA <=> $valB;
-            return $direction === 'DESC' ? -$cmp : $cmp;
-        });
-
-        return $records;
+        $col = $this->col($orderBy);
+        $dir = strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC';
+        $stmt = $this->getPdo()->query(
+            "SELECT * FROM `{$this->table}` ORDER BY `{$col}` {$dir}"
+        );
+        return $stmt->fetchAll();
     }
 
     public function findBy(array $criteria, string $orderBy = 'id', string $direction = 'ASC'): array
     {
-        $records = $this->readAll();
-        $filtered = array_filter($records, function ($record) use ($criteria) {
-            foreach ($criteria as $key => $value) {
-                if (!isset($record[$key]) || (string) $record[$key] !== (string) $value) {
-                    return false;
-                }
-            }
-            return true;
-        });
+        $col = $this->col($orderBy);
+        $dir = strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC';
 
-        $result = array_values($filtered);
-        $direction = strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC';
+        if (empty($criteria)) {
+            return $this->findAll($orderBy, $direction);
+        }
 
-        usort($result, function ($a, $b) use ($orderBy, $direction) {
-            $valA = $a[$orderBy] ?? '';
-            $valB = $b[$orderBy] ?? '';
-            $cmp = $valA <=> $valB;
-            return $direction === 'DESC' ? -$cmp : $cmp;
-        });
-
-        return $result;
+        [$where, $params] = $this->buildWhere($criteria);
+        $stmt = $this->getPdo()->prepare(
+            "SELECT * FROM `{$this->table}` WHERE {$where} ORDER BY `{$col}` {$dir}"
+        );
+        $stmt->execute($params);
+        return $stmt->fetchAll();
     }
 
     public function findOneBy(array $criteria): ?array
     {
-        $records = $this->readAll();
-        foreach ($records as $record) {
-            $match = true;
-            foreach ($criteria as $key => $value) {
-                if (!isset($record[$key]) || (string) $record[$key] !== (string) $value) {
-                    $match = false;
-                    break;
-                }
-            }
-            if ($match) {
-                return $record;
-            }
-        }
-        return null;
+        [$where, $params] = $this->buildWhere($criteria);
+        $stmt = $this->getPdo()->prepare(
+            "SELECT * FROM `{$this->table}` WHERE {$where} LIMIT 1"
+        );
+        $stmt->execute($params);
+        $row = $stmt->fetch();
+        return $row !== false ? $row : null;
     }
+
+    // ─── Écriture ───────────────────────────────────────────────────────────
 
     public function create(array $data): int
     {
-        $records = $this->readAll();
-        $id = $this->getNextId($records);
-        $data['id'] = $id;
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['updated_at'] = date('Y-m-d H:i:s');
-        $records[] = $data;
-        $this->writeAll($records);
-        return $id;
+
+        $cols   = array_map(fn($c) => '`' . $this->col($c) . '`', array_keys($data));
+        $pholds = array_fill(0, count($data), '?');
+
+        $stmt = $this->getPdo()->prepare(sprintf(
+            'INSERT INTO `%s` (%s) VALUES (%s)',
+            $this->table,
+            implode(', ', $cols),
+            implode(', ', $pholds)
+        ));
+        $stmt->execute(array_values($data));
+        return (int) $this->getPdo()->lastInsertId();
     }
 
     public function update(int $id, array $data): bool
     {
-        $records = $this->readAll();
-        foreach ($records as &$record) {
-            if ((int) $record['id'] === $id) {
-                foreach ($data as $key => $value) {
-                    $record[$key] = $value;
-                }
-                $record['updated_at'] = date('Y-m-d H:i:s');
-                $this->writeAll($records);
-                return true;
-            }
-        }
-        return false;
+        $data['updated_at'] = date('Y-m-d H:i:s');
+
+        $sets   = array_map(fn($c) => '`' . $this->col($c) . '` = ?', array_keys($data));
+        $values = array_values($data);
+        $values[] = $id;
+
+        $stmt = $this->getPdo()->prepare(sprintf(
+            'UPDATE `%s` SET %s WHERE id = ?',
+            $this->table,
+            implode(', ', $sets)
+        ));
+        $stmt->execute($values);
+        return $stmt->rowCount() > 0;
     }
 
     public function delete(int $id): bool
     {
-        $records = $this->readAll();
-        $filtered = array_filter($records, fn($r) => (int) $r['id'] !== $id);
-        if (count($filtered) === count($records)) {
-            return false;
-        }
-        $this->writeAll(array_values($filtered));
-        return true;
+        $stmt = $this->getPdo()->prepare(
+            "DELETE FROM `{$this->table}` WHERE id = ?"
+        );
+        $stmt->execute([$id]);
+        return $stmt->rowCount() > 0;
     }
 
     public function count(array $criteria = []): int
     {
         if (empty($criteria)) {
-            return count($this->readAll());
+            $stmt = $this->getPdo()->query(
+                "SELECT COUNT(*) FROM `{$this->table}`"
+            );
+            return (int) $stmt->fetchColumn();
         }
-        return count($this->findBy($criteria));
+
+        [$where, $params] = $this->buildWhere($criteria);
+        $stmt = $this->getPdo()->prepare(
+            "SELECT COUNT(*) FROM `{$this->table}` WHERE {$where}"
+        );
+        $stmt->execute($params);
+        return (int) $stmt->fetchColumn();
+    }
+
+    // ─── Helpers internes ───────────────────────────────────────────────────
+
+    /**
+     * Construit une clause WHERE paramétrée depuis un tableau de critères.
+     * Gère les valeurs null (IS NULL) pour éviter les injections.
+     *
+     * @return array{string, array}  [clause WHERE, paramètres]
+     */
+    private function buildWhere(array $criteria): array
+    {
+        $conditions = [];
+        $params     = [];
+
+        foreach ($criteria as $key => $value) {
+            $c = $this->col($key);
+            if ($value === null) {
+                $conditions[] = "`{$c}` IS NULL";
+            } else {
+                $conditions[] = "`{$c}` = ?";
+                $params[]     = $value;
+            }
+        }
+
+        return [implode(' AND ', $conditions), $params];
     }
 }

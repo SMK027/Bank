@@ -5,24 +5,23 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
+use App\Core\Database;
 use App\Models\AccountAccess;
+use Tests\TestDatabase;
 
 class AccountAccessTest extends TestCase
 {
-    private string $tmpDir;
     private AccountAccess $access;
 
     protected function setUp(): void
     {
-        $this->tmpDir = sys_get_temp_dir() . '/bankapp_access_test_' . uniqid();
-        mkdir($this->tmpDir, 0755, true);
-        $this->access = new AccountAccess($this->tmpDir);
+        TestDatabase::make();
+        $this->access = new AccountAccess();
     }
 
     protected function tearDown(): void
     {
-        array_map('unlink', glob($this->tmpDir . '/*'));
-        rmdir($this->tmpDir);
+        Database::reset();
     }
 
     public function testGrantPermanentAccess(): void

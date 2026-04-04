@@ -8,7 +8,7 @@ use App\Core\Model;
 
 class User extends Model
 {
-    protected string $file = 'users.json';
+    protected string $table = 'users';
 
     public function register(string $username, string $email, string $password): int
     {

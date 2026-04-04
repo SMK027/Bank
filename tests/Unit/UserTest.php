@@ -5,24 +5,23 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
+use App\Core\Database;
 use App\Models\User;
+use Tests\TestDatabase;
 
 class UserTest extends TestCase
 {
-    private string $tmpDir;
     private User $user;
 
     protected function setUp(): void
     {
-        $this->tmpDir = sys_get_temp_dir() . '/bankapp_user_test_' . uniqid();
-        mkdir($this->tmpDir, 0755, true);
-        $this->user = new User($this->tmpDir);
+        TestDatabase::make();
+        $this->user = new User();
     }
 
     protected function tearDown(): void
     {
-        array_map('unlink', glob($this->tmpDir . '/*'));
-        rmdir($this->tmpDir);
+        Database::reset();
     }
 
     public function testRegisterCreatesUser(): void

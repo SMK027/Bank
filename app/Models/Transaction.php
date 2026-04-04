@@ -8,7 +8,7 @@ use App\Core\Model;
 
 class Transaction extends Model
 {
-    protected string $file = 'transactions.json';
+    protected string $table = 'transactions';
 
     public const CATEGORIES = [
         'Alimentation',

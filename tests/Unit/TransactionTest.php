@@ -5,24 +5,23 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
+use App\Core\Database;
 use App\Models\Transaction;
+use Tests\TestDatabase;
 
 class TransactionTest extends TestCase
 {
-    private string $tmpDir;
     private Transaction $transaction;
 
     protected function setUp(): void
     {
-        $this->tmpDir = sys_get_temp_dir() . '/bankapp_tx_test_' . uniqid();
-        mkdir($this->tmpDir, 0755, true);
-        $this->transaction = new Transaction($this->tmpDir);
+        TestDatabase::make();
+        $this->transaction = new Transaction();
     }
 
     protected function tearDown(): void
     {
-        array_map('unlink', glob($this->tmpDir . '/*'));
-        rmdir($this->tmpDir);
+        Database::reset();
     }
 
     public function testAddTransaction(): void
