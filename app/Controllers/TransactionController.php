@@ -7,16 +7,19 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Models\Account;
 use App\Models\Transaction;
+use App\Models\User;
 
 class TransactionController extends Controller
 {
     private Account $accountModel;
     private Transaction $transactionModel;
+    private User $userModel;
 
     public function __construct()
     {
         $this->accountModel = new Account();
         $this->transactionModel = new Transaction();
+        $this->userModel = new User();
     }
 
     public function create(string $accountId): void
