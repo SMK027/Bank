@@ -5,12 +5,12 @@ services:
     build: .
     container_name: bankapp_web
     ports:
-      - "8080:80"
+      - "8083:80"
     volumes:
       - .:/var/www/html
       - ./data:/var/www/html/data
     environment:
-      - APP_URL=http://localhost:8080
+      - APP_URL=http://localhost:8083
       - APP_DEBUG=true
       - APP_KEY=${APP_KEY:-changez_cette_cle_en_production}
     restart: unless-stopped
