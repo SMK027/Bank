@@ -41,6 +41,40 @@
     <?php endif; ?>
 </div>
 
+<?php
+    $_od = (float) $account['overdraft'];
+    if ($balance < 0):
+        $_ratio = $_od > 0 ? min(100, round(abs($balance) / $_od * 100)) : 100;
+        $_fillClass = $_ratio >= 100 ? 'overdraft-full' : ($_ratio >= 75 ? 'overdraft-critical' : '');
+?>
+<div class="card mb-2" style="border-left: 4px solid var(--danger);">
+    <div class="card-body" style="padding: 1rem 1.25rem;">
+        <div class="overdraft-gauge">
+            <div class="overdraft-gauge-label">
+                <span class="overdraft-icon">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <?php if ($_od > 0): ?>
+                        Découvert utilisé
+                    <?php else: ?>
+                        Compte en solde négatif — aucun découvert autorisé
+                    <?php endif; ?>
+                </span>
+                <span><?= $_ratio ?> %</span>
+            </div>
+            <div class="overdraft-gauge-track">
+                <div class="overdraft-gauge-fill <?= $_fillClass ?>" style="width: <?= $_ratio ?>%"></div>
+            </div>
+            <?php if ($_od > 0): ?>
+            <div style="display:flex; justify-content:space-between; margin-top:0.3rem; font-size:0.7rem; color: var(--text-muted);">
+                <span><?= number_format(abs($balance), 2, ',', ' ') ?> <?= e($account['currency']) ?> utilisés</span>
+                <span>Limite : <?= number_format($_od, 2, ',', ' ') ?> <?= e($account['currency']) ?></span>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <div class="account-detail-grid">
     <!-- Formulaire d'ajout de transaction -->
     <div class="card mb-2">

@@ -48,7 +48,24 @@
                         <div class="account-balance <?= $account['balance'] >= 0 ? 'balance-positive' : 'balance-negative' ?>">
                             <?= number_format($account['balance'], 2, ',', ' ') ?> <?= e($account['currency']) ?>
                         </div>
-                        <?php if ((float) $account['overdraft'] > 0): ?>
+                        <?php
+                            $_od  = (float) $account['overdraft'];
+                            $_bal = $account['balance'];
+                            if ($_bal < 0):
+                                $_ratio    = $_od > 0 ? min(100, round(abs($_bal) / $_od * 100)) : 100;
+                                $_fillClass = $_ratio >= 100 ? 'overdraft-full' : ($_ratio >= 75 ? 'overdraft-critical' : '');
+                        ?>
+                        <div class="overdraft-gauge mt-1">
+                            <div class="overdraft-gauge-label">
+                                <span class="overdraft-icon"><i class="bi bi-exclamation-triangle-fill"></i> Découvert</span>
+                                <span><?= $_ratio ?>%</span>
+                            </div>
+                            <div class="overdraft-gauge-track">
+                                <div class="overdraft-gauge-fill <?= $_fillClass ?>" style="width:<?= $_ratio ?>%"></div>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+                        <?php if ((float) $account['overdraft'] > 0 && $account['balance'] >= 0): ?>
                             <div class="text-small text-muted mt-1">
                                 <i class="bi bi-shield-check"></i> Découvert autorisé : <?= number_format((float) $account['overdraft'], 2, ',', ' ') ?> <?= e($account['currency']) ?>
                             </div>
