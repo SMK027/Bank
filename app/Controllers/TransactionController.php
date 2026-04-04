@@ -56,13 +56,23 @@ class TransactionController extends Controller
 
         // Vérifier le découvert pour les dépenses
         if ($data['type'] === 'expense') {
-            $account = $this->accountModel->find($accId);
-            $balance = $this->accountModel->getBalance($accId);
+            $account   = $this->accountModel->find($accId);
+            $balance   = $this->accountModel->getBalance($accId);
             $overdraft = (float) ($account['overdraft'] ?? 0);
-            if (($balance - $amount) < -$overdraft) {
-                $this->setFlash('danger', 'Opération refusée : le découvert autorisé serait dépassé.');
-                $this->redirect('/accounts/' . $accountId);
-                return;
+            $wouldExceed = ($balance - $amount) < -$overdraft;
+
+            if ($wouldExceed) {
+                $force = trim($_POST['force_overdraft'] ?? '') === '1';
+                if (!$force) {
+                    $newBalance = number_format($balance - $amount, 2, ',', ' ');
+                    $this->setFlash('danger', sprintf(
+                        'Découvert dépassé. Solde prévu : %s %s. Cochez la case « Forcer l\'opération » pour confirmer.',
+                        $newBalance,
+                        $account['currency'] ?? ''
+                    ));
+                    $this->redirect('/accounts/' . $accountId);
+                    return;
+                }
             }
         }
 

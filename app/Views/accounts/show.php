@@ -82,7 +82,10 @@
             <h3><i class="bi bi-plus-circle"></i> Nouvelle opération</h3>
         </div>
         <div class="card-body">
-            <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/transactions">
+            <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/transactions"
+                  id="transaction-form"
+                  data-balance="<?= e((string) $balance) ?>"
+                  data-overdraft="<?= e((string) ((float) $account['overdraft'])) ?>">
                 <?= csrf_field() ?>
                 <div class="form-row">
                     <div class="form-group">
@@ -114,10 +117,78 @@
                                placeholder="Ex : Courses supermarché">
                     </div>
                 </div>
-                <button type="submit" class="btn btn-primary btn-block">
+
+                <!-- Avertissement découvert (affiché par JS) -->
+                <div id="overdraft-warning" style="display:none; margin-bottom:0.75rem;">
+                    <div class="alert alert-warning" style="margin-bottom:0.5rem;">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <strong>Attention</strong> : cette opération dépasse le découvert autorisé.
+                        Solde prévu : <strong id="overdraft-preview"></strong>.
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-weight:600;color:var(--danger);">
+                            <input type="checkbox" id="force-checkbox" name="force_overdraft" value="1">
+                            Forcer l&rsquo;opération et accepter le dépassement
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" id="transaction-submit" class="btn btn-primary btn-block">
                     <i class="bi bi-check-lg"></i> Enregistrer
                 </button>
             </form>
+
+            <script>
+            (function () {
+                var form      = document.getElementById('transaction-form');
+                var typeEl    = document.getElementById('type');
+                var amountEl  = document.getElementById('amount');
+                var warning   = document.getElementById('overdraft-warning');
+                var preview   = document.getElementById('overdraft-preview');
+                var checkbox  = document.getElementById('force-checkbox');
+                var submitBtn = document.getElementById('transaction-submit');
+
+                var balance   = parseFloat(form.dataset.balance)   || 0;
+                var overdraft = parseFloat(form.dataset.overdraft) || 0;
+                var currency  = '<?= e($account['currency']) ?>';
+
+                function fmt(n) {
+                    return n.toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2}) + '\u00a0' + currency;
+                }
+
+                function check() {
+                    var type   = typeEl.value;
+                    var amount = parseFloat(amountEl.value) || 0;
+
+                    if (type !== 'expense' || amount <= 0) {
+                        warning.style.display = 'none';
+                        checkbox.checked = false;
+                        submitBtn.disabled = false;
+                        return;
+                    }
+
+                    var newBalance = balance - amount;
+                    var exceeds    = newBalance < -overdraft;
+
+                    if (exceeds) {
+                        preview.textContent = fmt(newBalance);
+                        warning.style.display = 'block';
+                        submitBtn.disabled = !checkbox.checked;
+                    } else {
+                        warning.style.display = 'none';
+                        checkbox.checked = false;
+                        submitBtn.disabled = false;
+                    }
+                }
+
+                checkbox.addEventListener('change', function () {
+                    submitBtn.disabled = !this.checked;
+                });
+
+                typeEl.addEventListener('change', check);
+                amountEl.addEventListener('input', check);
+            })();
+            </script>
         </div>
     </div>
 
