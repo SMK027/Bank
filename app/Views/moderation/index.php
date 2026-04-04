@@ -22,16 +22,20 @@
 <div class="card mb-2">
     <div class="card-body" style="padding:0.9rem 1.1rem;">
         <div style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap;">
-            <div class="form-group" style="margin:0;flex:1;min-width:180px;">
+            <div class="form-group" style="margin:0;flex:1;min-width:180px;position:relative;">
                 <label class="form-label" for="filter-owner" style="font-size:0.78rem;margin-bottom:0.3rem;">
                     <i class="bi bi-person"></i> Propriétaire
                 </label>
-                <select id="filter-owner" class="form-control" style="padding:0.35rem 0.6rem;font-size:0.84rem;">
-                    <option value="">Tous les utilisateurs</option>
-                    <?php foreach ($ownerNames as $name): ?>
-                        <option value="<?= e($name) ?>"><?= e($name) ?></option>
-                    <?php endforeach; ?>
-                </select>
+                <input type="text" id="filter-owner" class="form-control" autocomplete="off"
+                       placeholder="Tous les utilisateurs…"
+                       style="padding:0.35rem 0.6rem;font-size:0.84rem;">
+                <ul id="owner-suggestions" style="
+                    display:none;position:absolute;z-index:100;left:0;right:0;top:100%;
+                    background:var(--bg-card,#fff);border:1px solid var(--gray-light,#e5e7eb);
+                    border-top:none;border-radius:0 0 var(--border-radius,6px) var(--border-radius,6px);
+                    list-style:none;margin:0;padding:0;max-height:200px;overflow-y:auto;
+                    box-shadow:0 4px 12px rgba(0,0,0,.08);
+                "></ul>
             </div>
             <div class="form-group" style="margin:0;flex:1;min-width:160px;">
                 <label class="form-label" for="filter-status" style="font-size:0.78rem;margin-bottom:0.3rem;">
@@ -146,25 +150,97 @@
 
 <script>
 (function () {
-    var ownerEl  = document.getElementById('filter-owner');
-    var statusEl = document.getElementById('filter-status');
-    var searchEl = document.getElementById('filter-search');
-    var resetBtn = document.getElementById('filter-reset');
-    var countEl  = document.getElementById('filter-count');
-    var emptyEl  = document.getElementById('filter-empty');
-    var rows     = document.querySelectorAll('#accounts-table tbody tr');
-    var total    = rows.length;
+    var ownerInput   = document.getElementById('filter-owner');
+    var suggestions  = document.getElementById('owner-suggestions');
+    var statusEl     = document.getElementById('filter-status');
+    var searchEl     = document.getElementById('filter-search');
+    var resetBtn     = document.getElementById('filter-reset');
+    var countEl      = document.getElementById('filter-count');
+    var emptyEl      = document.getElementById('filter-empty');
+    var rows         = document.querySelectorAll('#accounts-table tbody tr');
+    var total        = rows.length;
 
+    // Valeur validée du filtre propriétaire (vide = pas de filtre)
+    var activeOwner  = '';
+
+    var allOwners = <?= json_encode($ownerNames, JSON_UNESCAPED_UNICODE) ?>;
+
+    /* --- Autocomplétion --- */
+    function showSuggestions(query) {
+        var q = query.toLowerCase().trim();
+        var matches = q === ''
+            ? allOwners
+            : allOwners.filter(function (n) { return n.toLowerCase().indexOf(q) !== -1; });
+
+        suggestions.innerHTML = '';
+        if (matches.length === 0) { suggestions.style.display = 'none'; return; }
+
+        matches.forEach(function (name) {
+            var li = document.createElement('li');
+            li.textContent = name;
+            li.style.cssText = 'padding:0.45rem 0.75rem;cursor:pointer;font-size:0.84rem;';
+            li.addEventListener('mousedown', function (e) {
+                e.preventDefault(); // Empêche le blur avant le click
+                ownerInput.value = name;
+                activeOwner = name;
+                suggestions.style.display = 'none';
+                applyFilters();
+            });
+            li.addEventListener('mouseenter', function () { this.style.background = 'var(--gray-lighter,#f3f4f6)'; });
+            li.addEventListener('mouseleave', function () { this.style.background = ''; });
+            suggestions.appendChild(li);
+        });
+        suggestions.style.display = 'block';
+    }
+
+    ownerInput.addEventListener('input', function () {
+        activeOwner = ''; // L'utilisateur tape → invalider la sélection précédente
+        showSuggestions(this.value);
+        applyFilters();
+    });
+
+    ownerInput.addEventListener('focus', function () { showSuggestions(this.value); });
+    ownerInput.addEventListener('blur',  function () { setTimeout(function () { suggestions.style.display = 'none'; }, 150); });
+
+    ownerInput.addEventListener('keydown', function (e) {
+        var items = suggestions.querySelectorAll('li');
+        var active = suggestions.querySelector('li.active');
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            var next = active ? active.nextElementSibling : items[0];
+            if (active) active.classList.remove('active');
+            if (next) { next.classList.add('active'); next.style.background = 'var(--gray-lighter,#f3f4f6)'; ownerInput.value = next.textContent; }
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            var prev = active ? active.previousElementSibling : items[items.length - 1];
+            if (active) active.classList.remove('active');
+            if (prev) { prev.classList.add('active'); prev.style.background = 'var(--gray-lighter,#f3f4f6)'; ownerInput.value = prev.textContent; }
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (active) { activeOwner = active.textContent; ownerInput.value = activeOwner; suggestions.style.display = 'none'; applyFilters(); }
+        } else if (e.key === 'Escape') {
+            suggestions.style.display = 'none';
+        }
+    });
+
+    /* --- Filtres --- */
     function applyFilters() {
-        var owner  = ownerEl.value;
         var status = statusEl.value;
         var search = searchEl.value.toLowerCase().trim();
         var visible = 0;
 
+        // Le filtre propriétaire est actif uniquement si activeOwner est défini
+        // OU si le texte saisi correspond exactement à un nom connu
+        var ownerFilter = activeOwner;
+        if (!ownerFilter) {
+            var typed = ownerInput.value.trim();
+            if (allOwners.indexOf(typed) !== -1) ownerFilter = typed;
+        }
+
         rows.forEach(function (row) {
-            var matchOwner  = !owner  || row.dataset.owner  === owner;
-            var matchStatus = !status || row.dataset.status === status;
-            var matchSearch = !search || row.dataset.name.indexOf(search) !== -1;
+            var matchOwner  = !ownerFilter || row.dataset.owner === ownerFilter;
+            var matchStatus = !status      || row.dataset.status === status;
+            var matchSearch = !search      || row.dataset.name.indexOf(search) !== -1;
 
             if (matchOwner && matchStatus && matchSearch) {
                 row.style.display = '';
@@ -178,14 +254,15 @@
         countEl.textContent   = visible + ' / ' + total + ' compte' + (total > 1 ? 's' : '') + ' affiché' + (visible > 1 ? 's' : '');
     }
 
-    ownerEl.addEventListener('change', applyFilters);
     statusEl.addEventListener('change', applyFilters);
-    searchEl.addEventListener('input', applyFilters);
+    searchEl.addEventListener('input',  applyFilters);
 
     resetBtn.addEventListener('click', function () {
-        ownerEl.value  = '';
-        statusEl.value = '';
-        searchEl.value = '';
+        ownerInput.value = '';
+        activeOwner      = '';
+        statusEl.value   = '';
+        searchEl.value   = '';
+        suggestions.style.display = 'none';
         applyFilters();
     });
 
