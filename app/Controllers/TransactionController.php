@@ -71,7 +71,8 @@ class TransactionController extends Controller
             $data['type'],
             $amount,
             $data['category'],
-            $data['comment']
+            $data['comment'],
+            $userId
         );
 
         $label = $data['type'] === 'income' ? 'Entrée' : 'Dépense';

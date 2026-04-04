@@ -27,10 +27,11 @@ class Transaction extends Model
         'Autre',
     ];
 
-    public function addTransaction(int $accountId, string $type, float $amount, string $category, string $comment = ''): int
+    public function addTransaction(int $accountId, string $type, float $amount, string $category, string $comment = '', int $userId = 0): int
     {
         return $this->create([
             'account_id' => $accountId,
+            'user_id'    => $userId,
             'type'       => $type,
             'amount'     => $amount,
             'category'   => $category,

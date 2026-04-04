@@ -188,6 +188,7 @@
                             <th>Date</th>
                             <th>Type</th>
                             <th>Catégorie</th>
+                            <th>Par</th>
                             <th>Commentaire</th>
                             <th class="text-right">Montant</th>
                             <th></th>
@@ -205,6 +206,11 @@
                                     <?php endif; ?>
                                 </td>
                                 <td><?= e($t['category']) ?></td>
+                                <td>
+                                    <span class="badge badge-secondary">
+                                        <i class="bi bi-person"></i> <?= e($t['author_name']) ?>
+                                    </span>
+                                </td>
                                 <td><?= e($t['comment'] ?? '') ?></td>
                                 <td class="text-right font-bold <?= $t['type'] === 'income' ? 'text-success' : 'text-danger' ?>">
                                     <?= $t['type'] === 'income' ? '+' : '-' ?><?= number_format((float) $t['amount'], 2, ',', ' ') ?>

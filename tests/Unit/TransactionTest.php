@@ -97,4 +97,11 @@ class TransactionTest extends TestCase
         $this->assertTrue($this->transaction->delete($id));
         $this->assertNull($this->transaction->find($id));
     }
+
+    public function testAddTransactionStoresUserId(): void
+    {
+        $id = $this->transaction->addTransaction(1, 'income', 250.0, 'Salaire', 'Juillet', 42);
+        $found = $this->transaction->find($id);
+        $this->assertSame(42, (int) $found['user_id']);
+    }
 }

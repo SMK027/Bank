@@ -74,6 +74,12 @@ class AccountController extends Controller
         }
 
         $transactions = $this->transactionModel->getByAccount($accountId);
+        // Enrichir chaque transaction avec le nom de l'auteur
+        foreach ($transactions as &$t) {
+            $author = isset($t['user_id']) && $t['user_id'] ? $this->userModel->find((int) $t['user_id']) : null;
+            $t['author_name'] = $author ? $author['username'] : 'Inconnu';
+        }
+        unset($t);
         $balance = $this->accountModel->getBalance($accountId);
         $totalIncome = $this->transactionModel->getTotalIncome($accountId);
         $totalExpense = $this->transactionModel->getTotalExpense($accountId);
