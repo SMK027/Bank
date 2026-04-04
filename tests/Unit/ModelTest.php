@@ -6,35 +6,24 @@ namespace Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use App\Core\Model;
-use PDO;
 
-/**
- * Tests de la classe abstraite Model via un stub concret.
- */
 class ModelTest extends TestCase
 {
-    private PDO $pdo;
+    private string $tmpDir;
     private ConcreteModelStub $model;
 
     protected function setUp(): void
     {
-        // Créer une base SQLite en mémoire pour les tests
-        $this->pdo = new PDO('sqlite::memory:', null, null, [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]);
-
-        $this->pdo->exec('CREATE TABLE items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            status TEXT DEFAULT "active",
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )');
-
-        $this->model = new ConcreteModelStub($this->pdo);
+        $this->tmpDir = sys_get_temp_dir() . '/bankapp_test_' . uniqid();
+        mkdir($this->tmpDir, 0755, true);
+        $this->model = new ConcreteModelStub($this->tmpDir);
     }
 
-    // ─── find ────────────────────────────────────────────────
+    protected function tearDown(): void
+    {
+        array_map('unlink', glob($this->tmpDir . '/*'));
+        rmdir($this->tmpDir);
+    }
 
     public function testFindReturnsNullWhenNotFound(): void
     {
@@ -50,8 +39,6 @@ class ModelTest extends TestCase
         $this->assertSame('Test Item', $item['name']);
         $this->assertSame('active', $item['status']);
     }
-
-    // ─── findAll ─────────────────────────────────────────────
 
     public function testFindAllReturnsEmptyArrayWhenNoRecords(): void
     {
@@ -85,12 +72,9 @@ class ModelTest extends TestCase
     public function testFindAllSanitizesDirection(): void
     {
         $this->model->create(['name' => 'A', 'status' => 'active']);
-        // Direction invalide → doit retomber en ASC
         $result = $this->model->findAll('name', 'INVALID');
         $this->assertCount(1, $result);
     }
-
-    // ─── findBy ──────────────────────────────────────────────
 
     public function testFindByReturnsMatchingRecords(): void
     {
@@ -109,8 +93,6 @@ class ModelTest extends TestCase
         $this->assertSame([], $result);
     }
 
-    // ─── findOneBy ───────────────────────────────────────────
-
     public function testFindOneByReturnsFirstMatch(): void
     {
         $this->model->create(['name' => 'Alice', 'status' => 'active']);
@@ -126,8 +108,6 @@ class ModelTest extends TestCase
         $result = $this->model->findOneBy(['name' => 'Nobody']);
         $this->assertNull($result);
     }
-
-    // ─── create ──────────────────────────────────────────────
 
     public function testCreateReturnsId(): void
     {
@@ -152,8 +132,6 @@ class ModelTest extends TestCase
         $this->assertSame($id1 + 1, $id2);
     }
 
-    // ─── update ──────────────────────────────────────────────
-
     public function testUpdateModifiesRecord(): void
     {
         $id = $this->model->create(['name' => 'Original', 'status' => 'active']);
@@ -162,7 +140,7 @@ class ModelTest extends TestCase
         $this->assertTrue($result);
         $item = $this->model->find($id);
         $this->assertSame('Updated', $item['name']);
-        $this->assertSame('active', $item['status']); // Non modifié
+        $this->assertSame('active', $item['status']);
     }
 
     public function testUpdateMultipleFields(): void
@@ -175,8 +153,6 @@ class ModelTest extends TestCase
         $this->assertSame('inactive', $item['status']);
     }
 
-    // ─── delete ──────────────────────────────────────────────
-
     public function testDeleteRemovesRecord(): void
     {
         $id = $this->model->create(['name' => 'To Delete', 'status' => 'active']);
@@ -186,14 +162,11 @@ class ModelTest extends TestCase
         $this->assertNull($this->model->find($id));
     }
 
-    public function testDeleteNonExistentRecord(): void
+    public function testDeleteNonExistentReturnsFalse(): void
     {
-        // Ne doit pas lever d'exception
         $result = $this->model->delete(999);
-        $this->assertTrue($result); // execute() retourne true même si 0 lignes affectées
+        $this->assertFalse($result);
     }
-
-    // ─── count ───────────────────────────────────────────────
 
     public function testCountAll(): void
     {
@@ -214,17 +187,34 @@ class ModelTest extends TestCase
         $this->assertSame(1, $this->model->count(['status' => 'inactive']));
         $this->assertSame(0, $this->model->count(['status' => 'deleted']));
     }
+
+    public function testCreatedAtAndUpdatedAtAreSet(): void
+    {
+        $id = $this->model->create(['name' => 'Timestamped']);
+        $item = $this->model->find($id);
+
+        $this->assertArrayHasKey('created_at', $item);
+        $this->assertArrayHasKey('updated_at', $item);
+    }
+
+    public function testDataPersistedToJsonFile(): void
+    {
+        $this->model->create(['name' => 'Persistent']);
+        $filePath = $this->tmpDir . '/items.json';
+        $this->assertFileExists($filePath);
+
+        $data = json_decode(file_get_contents($filePath), true);
+        $this->assertCount(1, $data);
+        $this->assertSame('Persistent', $data[0]['name']);
+    }
 }
 
-/**
- * Implémentation concrète de Model pour les tests.
- */
 class ConcreteModelStub extends Model
 {
-    protected string $table = 'items';
+    protected string $file = 'items.json';
 
-    public function __construct(\PDO $pdo)
+    public function __construct(string $dataDir)
     {
-        $this->db = $pdo;
+        parent::__construct($dataDir);
     }
 }
