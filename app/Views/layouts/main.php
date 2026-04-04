@@ -22,6 +22,7 @@
                 <?php if (is_authenticated()): ?>
                     <a href="/dashboard" class="navbar-link"><i class="bi bi-speedometer2"></i> Tableau de bord</a>
                     <a href="/accounts/create" class="navbar-link"><i class="bi bi-plus-circle"></i> Nouveau compte</a>
+                    <a href="/transfers/create" class="navbar-link"><i class="bi bi-arrow-left-right"></i> Virement</a>
                     <div class="navbar-user">
                         <a href="/profile" class="navbar-link navbar-profile-link">
                             <span class="navbar-avatar navbar-avatar-placeholder"><?= strtoupper(substr(current_username(), 0, 1)) ?></span>

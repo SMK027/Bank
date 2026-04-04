@@ -21,6 +21,7 @@ use App\Controllers\DashboardController;
 use App\Controllers\AccountController;
 use App\Controllers\TransactionController;
 use App\Controllers\AccessController;
+use App\Controllers\TransferController;
 
 // Démarrer la session
 Session::start();
@@ -66,6 +67,10 @@ $router->post('/accounts/{id}/delete', AccountController::class, 'deleteAccount'
 // --- Transactions ---
 $router->post('/accounts/{accountId}/transactions', TransactionController::class, 'create');
 $router->post('/accounts/{accountId}/transactions/{transactionId}/delete', TransactionController::class, 'deleteTransaction');
+
+// --- Virements ---
+$router->get('/transfers/create', TransferController::class, 'createForm');
+$router->post('/transfers/create', TransferController::class, 'create');
 
 // --- Partage d'accès ---
 $router->post('/accounts/{accountId}/access', AccessController::class, 'grant');
