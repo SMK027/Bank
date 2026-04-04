@@ -336,6 +336,10 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
 
 <script>
 (function () {
+    /* État des modes de planification — déclaré en tête pour éviter un TypeError
+       lors de l'appel initial de checkPersonal / checkMod */
+    var schedModes = { p: 'now', m: 'now' };
+
     /* ─── ONGLET PERSONNEL ─────────────────────────────────────────────── */
     var fromEl   = document.getElementById('from_account_id');
     var toEl     = document.getElementById('to_account_id');
@@ -561,8 +565,6 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
 
 
     /* ─── Planification (toggle instantané / planifié) ──────────────────── */
-    var schedModes = { p: 'now', m: 'now' };
-
     window.setSchedMode = function (form, mode) {
         schedModes[form] = mode;
         var dateDiv   = document.getElementById('sched-date-' + form);
