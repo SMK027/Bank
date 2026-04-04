@@ -17,6 +17,19 @@
     </div>
 </div>
 
+<?php if ($isOwner && empty($account['type'])): ?>
+<div class="alert alert-warning" style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+    <span>
+        <i class="bi bi-tag"></i>
+        <strong>Type de compte non défini.</strong>
+        Définissez un type pour activer les règles de découvert adaptées.
+    </span>
+    <a href="/accounts/<?= (int) $account['id'] ?>/edit" class="btn btn-warning btn-sm" style="white-space:nowrap;">
+        <i class="bi bi-pencil"></i> Définir le type
+    </a>
+</div>
+<?php endif; ?>
+
 <!-- Statistiques du compte -->
 <div class="stats-grid">
     <div class="stat-card">
