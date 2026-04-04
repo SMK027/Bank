@@ -149,6 +149,36 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                         </div>
                     </div>
 
+
+                    <!-- Planification -->
+                    <div style="margin-bottom:0.75rem;">
+                        <div style="display:flex; gap:0.5rem; margin-bottom:0.5rem;">
+                            <button type="button" id="sched-btn-now-p"
+                                    onclick="setSchedMode('p','now')"
+                                    class="btn btn-sm btn-primary"
+                                    style="flex:1;">
+                                <i class="bi bi-lightning-charge"></i> Instantané
+                            </button>
+                            <button type="button" id="sched-btn-later-p"
+                                    onclick="setSchedMode('p','later')"
+                                    class="btn btn-sm btn-outline-secondary"
+                                    style="flex:1;">
+                                <i class="bi bi-calendar-event"></i> Planifié
+                            </button>
+                        </div>
+                        <div id="sched-date-p" style="display:none;">
+                            <label for="scheduled_at-p" class="form-label" style="font-size:0.85rem; color:var(--text-muted);">
+                                <i class="bi bi-clock"></i> Date d'exécution
+                            </label>
+                            <input type="datetime-local" id="scheduled_at-p" name="scheduled_at"
+                                   class="form-control">
+                            <div id="warn-p-date" class="alert alert-warning" style="display:none; margin-top:0.4rem; padding:0.5rem 0.75rem;">
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                <span id="warn-p-date-text"></span>
+                            </div>
+                        </div>
+                    </div>
+
                     <div id="warn-p" style="display:none; margin-bottom:0.75rem;">
                         <div id="warn-p-same" class="alert alert-warning" style="display:none;">
                             <i class="bi bi-exclamation-triangle-fill"></i>
@@ -161,7 +191,7 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                     </div>
 
                     <button type="submit" id="submit-p" class="btn btn-primary btn-block">
-                        <i class="bi bi-arrow-left-right"></i> Effectuer le virement
+                        <i class="bi bi-arrow-left-right" id="submit-p-icon"></i> <span id="submit-p-label">Effectuer le virement</span>
                     </button>
                 </form>
 
@@ -244,6 +274,36 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                         </div>
                     </div>
 
+
+                    <!-- Planification -->
+                    <div style="margin-bottom:0.75rem;">
+                        <div style="display:flex; gap:0.5rem; margin-bottom:0.5rem;">
+                            <button type="button" id="sched-btn-now-m"
+                                    onclick="setSchedMode('m','now')"
+                                    class="btn btn-sm btn-primary"
+                                    style="flex:1;">
+                                <i class="bi bi-lightning-charge"></i> Instantané
+                            </button>
+                            <button type="button" id="sched-btn-later-m"
+                                    onclick="setSchedMode('m','later')"
+                                    class="btn btn-sm btn-outline-secondary"
+                                    style="flex:1;">
+                                <i class="bi bi-calendar-event"></i> Planifié
+                            </button>
+                        </div>
+                        <div id="sched-date-m" style="display:none;">
+                            <label for="scheduled_at-m" class="form-label" style="font-size:0.85rem; color:var(--text-muted);">
+                                <i class="bi bi-clock"></i> Date d'exécution
+                            </label>
+                            <input type="datetime-local" id="scheduled_at-m" name="scheduled_at"
+                                   class="form-control">
+                            <div id="warn-m-date" class="alert alert-warning" style="display:none; margin-top:0.4rem; padding:0.5rem 0.75rem;">
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                <span id="warn-m-date-text"></span>
+                            </div>
+                        </div>
+                    </div>
+
                     <div id="warn-m" style="display:none; margin-bottom:0.75rem;">
                         <div id="warn-m-same" class="alert alert-warning" style="display:none;">
                             <i class="bi bi-exclamation-triangle-fill"></i>
@@ -260,7 +320,7 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                     </div>
 
                     <button type="submit" id="submit-m" class="btn btn-primary btn-block">
-                        <i class="bi bi-arrow-left-right"></i> Effectuer le virement
+                        <i class="bi bi-arrow-left-right" id="submit-m-icon"></i> <span id="submit-m-label">Effectuer le virement</span>
                     </button>
                 </form>
 
@@ -339,7 +399,8 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                     warnFunds.style.display = 'block';
                 }
             }
-            submitBtn.disabled = sameAcc || fundErr;
+            var dateErr = !checkSchedDate('p');
+            submitBtn.disabled = sameAcc || fundErr || dateErr;
         }
 
         fromEl.addEventListener('change', function () { updateFromInfo(); checkPersonal(); });
@@ -485,7 +546,8 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                 }
             }
 
-            submitM.disabled = sameAcc || frozen || fundErr;
+            var dateMErr = !checkSchedDate('m');
+            submitM.disabled = sameAcc || frozen || fundErr || dateMErr;
         }
 
         if (filterUser) filterUser.addEventListener('change', rebuildSelects);
@@ -496,6 +558,80 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
 
         rebuildSelects();
     }
+
+
+    /* ─── Planification (toggle instantané / planifié) ──────────────────── */
+    var schedModes = { p: 'now', m: 'now' };
+
+    window.setSchedMode = function (form, mode) {
+        schedModes[form] = mode;
+        var dateDiv   = document.getElementById('sched-date-' + form);
+        var btnNow    = document.getElementById('sched-btn-now-' + form);
+        var btnLater  = document.getElementById('sched-btn-later-' + form);
+        var labelEl   = document.getElementById('submit-' + form + '-label');
+        if (!dateDiv) return;
+
+        if (mode === 'later') {
+            dateDiv.style.display = '';
+            btnNow.className   = btnNow.className.replace('btn-primary', 'btn-outline-secondary');
+            btnLater.className = btnLater.className.replace('btn-outline-secondary', 'btn-primary');
+            if (labelEl) labelEl.textContent = 'Planifier le virement';
+        } else {
+            dateDiv.style.display = 'none';
+            var inp = document.getElementById('scheduled_at-' + form);
+            if (inp) inp.value = '';
+            btnNow.className   = btnNow.className.replace('btn-outline-secondary', 'btn-primary');
+            btnLater.className = btnLater.className.replace('btn-primary', 'btn-outline-secondary');
+            if (labelEl) labelEl.textContent = 'Effectuer le virement';
+        }
+
+        // Re-déclencher la validation
+        if (form === 'p' && typeof checkPersonal === 'function') checkPersonal();
+        if (form === 'm' && typeof checkMod      === 'function') checkMod();
+    };
+
+    // Validation date dans checkPersonal et checkMod (ajoutée via patch)
+    function checkSchedDate(form) {
+        var inp     = document.getElementById('scheduled_at-' + form);
+        var warnDiv = document.getElementById('warn-' + form + '-date');
+        var warnTxt = document.getElementById('warn-' + form + '-date-text');
+        if (!inp || !warnDiv) return true; // pas de champ = pas d'erreur
+        if (schedModes[form] !== 'later') {
+            warnDiv.style.display = 'none';
+            return true;
+        }
+        if (!inp.value) {
+            warnDiv.style.display = 'block';
+            warnTxt.textContent   = 'Veuillez saisir une date d\'exécution.';
+            return false;
+        }
+        var ts = new Date(inp.value).getTime();
+        if (ts <= Date.now()) {
+            warnDiv.style.display = 'block';
+            warnTxt.textContent   = 'La date doit être dans le futur.';
+            return false;
+        }
+        warnDiv.style.display = 'none';
+        return true;
+    }
+
+    // Patch checkPersonal pour inclure la validation de date
+    (function () {
+        var fromEl   = document.getElementById('from_account_id');
+        var schedInpP = document.getElementById('scheduled_at-p');
+        if (schedInpP) {
+            schedInpP.addEventListener('input', function () {
+                if (fromEl) fromEl.dispatchEvent(new Event('change'));
+            });
+        }
+        var schedInpM = document.getElementById('scheduled_at-m');
+        if (schedInpM) {
+            schedInpM.addEventListener('input', function () {
+                var modFrom = document.getElementById('mod-from');
+                if (modFrom) modFrom.dispatchEvent(new Event('change'));
+            });
+        }
+    })();
 
     /* ─── Switcher d'onglets ───────────────────────────────────────────── */
     window.switchTransferTab = function (tab) {

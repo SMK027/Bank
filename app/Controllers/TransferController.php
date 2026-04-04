@@ -90,7 +90,7 @@ class TransferController extends Controller
         $this->validateCSRF();
 
         $userId = $this->getCurrentUserId();
-        $data   = $this->getPostData(['from_account_id', 'to_account_id', 'amount', 'motif', 'mode']);
+        $data   = $this->getPostData(['from_account_id', 'to_account_id', 'amount', 'motif', 'mode', 'scheduled_at']);
 
         $fromId  = (int) $data['from_account_id'];
         $toId    = (int) $data['to_account_id'];
@@ -142,7 +142,22 @@ class TransferController extends Controller
             $this->redirect('/transfers/create?tab=' . ($modMode ? 'moderation' : 'personal'));
             return;
         }
-        $balance     = $this->accountModel->getBalance($fromId);
+        // Traiter la date programmée
+        $scheduledAt = null;
+        if (!empty($data['scheduled_at'])) {
+            $ts = strtotime($data['scheduled_at']);
+            if ($ts === false || $ts <= time()) {
+                $this->setFlash('danger', 'La date de planification doit être dans le futur.');
+                $this->redirect('/transfers/create?tab=' . ($modMode ? 'moderation' : 'personal'));
+                return;
+            }
+            $scheduledAt = date('Y-m-d H:i:s', $ts);
+        }
+
+        // Utiliser le solde futur (incl. opérations planifiées) pour le contrôle
+        $balance     = $scheduledAt !== null
+            ? $this->accountModel->getFutureBalance($fromId)
+            : $this->accountModel->getBalance($fromId);
         $overdraft   = (float) ($fromAccount['overdraft'] ?? 0);
         $accountType = $fromAccount['type'] ?? 'standard';
 
@@ -179,7 +194,8 @@ class TransferController extends Controller
             $amount,
             'Virement',
             $label,
-            $userId
+            $userId,
+            $scheduledAt
         );
 
         // Crédit sur le compte destinataire
@@ -189,13 +205,16 @@ class TransferController extends Controller
             $amount,
             'Virement',
             $label,
-            $userId
+            $userId,
+            $scheduledAt
         );
 
+        $verb = $scheduledAt !== null ? 'planifié pour le ' . date('d/m/Y à H:i', strtotime($scheduledAt)) : 'effectué';
         $this->setFlash('success', sprintf(
-            'Virement de %s %s effectué de « %s » vers « %s ».',
+            'Virement de %s %s %s de « %s » vers « %s ».',
             number_format($amount, 2, ',', ' '),
             $fromAccount['currency'],
+            $verb,
             $fromAccount['name'],
             $toAccount['name']
         ));
