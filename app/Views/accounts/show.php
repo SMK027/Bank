@@ -531,6 +531,7 @@
                 applyFilters();
             })();
             </script>
+        <?php endif; ?>
     </div>
 </div>
 
