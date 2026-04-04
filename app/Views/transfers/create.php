@@ -399,10 +399,22 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
             return opt;
         }
 
+        function addOutOfFilterOption(selectEl, prevId) {
+            if (!prevId) return;
+            if (selectEl.querySelector('option[value="' + prevId + '"]')) return;
+            var acc = ALL_ACCOUNTS.find(function (a) { return String(a.id) === String(prevId); });
+            if (!acc) return;
+            var grp = document.createElement('optgroup');
+            grp.label = 'Sélection actuelle (hors filtre)';
+            var opt = buildOption(acc);
+            grp.appendChild(opt);
+            selectEl.appendChild(grp);
+        }
+
         function rebuildSelects() {
-            var accounts   = filteredAccounts();
-            var prevFrom   = modFrom.value;
-            var prevTo     = modTo.value;
+            var accounts = filteredAccounts();
+            var prevFrom = modFrom.value;
+            var prevTo   = modTo.value;
 
             modFrom.innerHTML = '<option value="">\u2014 S\u00e9lectionner un compte \u2014</option>';
             modTo.innerHTML   = '<option value="">\u2014 S\u00e9lectionner un compte \u2014</option>';
@@ -412,7 +424,10 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                 modTo.appendChild(buildOption(a));
             });
 
-            // Restaurer la sélection précédente si possible
+            // Si la sélection précédente est hors filtre, la proposer quand même
+            addOutOfFilterOption(modFrom, prevFrom);
+            addOutOfFilterOption(modTo, prevTo);
+
             if (prevFrom) modFrom.value = prevFrom;
             if (prevTo)   modTo.value   = prevTo;
 
