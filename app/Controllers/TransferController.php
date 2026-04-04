@@ -25,6 +25,16 @@ class TransferController extends Controller
         $userId   = $this->getCurrentUserId();
         $accounts = $this->accountModel->getAccessibleAccounts($userId);
 
+        // Enrichir chaque compte avec son solde calculé
+        foreach ($accounts['own'] as &$acc) {
+            $acc['balance'] = $this->accountModel->getBalance((int) $acc['id']);
+        }
+        unset($acc);
+        foreach ($accounts['shared'] as &$acc) {
+            $acc['balance'] = $this->accountModel->getBalance((int) $acc['id']);
+        }
+        unset($acc);
+
         // Pré-sélection du compte émetteur si passé en GET
         $preselect = isset($_GET['from']) ? (int) $_GET['from'] : null;
 
