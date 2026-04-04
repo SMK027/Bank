@@ -468,7 +468,7 @@
                                     <?= $t['type'] === 'income' ? '+' : '-' ?><?= number_format((float) $t['amount'], 2, ',', ' ') ?>
                                 </td>
                                 <td>
-                                    <?php if ($isModerator || $t['author_name'] !== 'Modération'): ?>
+                                    <?php if ($isModerator): ?>
                                     <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/transactions/<?= (int) $t['id'] ?>/delete"
                                           style="display:inline">
                                         <?= csrf_field() ?>

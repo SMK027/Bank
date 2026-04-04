@@ -116,25 +116,15 @@ class TransactionController extends Controller
         $accId = (int) $accountId;
         $userId = $this->getCurrentUserId();
 
-        if (!$this->isModerator() && !$this->accountModel->hasAccess($accId, $userId)) {
-            $this->setFlash('danger', 'Accès refusé.');
-            $this->redirect('/dashboard');
+        if (!$this->isModerator()) {
+            $this->setFlash('danger', 'Seul un modérateur peut supprimer une opération.');
+            $this->redirect('/accounts/' . $accountId);
             return;
         }
 
         $transaction = $this->transactionModel->find((int) $transactionId);
         if (!$transaction || (int) $transaction['account_id'] !== $accId) {
             $this->setFlash('danger', 'Transaction introuvable.');
-            $this->redirect('/accounts/' . $accountId);
-            return;
-        }
-
-        // Seul un modérateur peut supprimer une opération effectuée par la modération
-        $author = isset($transaction['user_id']) && $transaction['user_id']
-            ? $this->userModel->find((int) $transaction['user_id'])
-            : null;
-        if ($author && ($author['global_role'] ?? 'user') === 'moderator' && !$this->isModerator()) {
-            $this->setFlash('danger', 'Seul un modérateur peut supprimer une opération effectuée par la modération.');
             $this->redirect('/accounts/' . $accountId);
             return;
         }
