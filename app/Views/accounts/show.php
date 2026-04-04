@@ -383,8 +383,49 @@
                 <p>Aucune opération enregistrée pour le moment.</p>
             </div>
         <?php else: ?>
+            <?php
+                $txAuthors = array_values(array_unique(array_column($transactions, 'author_name')));
+                sort($txAuthors);
+            ?>
+            <!-- Barre de filtres -->
+            <div class="filter-bar" id="tx-filter-bar" style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;margin-bottom:1rem;">
+                <div class="form-group" style="margin:0;min-width:150px;">
+                    <label class="form-label" style="font-size:0.8rem;">Type</label>
+                    <select id="tx-filter-type" class="form-control form-control-sm">
+                        <option value="">Tous</option>
+                        <option value="income">Entrées</option>
+                        <option value="expense">Dépenses</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin:0;min-width:110px;">
+                    <label class="form-label" style="font-size:0.8rem;">Montant min</label>
+                    <input type="number" id="tx-filter-min" class="form-control form-control-sm" min="0" step="0.01" placeholder="0,00">
+                </div>
+                <div class="form-group" style="margin:0;min-width:110px;">
+                    <label class="form-label" style="font-size:0.8rem;">Montant max</label>
+                    <input type="number" id="tx-filter-max" class="form-control form-control-sm" min="0" step="0.01" placeholder="∞">
+                </div>
+                <div class="form-group" style="margin:0;min-width:150px;">
+                    <label class="form-label" style="font-size:0.8rem;">Auteur</label>
+                    <select id="tx-filter-author" class="form-control form-control-sm">
+                        <option value="">Tous</option>
+                        <?php foreach ($txAuthors as $a): ?>
+                            <option value="<?= e($a) ?>"><?= e($a) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label class="form-label" style="font-size:0.8rem;">&nbsp;</label>
+                    <button type="button" id="tx-filter-reset" class="btn btn-outline btn-sm" style="display:block;">
+                        <i class="bi bi-x-lg"></i> Réinitialiser
+                    </button>
+                </div>
+                <div style="margin-left:auto;align-self:flex-end;">
+                    <span id="tx-filter-count" class="text-muted" style="font-size:0.82rem;"></span>
+                </div>
+            </div>
             <div class="table-responsive">
-                <table class="table">
+                <table class="table" id="tx-table">
                     <thead>
                         <tr>
                             <th>Date</th>
@@ -398,7 +439,9 @@
                     </thead>
                     <tbody>
                         <?php foreach ($transactions as $t): ?>
-                            <tr>
+                            <tr data-type="<?= e($t['type']) ?>"
+                                data-amount="<?= e((string) (float) $t['amount']) ?>"
+                                data-author="<?= e($t['author_name']) ?>">
                                 <td><?= date('d/m/Y H:i', strtotime($t['created_at'])) ?></td>
                                 <td>
                                     <?php if ($t['type'] === 'income'): ?>
@@ -431,8 +474,63 @@
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+                <p id="tx-empty-filtered" style="display:none;text-align:center;color:var(--text-muted);padding:1rem 0;">
+                    Aucune opération ne correspond aux filtres.
+                </p>
             </div>
-        <?php endif; ?>
+            <script>
+            (function () {
+                var typeEl   = document.getElementById('tx-filter-type');
+                var minEl    = document.getElementById('tx-filter-min');
+                var maxEl    = document.getElementById('tx-filter-max');
+                var authorEl = document.getElementById('tx-filter-author');
+                var resetBtn = document.getElementById('tx-filter-reset');
+                var countEl  = document.getElementById('tx-filter-count');
+                var emptyMsg = document.getElementById('tx-empty-filtered');
+                var rows     = document.querySelectorAll('#tx-table tbody tr');
+
+                function applyFilters() {
+                    var type   = typeEl.value;
+                    var min    = minEl.value !== '' ? parseFloat(minEl.value) : null;
+                    var max    = maxEl.value !== '' ? parseFloat(maxEl.value) : null;
+                    var author = authorEl.value.toLowerCase();
+                    var visible = 0;
+
+                    rows.forEach(function (row) {
+                        var rType   = row.dataset.type;
+                        var rAmount = parseFloat(row.dataset.amount);
+                        var rAuthor = row.dataset.author.toLowerCase();
+
+                        var ok = true;
+                        if (type   && rType !== type)           ok = false;
+                        if (min !== null && rAmount < min)      ok = false;
+                        if (max !== null && rAmount > max)      ok = false;
+                        if (author && rAuthor !== author)       ok = false;
+
+                        row.style.display = ok ? '' : 'none';
+                        if (ok) visible++;
+                    });
+
+                    countEl.textContent = visible + ' / ' + rows.length + ' opération' + (rows.length > 1 ? 's' : '');
+                    emptyMsg.style.display = visible === 0 ? '' : 'none';
+                }
+
+                typeEl.addEventListener('change', applyFilters);
+                minEl.addEventListener('input', applyFilters);
+                maxEl.addEventListener('input', applyFilters);
+                authorEl.addEventListener('change', applyFilters);
+
+                resetBtn.addEventListener('click', function () {
+                    typeEl.value = '';
+                    minEl.value  = '';
+                    maxEl.value  = '';
+                    authorEl.value = '';
+                    applyFilters();
+                });
+
+                applyFilters();
+            })();
+            </script>
     </div>
 </div>
 
