@@ -126,6 +126,16 @@ class TransactionController extends Controller
             return;
         }
 
+        // Seul un modérateur peut supprimer une opération effectuée par la modération
+        $author = isset($transaction['user_id']) && $transaction['user_id']
+            ? $this->userModel->find((int) $transaction['user_id'])
+            : null;
+        if ($author && ($author['global_role'] ?? 'user') === 'moderator' && !$this->isModerator()) {
+            $this->setFlash('danger', 'Seul un modérateur peut supprimer une opération effectuée par la modération.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
         $this->transactionModel->delete((int) $transactionId);
         $this->setFlash('success', 'Transaction supprimée.');
         $this->redirect('/accounts/' . $accountId);
