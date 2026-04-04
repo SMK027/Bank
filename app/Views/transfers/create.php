@@ -4,6 +4,7 @@
 /** @var int|null $preselect   ID du compte pré-sélectionné comme émetteur */
 /** @var bool   $isModerator   L'utilisateur est-il modérateur ? */
 /** @var string|null $allAccountsJson JSON de tous les comptes (modérateur) */
+/** @var string|null $transfersJson   JSON des virements enrichis (modérateur) */
 /** @var array  $allUsers      Tous les utilisateurs (modérateur) */
 /** @var array  $accountTypes  Account::TYPES */
 /** @var string $activeTab     'personal' | 'moderation' */
@@ -323,6 +324,218 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                         <i class="bi bi-arrow-left-right" id="submit-m-icon"></i> <span id="submit-m-label">Effectuer le virement</span>
                     </button>
                 </form>
+
+                <?php if ($isMod && isset($transfersJson)): ?>
+                <!-- ── Historique des virements (onglet modération) ── -->
+                <hr style="margin:1.75rem 0 1.25rem">
+                <h4 style="margin-bottom:0.9rem;font-size:1rem;font-weight:600">
+                    <i class="bi bi-list-ul"></i> Historique des virements
+                    <span id="transfer-count-badge" style="font-size:0.78rem;font-weight:400;color:var(--text-muted);margin-left:0.4rem"></span>
+                </h4>
+
+                <!-- Barre de filtres -->
+                <div style="background:var(--card-bg,#fff);border:1px solid var(--border-color,#e2e8f0);border-radius:8px;padding:0.9rem 1rem;margin-bottom:0.9rem;">
+                    <?php
+                    $tfData    = json_decode($transfersJson, true) ?: [];
+                    $tfAuthors = [];
+                    foreach ($tfData as $tf) {
+                        if (!empty($tf['user_name']) && !in_array($tf['user_name'], $tfAuthors, true)) {
+                            $tfAuthors[] = $tf['user_name'];
+                        }
+                    }
+                    sort($tfAuthors);
+                    ?>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem 0.75rem;">
+                        <div>
+                            <label style="font-size:0.76rem;font-weight:600;margin-bottom:2px;display:block">Auteur</label>
+                            <select id="tf-author" class="form-control" style="font-size:0.82rem;padding:0.3rem 0.5rem;height:auto">
+                                <option value="">Tous</option>
+                                <?php foreach ($tfAuthors as $uname): ?>
+                                    <option value="<?= e($uname) ?>"><?= e($uname) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:0.76rem;font-weight:600;margin-bottom:2px;display:block">Statut</label>
+                            <select id="tf-status" class="form-control" style="font-size:0.82rem;padding:0.3rem 0.5rem;height:auto">
+                                <option value="">Tous</option>
+                                <option value="success">R\u00e9ussi</option>
+                                <option value="scheduled">Planifi\u00e9</option>
+                                <option value="failed">\u00c9chou\u00e9</option>
+                                <option value="cancelled">Annul\u00e9</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:0.76rem;font-weight:600;margin-bottom:2px;display:block">Montant min.</label>
+                            <input type="number" id="tf-amount-min" class="form-control" style="font-size:0.82rem;padding:0.3rem 0.5rem;height:auto" min="0" step="0.01" placeholder="0.00">
+                        </div>
+                        <div>
+                            <label style="font-size:0.76rem;font-weight:600;margin-bottom:2px;display:block">Montant max.</label>
+                            <input type="number" id="tf-amount-max" class="form-control" style="font-size:0.82rem;padding:0.3rem 0.5rem;height:auto" min="0" step="0.01" placeholder="\u2014">
+                        </div>
+                        <div>
+                            <label style="font-size:0.76rem;font-weight:600;margin-bottom:2px;display:block">Date du</label>
+                            <input type="date" id="tf-date-from" class="form-control" style="font-size:0.82rem;padding:0.3rem 0.5rem;height:auto">
+                        </div>
+                        <div>
+                            <label style="font-size:0.76rem;font-weight:600;margin-bottom:2px;display:block">Date au</label>
+                            <input type="date" id="tf-date-to" class="form-control" style="font-size:0.82rem;padding:0.3rem 0.5rem;height:auto">
+                        </div>
+                        <div style="grid-column:1/-1">
+                            <label style="font-size:0.76rem;font-weight:600;margin-bottom:2px;display:block">Motif</label>
+                            <input type="text" id="tf-motif" class="form-control" style="font-size:0.82rem;padding:0.3rem 0.5rem;height:auto" placeholder="Recherche libre\u2026">
+                        </div>
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;margin-top:0.6rem">
+                        <button type="button" onclick="resetTfFilters()" class="btn btn-outline btn-sm">
+                            <i class="bi bi-x-circle"></i> R\u00e9initialiser
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tableau -->
+                <div class="table-responsive" style="border-radius:6px;border:1px solid var(--border-color,#e2e8f0);overflow:hidden">
+                    <table class="table" id="transfers-history-table" style="margin:0;font-size:0.8rem">
+                        <thead>
+                            <tr>
+                                <th style="white-space:nowrap">#</th>
+                                <th style="white-space:nowrap">Auteur</th>
+                                <th style="white-space:nowrap">\u00c9metteur</th>
+                                <th style="white-space:nowrap">Destinataire</th>
+                                <th style="white-space:nowrap">Montant</th>
+                                <th>Motif</th>
+                                <th style="white-space:nowrap">Statut</th>
+                                <th style="white-space:nowrap">Planifi\u00e9 le</th>
+                                <th style="white-space:nowrap">Ex\u00e9cut\u00e9 le</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transfers-history-body"></tbody>
+                    </table>
+                </div>
+                <p id="tf-empty" style="display:none;text-align:center;color:var(--text-muted);padding:1.2rem 0;font-size:0.88rem">
+                    <i class="bi bi-search"></i> Aucun virement ne correspond \u00e0 vos crit\u00e8res.
+                </p>
+
+                <script>
+                (function () {
+                    var TRANSFERS = <?= $transfersJson ?>;
+
+                    var STATUS_LABELS = {
+                        'scheduled': 'Planifi\u00e9',
+                        'success':   'R\u00e9ussi',
+                        'failed':    '\u00c9chou\u00e9',
+                        'cancelled': 'Annul\u00e9'
+                    };
+                    var STATUS_BADGES = {
+                        'scheduled': 'badge-info',
+                        'success':   'badge-success',
+                        'failed':    'badge-danger',
+                        'cancelled': 'badge-secondary'
+                    };
+
+                    function fmt(n) {
+                        return Number(n).toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2});
+                    }
+                    function fmtDate(s) {
+                        if (!s) return '\u2014';
+                        var d = new Date(s.replace(' ', 'T'));
+                        if (isNaN(d)) return s;
+                        return d.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric'})
+                             + '\u00a0' + d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+                    }
+                    function dateOnly(s) {
+                        return s ? String(s).substring(0, 10) : '';
+                    }
+                    function esc(s) {
+                        return String(s || '')
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/"/g, '&quot;');
+                    }
+
+                    function renderTransfers(list) {
+                        var tbody = document.getElementById('transfers-history-body');
+                        var empty = document.getElementById('tf-empty');
+                        var badge = document.getElementById('transfer-count-badge');
+                        if (!tbody) return;
+                        if (badge) badge.textContent = '(' + list.length + ')';
+                        if (list.length === 0) {
+                            tbody.innerHTML = '';
+                            if (empty) empty.style.display = '';
+                            return;
+                        }
+                        if (empty) empty.style.display = 'none';
+                        var html = '';
+                        list.forEach(function (t) {
+                            var st   = t.status || 'success';
+                            var bCls = STATUS_BADGES[st] || 'badge-secondary';
+                            var bLbl = STATUS_LABELS[st] || st;
+                            var motifCell = t.motif
+                                ? '<span title="' + esc(t.motif) + '">' + esc(t.motif) + '</span>'
+                                : '<span style="color:var(--text-muted)">\u2014</span>';
+                            html += '<tr>'
+                                + '<td style="color:var(--text-muted)">#' + esc(t.id) + '</td>'
+                                + '<td>' + esc(t.user_name) + '</td>'
+                                + '<td>' + esc(t.from_account) + '</td>'
+                                + '<td>' + esc(t.to_account) + '</td>'
+                                + '<td style="white-space:nowrap;font-weight:600">' + fmt(t.amount) + '</td>'
+                                + '<td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + motifCell + '</td>'
+                                + '<td><span class="badge ' + bCls + '">' + bLbl + '</span></td>'
+                                + '<td style="white-space:nowrap;font-size:0.75rem">' + fmtDate(t.scheduled_at) + '</td>'
+                                + '<td style="white-space:nowrap;font-size:0.75rem">' + fmtDate(t.executed_at) + '</td>'
+                                + '</tr>';
+                        });
+                        tbody.innerHTML = html;
+                    }
+
+                    function filterTransfers() {
+                        var author   = (document.getElementById('tf-author')     || {value:''}).value;
+                        var status   = (document.getElementById('tf-status')     || {value:''}).value;
+                        var amtMinEl = document.getElementById('tf-amount-min');
+                        var amtMaxEl = document.getElementById('tf-amount-max');
+                        var amtMin   = amtMinEl && amtMinEl.value !== '' ? parseFloat(amtMinEl.value) : -Infinity;
+                        var amtMax   = amtMaxEl && amtMaxEl.value !== '' ? parseFloat(amtMaxEl.value) :  Infinity;
+                        var dateFrom = (document.getElementById('tf-date-from')  || {value:''}).value;
+                        var dateTo   = (document.getElementById('tf-date-to')    || {value:''}).value;
+                        var motif    = ((document.getElementById('tf-motif')     || {value:''}).value || '').toLowerCase().trim();
+
+                        var filtered = TRANSFERS.filter(function (t) {
+                            if (author && t.user_name !== author)                      return false;
+                            if (status && t.status    !== status)                      return false;
+                            if (t.amount < amtMin)                                     return false;
+                            if (amtMax !== Infinity && t.amount > amtMax)              return false;
+                            var d = dateOnly(t.created_at);
+                            if (dateFrom && d < dateFrom)                              return false;
+                            if (dateTo   && d > dateTo)                                return false;
+                            if (motif && (t.motif || '').toLowerCase().indexOf(motif) === -1) return false;
+                            return true;
+                        });
+                        renderTransfers(filtered);
+                    }
+
+                    ['tf-author','tf-status','tf-amount-min','tf-amount-max','tf-date-from','tf-date-to'].forEach(function (id) {
+                        var el = document.getElementById(id);
+                        if (el) el.addEventListener('change', filterTransfers);
+                    });
+                    var motifEl = document.getElementById('tf-motif');
+                    if (motifEl) {
+                        motifEl.addEventListener('input',  filterTransfers);
+                        motifEl.addEventListener('change', filterTransfers);
+                    }
+
+                    window.resetTfFilters = function () {
+                        ['tf-author','tf-status','tf-amount-min','tf-amount-max','tf-date-from','tf-date-to','tf-motif'].forEach(function (id) {
+                            var el = document.getElementById(id);
+                            if (el) el.value = '';
+                        });
+                        filterTransfers();
+                    };
+
+                    renderTransfers(TRANSFERS);
+                })();
+                </script>
+                <?php endif; ?>
 
             </div><!-- /tab-moderation -->
             <?php endif; ?>
