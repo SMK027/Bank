@@ -7,16 +7,19 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Models\Account;
 use App\Models\Transaction;
+use App\Models\User;
 
 class TransferController extends Controller
 {
     private Account $accountModel;
     private Transaction $transactionModel;
+    private User $userModel;
 
     public function __construct()
     {
         $this->accountModel     = new Account();
         $this->transactionModel = new Transaction();
+        $this->userModel        = new User();
     }
 
     public function createForm(): void
@@ -24,37 +27,60 @@ class TransferController extends Controller
         $this->requireAuth();
         $userId = $this->getCurrentUserId();
 
+        // Onglet Personnel : comptes propres + partagés (identique à un utilisateur normal)
+        $accounts = $this->accountModel->getAccessibleAccounts($userId);
+        foreach ($accounts['own'] as &$acc) {
+            $acc['balance'] = $this->accountModel->getBalance((int) $acc['id']);
+        }
+        unset($acc);
+        foreach ($accounts['shared'] as &$acc) {
+            $acc['balance'] = $this->accountModel->getBalance((int) $acc['id']);
+        }
+        unset($acc);
+        $ownAccounts    = $accounts['own'];
+        $sharedAccounts = $accounts['shared'];
+
+        // Onglet Modération : tous les comptes enrichis (modérateur uniquement)
+        $allAccountsJson = null;
+        $allUsers        = [];
         if ($this->isModerator()) {
-            // Le modérateur voit tous les comptes regroupés dans 'own', aucun 'shared'
-            $allAccounts = $this->accountModel->findAll('id', 'ASC');
-            foreach ($allAccounts as &$acc) {
-                $acc['balance'] = $this->accountModel->getBalance((int) $acc['id']);
+            $allUsers    = $this->userModel->findAll('username', 'ASC');
+            $usersMap    = array_column($allUsers, null, 'id');
+            $enriched    = [];
+            foreach ($this->accountModel->findAll('id', 'ASC') as $acc) {
+                $uid  = (int) $acc['user_id'];
+                $user = $usersMap[$uid] ?? null;
+                $enriched[] = [
+                    'id'           => (int) $acc['id'],
+                    'name'         => $acc['name'],
+                    'type'         => $acc['type'] ?? 'standard',
+                    'currency'     => $acc['currency'],
+                    'overdraft'    => (float) ($acc['overdraft'] ?? 0),
+                    'balance'      => $this->accountModel->getBalance((int) $acc['id']),
+                    'frozen'       => !empty($acc['frozen']),
+                    'no_overdraft' => !Account::typeAllowsOverdraft($acc['type'] ?? 'standard'),
+                    'user_id'      => $uid,
+                    'user_name'    => $user ? ($user['username'] ?? 'Utilisateur #' . $uid) : 'Utilisateur #' . $uid,
+                ];
             }
-            unset($acc);
-            $ownAccounts    = $allAccounts;
-            $sharedAccounts = [];
-        } else {
-            $accounts = $this->accountModel->getAccessibleAccounts($userId);
-            foreach ($accounts['own'] as &$acc) {
-                $acc['balance'] = $this->accountModel->getBalance((int) $acc['id']);
-            }
-            unset($acc);
-            foreach ($accounts['shared'] as &$acc) {
-                $acc['balance'] = $this->accountModel->getBalance((int) $acc['id']);
-            }
-            unset($acc);
-            $ownAccounts    = $accounts['own'];
-            $sharedAccounts = $accounts['shared'];
+            $allAccountsJson = json_encode($enriched, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE);
         }
 
         // Pré-sélection du compte émetteur si passé en GET
         $preselect = isset($_GET['from']) ? (int) $_GET['from'] : null;
+        // Onglet actif par défaut si passé en GET (?tab=moderation)
+        $activeTab = (isset($_GET['tab']) && $_GET['tab'] === 'moderation') ? 'moderation' : 'personal';
 
         $this->render('transfers/create', [
             'title'          => 'Virement entre comptes',
             'ownAccounts'    => $ownAccounts,
             'sharedAccounts' => $sharedAccounts,
             'preselect'      => $preselect,
+            'isModerator'    => $this->isModerator(),
+            'allAccountsJson'=> $allAccountsJson,
+            'allUsers'       => $allUsers,
+            'accountTypes'   => Account::TYPES,
+            'activeTab'      => $activeTab,
         ]);
     }
 
@@ -64,15 +90,16 @@ class TransferController extends Controller
         $this->validateCSRF();
 
         $userId = $this->getCurrentUserId();
-        $data   = $this->getPostData(['from_account_id', 'to_account_id', 'amount', 'motif']);
+        $data   = $this->getPostData(['from_account_id', 'to_account_id', 'amount', 'motif', 'mode']);
 
-        $fromId = (int) $data['from_account_id'];
-        $toId   = (int) $data['to_account_id'];
+        $fromId  = (int) $data['from_account_id'];
+        $toId    = (int) $data['to_account_id'];
+        $modMode = $this->isModerator() && ($data['mode'] ?? '') === 'moderation';
 
         // Comptes identiques
         if ($fromId === $toId) {
             $this->setFlash('danger', 'Le compte émetteur et le compte destinataire doivent être différents.');
-            $this->redirect('/transfers/create');
+            $this->redirect('/transfers/create' . ($modMode ? '?tab=moderation' : ''));
             return;
         }
 
@@ -80,12 +107,12 @@ class TransferController extends Controller
         $amount = (float) $data['amount'];
         if ($amount <= 0) {
             $this->setFlash('danger', 'Le montant doit être strictement positif.');
-            $this->redirect('/transfers/create');
+            $this->redirect('/transfers/create' . ($modMode ? '?tab=moderation' : ''));
             return;
         }
 
-        // Vérifier l'accès au compte émetteur (modérateur bypass)
-        if (!$this->isModerator() && !$this->accountModel->hasAccess($fromId, $userId)) {
+        // Vérifier l'accès au compte émetteur (bypass uniquement en mode modération)
+        if (!$modMode && !$this->accountModel->hasAccess($fromId, $userId)) {
             $this->setFlash('danger', 'Accès refusé au compte émetteur.');
             $this->redirect('/transfers/create');
             return;
@@ -93,13 +120,18 @@ class TransferController extends Controller
 
         // Vérifier que le compte destinataire existe et est accessible
         $toAccount = $this->accountModel->find($toId);
-        if (!$toAccount || (!$this->isModerator() && !$this->accountModel->hasAccess($toId, $userId))) {
+        if (!$toAccount || (!$modMode && !$this->accountModel->hasAccess($toId, $userId))) {
             $this->setFlash('danger', 'Compte destinataire introuvable ou accès refusé.');
-            $this->redirect('/transfers/create');
+            $this->redirect('/transfers/create' . ($modMode ? '?tab=moderation' : ''));
             return;
         }
 
         $fromAccount = $this->accountModel->find($fromId);
+        if (!$fromAccount) {
+            $this->setFlash('danger', 'Compte émetteur introuvable.');
+            $this->redirect('/transfers/create' . ($modMode ? '?tab=moderation' : ''));
+            return;
+        }
 
         // Bloquer le virement si le compte émetteur est gelé
         if ($this->accountModel->isFrozen($fromId)) {
@@ -107,7 +139,7 @@ class TransferController extends Controller
                 'Virement impossible : le compte émetteur « %s » est gelé. Les virements sortants sont bloqués.',
                 $fromAccount['name'] ?? ''
             ));
-            $this->redirect('/transfers/create?from=' . $fromId);
+            $this->redirect('/transfers/create?tab=' . ($modMode ? 'moderation' : 'personal'));
             return;
         }
         $balance     = $this->accountModel->getBalance($fromId);
@@ -133,7 +165,7 @@ class TransferController extends Controller
                     $fromAccount['currency']
                 ));
             }
-            $this->redirect('/transfers/create?from=' . $fromId);
+            $this->redirect('/transfers/create?tab=' . ($modMode ? 'moderation' : 'personal'));
             return;
         }
 
