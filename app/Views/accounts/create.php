@@ -9,6 +9,18 @@
                     <input type="text" id="name" name="name" class="form-control"
                            placeholder="Ex : Compte courant, Épargne vacances..." required autofocus>
                 </div>
+                <div class="form-group">
+                    <label for="account_type" class="form-label">Type de compte</label>
+                    <select id="account_type" name="account_type" class="form-control" required>
+                        <?php foreach ($accountTypes as $key => $info): ?>
+                            <option value="<?= e($key) ?>"
+                                    data-no-overdraft="<?= $info['overdraft'] ? '0' : '1' ?>">
+                                <?= e($info['label']) ?>
+                                <?= $info['overdraft'] ? '' : ' — découvert interdit' ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="currency" class="form-label">Devise</label>
@@ -23,12 +35,16 @@
                             <option value="MAD">MAD (DH)</option>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="overdraft-group">
                         <label for="overdraft" class="form-label">Découvert autorisé</label>
                         <input type="number" id="overdraft" name="overdraft" class="form-control"
                                placeholder="0.00" min="0" step="0.01" value="0">
                         <span class="form-hint">Montant maximal de découvert autorisé</span>
                     </div>
+                </div>
+                <div id="overdraft-blocked-notice" class="alert alert-warning" style="display:none;">
+                    <i class="bi bi-slash-circle"></i>
+                    Ce type de compte <strong>n'autorise pas le découvert</strong>.
                 </div>
                 <div class="form-group">
                     <button type="submit" class="btn btn-primary btn-block">
@@ -42,3 +58,20 @@
         </div>
     </div>
 </div>
+<script>
+(function () {
+    var typeEl  = document.getElementById('account_type');
+    var group   = document.getElementById('overdraft-group');
+    var notice  = document.getElementById('overdraft-blocked-notice');
+    var input   = document.getElementById('overdraft');
+    function toggle() {
+        var opt = typeEl.options[typeEl.selectedIndex];
+        var noOd = opt.dataset.noOverdraft === '1';
+        group.style.display  = noOd ? 'none' : '';
+        notice.style.display = noOd ? 'block' : 'none';
+        if (noOd) { input.value = '0'; }
+    }
+    typeEl.addEventListener('change', toggle);
+    toggle();
+})();
+</script>

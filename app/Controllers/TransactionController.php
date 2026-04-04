@@ -59,9 +59,17 @@ class TransactionController extends Controller
             $account   = $this->accountModel->find($accId);
             $balance   = $this->accountModel->getBalance($accId);
             $overdraft = (float) ($account['overdraft'] ?? 0);
+            $accountType = $account['type'] ?? 'standard';
             $wouldExceed = ($balance - $amount) < -$overdraft;
 
             if ($wouldExceed) {
+                // Bloquer définitivement si le type de compte interdit le découvert
+                if (!\App\Models\Account::typeAllowsOverdraft($accountType)) {
+                    $this->setFlash('danger', 'Opération impossible : ce type de compte (' . (\App\Models\Account::TYPES[$accountType]['label'] ?? $accountType) . ') ne permet pas le solde négatif.');
+                    $this->redirect('/accounts/' . $accountId);
+                    return;
+                }
+
                 $force = trim($_POST['force_overdraft'] ?? '') === '1';
                 if (!$force) {
                     $newBalance = number_format($balance - $amount, 2, ',', ' ');

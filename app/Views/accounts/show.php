@@ -85,7 +85,8 @@
             <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/transactions"
                   id="transaction-form"
                   data-balance="<?= e((string) $balance) ?>"
-                  data-overdraft="<?= e((string) ((float) $account['overdraft'])) ?>">
+                  data-overdraft="<?= e((string) ((float) $account['overdraft'])) ?>"
+                  data-no-overdraft="<?= \App\Models\Account::typeAllowsOverdraft($account['type'] ?? 'standard') ? '0' : '1' ?>">
                 <?= csrf_field() ?>
                 <div class="form-row">
                     <div class="form-group">
@@ -120,17 +121,28 @@
 
                 <!-- Avertissement découvert (affiché par JS) -->
                 <div id="overdraft-warning" style="display:none; margin-bottom:0.75rem;">
-                    <div class="alert alert-warning" style="margin-bottom:0.5rem;">
+                    <div class="alert <?= \App\Models\Account::typeAllowsOverdraft($account['type'] ?? 'standard') ? 'alert-warning' : 'alert-danger' ?>" style="margin-bottom:0.5rem;">
                         <i class="bi bi-exclamation-triangle-fill"></i>
-                        <strong>Attention</strong> : cette opération dépasse le découvert autorisé.
-                        Solde prévu : <strong id="overdraft-preview"></strong>.
+                        <?php if (\App\Models\Account::typeAllowsOverdraft($account['type'] ?? 'standard')): ?>
+                            <strong>Attention</strong> : cette opération dépasse le découvert autorisé.
+                            Solde prévu&nbsp;: <strong id="overdraft-preview"></strong>.
+                        <?php else: ?>
+                            <strong>Opération impossible</strong> : ce type de compte
+                            (<em><?= e(\App\Models\Account::TYPES[$account['type'] ?? 'standard']['label'] ?? '') ?></em>)
+                            n'autorise pas le solde négatif.
+                            Solde prévu&nbsp;: <strong id="overdraft-preview"></strong>.
+                        <?php endif; ?>
                     </div>
+                    <?php if (\App\Models\Account::typeAllowsOverdraft($account['type'] ?? 'standard')): ?>
                     <div class="form-group" style="margin-bottom:0;">
                         <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-weight:600;color:var(--danger);">
                             <input type="checkbox" id="force-checkbox" name="force_overdraft" value="1">
                             Forcer l&rsquo;opération et accepter le dépassement
                         </label>
                     </div>
+                    <?php else: ?>
+                        <input type="hidden" id="force-checkbox" name="force_overdraft" value="0">
+                    <?php endif; ?>
                 </div>
 
                 <button type="submit" id="transaction-submit" class="btn btn-primary btn-block">
@@ -148,9 +160,10 @@
                 var checkbox  = document.getElementById('force-checkbox');
                 var submitBtn = document.getElementById('transaction-submit');
 
-                var balance   = parseFloat(form.dataset.balance)   || 0;
-                var overdraft = parseFloat(form.dataset.overdraft) || 0;
-                var currency  = '<?= e($account['currency']) ?>';
+                var balance    = parseFloat(form.dataset.balance)   || 0;
+                var overdraft  = parseFloat(form.dataset.overdraft) || 0;
+                var noOverdraft = form.dataset.noOverdraft === '1';
+                var currency   = '<?= e($account['currency']) ?>';
 
                 function fmt(n) {
                     return n.toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2}) + '\u00a0' + currency;
@@ -173,7 +186,16 @@
                     if (exceeds) {
                         preview.textContent = fmt(newBalance);
                         warning.style.display = 'block';
-                        submitBtn.disabled = !checkbox.checked;
+                        if (noOverdraft) {
+                            // Type restreint : impossible de forcer
+                            checkbox.style.display      = 'none';
+                            checkbox.parentElement.style.display = 'none';
+                            submitBtn.disabled = true;
+                        } else {
+                            checkbox.style.display      = '';
+                            checkbox.parentElement.style.display = '';
+                            submitBtn.disabled = !checkbox.checked;
+                        }
                     } else {
                         warning.style.display = 'none';
                         checkbox.checked = false;
@@ -182,7 +204,7 @@
                 }
 
                 checkbox.addEventListener('change', function () {
-                    submitBtn.disabled = !this.checked;
+                    if (!noOverdraft) submitBtn.disabled = !this.checked;
                 });
 
                 typeEl.addEventListener('change', check);

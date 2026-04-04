@@ -10,13 +10,34 @@ class Account extends Model
 {
     protected string $file = 'accounts.json';
 
-    public function createAccount(int $userId, string $name, string $currency, float $overdraft = 0.0): int
+    /**
+     * Types de comptes : label + droit au découvert.
+     */
+    public const TYPES = [
+        'standard' => ['label' => 'Compte courant',       'overdraft' => true],
+        'pro'      => ['label' => 'Compte professionnel', 'overdraft' => true],
+        'joint'    => ['label' => 'Compte joint',         'overdraft' => true],
+        'savings'  => ['label' => 'Compte épargne',       'overdraft' => false],
+        'online'   => ['label' => 'Banque en ligne',      'overdraft' => false],
+        'minor'    => ['label' => 'Compte mineur',        'overdraft' => false],
+    ];
+
+    public static function typeAllowsOverdraft(string $type): bool
     {
+        return self::TYPES[$type]['overdraft'] ?? true;
+    }
+
+    public function createAccount(int $userId, string $name, string $currency, float $overdraft = 0.0, string $type = 'standard'): int
+    {
+        if (!self::typeAllowsOverdraft($type)) {
+            $overdraft = 0.0;
+        }
         return $this->create([
             'user_id'   => $userId,
             'name'      => $name,
             'currency'  => $currency,
             'overdraft' => $overdraft,
+            'type'      => $type,
         ]);
     }
 

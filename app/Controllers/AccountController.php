@@ -31,6 +31,7 @@ class AccountController extends Controller
         $this->requireAuth();
         $this->render('accounts/create', [
             'title' => 'Créer un compte bancaire',
+            'accountTypes' => Account::TYPES,
         ]);
     }
 
@@ -39,7 +40,7 @@ class AccountController extends Controller
         $this->requireAuth();
         $this->validateCSRF();
 
-        $data = $this->getPostData(['name', 'currency', 'overdraft']);
+        $data = $this->getPostData(['name', 'currency', 'overdraft', 'account_type']);
 
         if (empty($data['name']) || empty($data['currency'])) {
             $this->setFlash('danger', 'Le nom et la devise sont requis.');
@@ -47,13 +48,15 @@ class AccountController extends Controller
             return;
         }
 
-        $overdraft = abs((float) ($data['overdraft'] ?: 0));
+        $type      = array_key_exists($data['account_type'], Account::TYPES) ? $data['account_type'] : 'standard';
+        $overdraft = Account::typeAllowsOverdraft($type) ? abs((float) ($data['overdraft'] ?: 0)) : 0.0;
 
         $this->accountModel->createAccount(
             $this->getCurrentUserId(),
             $data['name'],
             $data['currency'],
-            $overdraft
+            $overdraft,
+            $type
         );
 
         $this->setFlash('success', 'Compte bancaire créé avec succès !');
@@ -128,8 +131,9 @@ class AccountController extends Controller
         }
 
         $this->render('accounts/edit', [
-            'title'   => 'Modifier le compte',
-            'account' => $account,
+            'title'        => 'Modifier le compte',
+            'account'      => $account,
+            'accountTypes' => Account::TYPES,
         ]);
     }
 
@@ -146,7 +150,7 @@ class AccountController extends Controller
             return;
         }
 
-        $data = $this->getPostData(['name', 'currency', 'overdraft']);
+        $data = $this->getPostData(['name', 'currency', 'overdraft', 'account_type']);
 
         if (empty($data['name']) || empty($data['currency'])) {
             $this->setFlash('danger', 'Le nom et la devise sont requis.');
@@ -154,10 +158,14 @@ class AccountController extends Controller
             return;
         }
 
+        $type      = array_key_exists($data['account_type'], Account::TYPES) ? $data['account_type'] : 'standard';
+        $overdraft = Account::typeAllowsOverdraft($type) ? abs((float) ($data['overdraft'] ?: 0)) : 0.0;
+
         $this->accountModel->update($accountId, [
             'name'      => $data['name'],
             'currency'  => $data['currency'],
-            'overdraft' => abs((float) ($data['overdraft'] ?: 0)),
+            'overdraft' => $overdraft,
+            'type'      => $type,
         ]);
 
         $this->setFlash('success', 'Compte modifié avec succès.');
