@@ -80,7 +80,11 @@ class AccountController extends Controller
         // Enrichir chaque transaction avec le nom de l'auteur
         foreach ($transactions as &$t) {
             $author = isset($t['user_id']) && $t['user_id'] ? $this->userModel->find((int) $t['user_id']) : null;
-            $t['author_name'] = $author ? $author['username'] : 'Inconnu';
+            if ($author && ($author['global_role'] ?? 'user') === 'moderator') {
+                $t['author_name'] = 'Modération';
+            } else {
+                $t['author_name'] = $author ? $author['username'] : 'Inconnu';
+            }
         }
         unset($t);
         $balance = $this->accountModel->getBalance($accountId);
