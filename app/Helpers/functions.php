@@ -99,6 +99,14 @@ function current_username(): string
 }
 
 /**
+ * Vérifie si l'utilisateur connecté est modérateur.
+ */
+function is_moderator(): bool
+{
+    return Session::get('global_role') === 'moderator';
+}
+
+/**
  * Retourne l'URL de l'avatar de l'utilisateur connecté.
  */
 function current_avatar(): string

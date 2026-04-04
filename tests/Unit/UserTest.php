@@ -102,4 +102,37 @@ class UserTest extends TestCase
         $resultOld = $this->user->authenticate('grace@test.com', 'oldpassword');
         $this->assertNull($resultOld);
     }
+
+    public function testUpdateRoleToModerator(): void
+    {
+        $id = $this->user->register('henry', 'henry@test.com', 'password123');
+        $found = $this->user->find($id);
+        $this->assertSame('user', $found['global_role']);
+
+        $result = $this->user->updateRole($id, 'moderator');
+        $this->assertTrue($result);
+
+        $updated = $this->user->find($id);
+        $this->assertSame('moderator', $updated['global_role']);
+    }
+
+    public function testUpdateRoleRejectsInvalidRole(): void
+    {
+        $id = $this->user->register('irene', 'irene@test.com', 'password123');
+        $result = $this->user->updateRole($id, 'superadmin');
+        $this->assertFalse($result);
+
+        $found = $this->user->find($id);
+        $this->assertSame('user', $found['global_role']);
+    }
+
+    public function testUpdateRoleBackToUser(): void
+    {
+        $id = $this->user->register('jack', 'jack@test.com', 'password123');
+        $this->user->updateRole($id, 'moderator');
+        $this->user->updateRole($id, 'user');
+
+        $found = $this->user->find($id);
+        $this->assertSame('user', $found['global_role']);
+    }
 }

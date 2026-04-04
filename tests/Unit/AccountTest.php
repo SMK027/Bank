@@ -123,4 +123,29 @@ class AccountTest extends TestCase
         $balance = $this->account->getBalance($accId);
         $this->assertSame(-300.0, $balance);
     }
+
+    public function testFreezeAccount(): void
+    {
+        $id = $this->account->createAccount(1, 'Compte gelé', 'EUR');
+        $this->assertFalse($this->account->isFrozen($id));
+
+        $this->account->freezeAccount($id);
+        $this->assertTrue($this->account->isFrozen($id));
+    }
+
+    public function testUnfreezeAccount(): void
+    {
+        $id = $this->account->createAccount(1, 'Compte', 'EUR');
+        $this->account->freezeAccount($id);
+        $this->assertTrue($this->account->isFrozen($id));
+
+        $this->account->unfreezeAccount($id);
+        $this->assertFalse($this->account->isFrozen($id));
+    }
+
+    public function testIsFrozenReturnsFalseForNewAccount(): void
+    {
+        $id = $this->account->createAccount(1, 'Nouveau', 'EUR');
+        $this->assertFalse($this->account->isFrozen($id));
+    }
 }

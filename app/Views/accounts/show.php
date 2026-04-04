@@ -1,21 +1,59 @@
 <div class="page-header">
     <div>
-        <h1><i class="bi bi-wallet2"></i> <?= e($account['name']) ?></h1>
+        <h1>
+            <i class="bi bi-wallet2"></i> <?= e($account['name']) ?>
+            <?php if ($isFrozen): ?>
+                <span class="badge badge-frozen" style="font-size:0.55em;vertical-align:middle;"><i class="bi bi-snow"></i> Gelé</span>
+            <?php endif; ?>
+        </h1>
         <p class="page-description">
-            <?php if ($isOwner): ?>
-                Mon compte — Devise : <?= e($account['currency']) ?>
+            <?php if ($isModerator && !$isOwner): ?>
+                <span class="badge badge-mod" style="margin-right:0.4rem;"><i class="bi bi-shield-check"></i> Vue modérateur</span>
+                Propriétaire : <?= e($owner['username'] ?? 'Inconnu') ?> — Devise : <?= e($account['currency']) ?>
+            <?php elseif ($isOwner): ?>
+                Mon compte — Devise : <?= e($account['currency']) ?>
             <?php else: ?>
-                Compte partagé par <?= e($owner['username'] ?? 'Inconnu') ?> — Devise : <?= e($account['currency']) ?>
+                Compte partagé par <?= e($owner['username'] ?? 'Inconnu') ?> — Devise : <?= e($account['currency']) ?>
             <?php endif; ?>
         </p>
     </div>
     <div class="btn-group">
-        <a href="/dashboard" class="btn btn-outline btn-sm"><i class="bi bi-arrow-left"></i> Retour</a>
+        <a href="<?= $isModerator && !$isOwner ? '/moderation' : '/dashboard' ?>" class="btn btn-outline btn-sm"><i class="bi bi-arrow-left"></i> Retour</a>
         <?php if ($isOwner): ?>
             <a href="/accounts/<?= (int) $account['id'] ?>/edit" class="btn btn-warning btn-sm"><i class="bi bi-pencil"></i> Modifier</a>
         <?php endif; ?>
+        <?php if ($isModerator): ?>
+            <?php if ($isFrozen): ?>
+                <form method="POST" action="/moderation/accounts/<?= (int) $account['id'] ?>/unfreeze" style="display:inline">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="btn btn-success btn-sm"
+                            onclick="return confirm('Dégeler ce compte ?')">
+                        <i class="bi bi-sun"></i> Dégeler
+                    </button>
+                </form>
+            <?php else: ?>
+                <form method="POST" action="/moderation/accounts/<?= (int) $account['id'] ?>/freeze" style="display:inline">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="btn btn-freeze btn-sm"
+                            onclick="return confirm('Geler ce compte ? Les opérations sortantes seront bloquées.')">
+                        <i class="bi bi-snow"></i> Geler
+                    </button>
+                </form>
+            <?php endif; ?>
+        <?php endif; ?>
     </div>
 </div>
+
+<?php if ($isFrozen): ?>
+<div class="alert alert-frozen" style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+    <i class="bi bi-snow" style="font-size:1.4rem;"></i>
+    <div>
+        <strong>Compte gelé.</strong>
+        Les opérations sortantes et les virements débiteurs sont bloqués.
+        Ce compte peut encore recevoir des versements.
+    </div>
+</div>
+<?php endif; ?>
 
 <?php if ($isOwner && empty($account['type'])): ?>
 <div class="alert alert-warning" style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
@@ -95,11 +133,18 @@
             <h3><i class="bi bi-plus-circle"></i> Nouvelle opération</h3>
         </div>
         <div class="card-body">
+            <?php if ($isFrozen): ?>
+            <div class="alert alert-frozen" style="margin-bottom:1rem;">
+                <i class="bi bi-snow"></i>
+                <strong>Compte gelé.</strong> Seules les <strong>entrées</strong> sont autorisées sur ce compte.
+            </div>
+            <?php endif; ?>
             <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/transactions"
                   id="transaction-form"
                   data-balance="<?= e((string) $balance) ?>"
                   data-overdraft="<?= e((string) ((float) $account['overdraft'])) ?>"
-                  data-no-overdraft="<?= \App\Models\Account::typeAllowsOverdraft($account['type'] ?? 'standard') ? '0' : '1' ?>">
+                  data-no-overdraft="<?= \App\Models\Account::typeAllowsOverdraft($account['type'] ?? 'standard') ? '0' : '1' ?>"
+                  data-is-frozen="<?= $isFrozen ? '1' : '0' ?>">
                 <?= csrf_field() ?>
                 <div class="form-row">
                     <div class="form-group">
@@ -176,7 +221,18 @@
                 var balance    = parseFloat(form.dataset.balance)   || 0;
                 var overdraft  = parseFloat(form.dataset.overdraft) || 0;
                 var noOverdraft = form.dataset.noOverdraft === '1';
+                var isFrozen   = form.dataset.isFrozen === '1';
                 var currency   = '<?= e($account['currency']) ?>';
+
+                // Si le compte est gelé, forcer le type sur "income" et désactiver la sélection
+                if (isFrozen) {
+                    typeEl.value = 'income';
+                    for (var i = 0; i < typeEl.options.length; i++) {
+                        if (typeEl.options[i].value === 'expense') {
+                            typeEl.options[i].disabled = true;
+                        }
+                    }
+                }
 
                 function fmt(n) {
                     return n.toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2}) + '\u00a0' + currency;

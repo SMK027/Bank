@@ -109,6 +109,22 @@ abstract class Controller
     }
 
     /**
+     * Vérifie si l'utilisateur connecté est modérateur.
+     */
+    protected function isModerator(): bool
+    {
+        return Session::get('global_role') === 'moderator';
+    }
+
+    /**
+     * Exige que l'utilisateur soit modérateur.
+     */
+    protected function requireModerator(): void
+    {
+        $this->requireGlobalRole(['moderator']);
+    }
+
+    /**
      * Récupère et filtre les données POST.
      */
     protected function getPostData(array $keys): array

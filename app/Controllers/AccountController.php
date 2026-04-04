@@ -70,7 +70,7 @@ class AccountController extends Controller
         $userId = $this->getCurrentUserId();
 
         $account = $this->accountModel->find($accountId);
-        if (!$account || !$this->accountModel->hasAccess($accountId, $userId)) {
+        if (!$account || (!$this->isModerator() && !$this->accountModel->hasAccess($accountId, $userId))) {
             $this->setFlash('danger', 'Compte introuvable ou accès refusé.');
             $this->redirect('/dashboard');
             return;
@@ -87,6 +87,8 @@ class AccountController extends Controller
         $totalIncome = $this->transactionModel->getTotalIncome($accountId);
         $totalExpense = $this->transactionModel->getTotalExpense($accountId);
         $isOwner = $this->accountModel->isOwner($accountId, $userId);
+        $isModerator = $this->isModerator();
+        $isFrozen    = $this->accountModel->isFrozen($accountId);
 
         // Récupérer les accès partagés
         $accesses = [];
@@ -111,6 +113,8 @@ class AccountController extends Controller
             'totalIncome'  => $totalIncome,
             'totalExpense' => $totalExpense,
             'isOwner'      => $isOwner,
+            'isModerator'  => $isModerator,
+            'isFrozen'     => $isFrozen,
             'accesses'     => $accesses,
             'owner'        => $owner,
             'categories'   => Transaction::CATEGORIES,

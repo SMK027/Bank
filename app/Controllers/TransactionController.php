@@ -27,7 +27,7 @@ class TransactionController extends Controller
         $accId = (int) $accountId;
         $userId = $this->getCurrentUserId();
 
-        if (!$this->accountModel->hasAccess($accId, $userId)) {
+        if (!$this->isModerator() && !$this->accountModel->hasAccess($accId, $userId)) {
             $this->setFlash('danger', 'Accès refusé.');
             $this->redirect('/dashboard');
             return;
@@ -50,6 +50,13 @@ class TransactionController extends Controller
         $amount = abs((float) $data['amount']);
         if ($amount <= 0) {
             $this->setFlash('danger', 'Le montant doit être positif.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        // Bloquer les opérations sortantes si le compte est gelé
+        if ($data['type'] === 'expense' && $this->accountModel->isFrozen($accId)) {
+            $this->setFlash('danger', 'Ce compte est gelé. Les opérations sortantes sont impossibles.');
             $this->redirect('/accounts/' . $accountId);
             return;
         }
@@ -106,7 +113,7 @@ class TransactionController extends Controller
         $accId = (int) $accountId;
         $userId = $this->getCurrentUserId();
 
-        if (!$this->accountModel->hasAccess($accId, $userId)) {
+        if (!$this->isModerator() && !$this->accountModel->hasAccess($accId, $userId)) {
             $this->setFlash('danger', 'Accès refusé.');
             $this->redirect('/dashboard');
             return;

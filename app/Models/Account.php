@@ -76,6 +76,22 @@ class Account extends Model
         return $accessModel->hasValidAccess($accountId, $userId);
     }
 
+    public function isFrozen(int $accountId): bool
+    {
+        $account = $this->find($accountId);
+        return $account !== null && !empty($account['frozen']);
+    }
+
+    public function freezeAccount(int $accountId): bool
+    {
+        return $this->update($accountId, ['frozen' => true]);
+    }
+
+    public function unfreezeAccount(int $accountId): bool
+    {
+        return $this->update($accountId, ['frozen' => false]);
+    }
+
     public function getAccessibleAccounts(int $userId): array
     {
         $ownAccounts = $this->getByUser($userId);

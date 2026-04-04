@@ -45,4 +45,13 @@ class User extends Model
             'password' => password_hash($newPassword, PASSWORD_BCRYPT),
         ]);
     }
+
+    public function updateRole(int $userId, string $role): bool
+    {
+        $validRoles = ['user', 'moderator'];
+        if (!in_array($role, $validRoles, true)) {
+            return false;
+        }
+        return $this->update($userId, ['global_role' => $role]);
+    }
 }

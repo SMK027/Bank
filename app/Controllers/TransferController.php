@@ -22,27 +22,39 @@ class TransferController extends Controller
     public function createForm(): void
     {
         $this->requireAuth();
-        $userId   = $this->getCurrentUserId();
-        $accounts = $this->accountModel->getAccessibleAccounts($userId);
+        $userId = $this->getCurrentUserId();
 
-        // Enrichir chaque compte avec son solde calculé
-        foreach ($accounts['own'] as &$acc) {
-            $acc['balance'] = $this->accountModel->getBalance((int) $acc['id']);
+        if ($this->isModerator()) {
+            // Le modérateur voit tous les comptes regroupés dans 'own', aucun 'shared'
+            $allAccounts = $this->accountModel->findAll('id', 'ASC');
+            foreach ($allAccounts as &$acc) {
+                $acc['balance'] = $this->accountModel->getBalance((int) $acc['id']);
+            }
+            unset($acc);
+            $ownAccounts    = $allAccounts;
+            $sharedAccounts = [];
+        } else {
+            $accounts = $this->accountModel->getAccessibleAccounts($userId);
+            foreach ($accounts['own'] as &$acc) {
+                $acc['balance'] = $this->accountModel->getBalance((int) $acc['id']);
+            }
+            unset($acc);
+            foreach ($accounts['shared'] as &$acc) {
+                $acc['balance'] = $this->accountModel->getBalance((int) $acc['id']);
+            }
+            unset($acc);
+            $ownAccounts    = $accounts['own'];
+            $sharedAccounts = $accounts['shared'];
         }
-        unset($acc);
-        foreach ($accounts['shared'] as &$acc) {
-            $acc['balance'] = $this->accountModel->getBalance((int) $acc['id']);
-        }
-        unset($acc);
 
         // Pré-sélection du compte émetteur si passé en GET
         $preselect = isset($_GET['from']) ? (int) $_GET['from'] : null;
 
         $this->render('transfers/create', [
-            'title'      => 'Virement entre comptes',
-            'ownAccounts'    => $accounts['own'],
-            'sharedAccounts' => $accounts['shared'],
-            'preselect'  => $preselect,
+            'title'          => 'Virement entre comptes',
+            'ownAccounts'    => $ownAccounts,
+            'sharedAccounts' => $sharedAccounts,
+            'preselect'      => $preselect,
         ]);
     }
 
@@ -72,8 +84,8 @@ class TransferController extends Controller
             return;
         }
 
-        // Vérifier l'accès au compte émetteur (doit avoir accès)
-        if (!$this->accountModel->hasAccess($fromId, $userId)) {
+        // Vérifier l'accès au compte émetteur (modérateur bypass)
+        if (!$this->isModerator() && !$this->accountModel->hasAccess($fromId, $userId)) {
             $this->setFlash('danger', 'Accès refusé au compte émetteur.');
             $this->redirect('/transfers/create');
             return;
@@ -81,13 +93,23 @@ class TransferController extends Controller
 
         // Vérifier que le compte destinataire existe et est accessible
         $toAccount = $this->accountModel->find($toId);
-        if (!$toAccount || !$this->accountModel->hasAccess($toId, $userId)) {
+        if (!$toAccount || (!$this->isModerator() && !$this->accountModel->hasAccess($toId, $userId))) {
             $this->setFlash('danger', 'Compte destinataire introuvable ou accès refusé.');
             $this->redirect('/transfers/create');
             return;
         }
 
         $fromAccount = $this->accountModel->find($fromId);
+
+        // Bloquer le virement si le compte émetteur est gelé
+        if ($this->accountModel->isFrozen($fromId)) {
+            $this->setFlash('danger', sprintf(
+                'Virement impossible : le compte émetteur « %s » est gelé. Les virements sortants sont bloqués.',
+                $fromAccount['name'] ?? ''
+            ));
+            $this->redirect('/transfers/create?from=' . $fromId);
+            return;
+        }
         $balance     = $this->accountModel->getBalance($fromId);
         $overdraft   = (float) ($fromAccount['overdraft'] ?? 0);
         $accountType = $fromAccount['type'] ?? 'standard';

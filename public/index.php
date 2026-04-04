@@ -22,6 +22,7 @@ use App\Controllers\AccountController;
 use App\Controllers\TransactionController;
 use App\Controllers\AccessController;
 use App\Controllers\TransferController;
+use App\Controllers\ModerationController;
 
 // Démarrer la session
 Session::start();
@@ -71,6 +72,13 @@ $router->post('/accounts/{accountId}/transactions/{transactionId}/delete', Trans
 // --- Virements ---
 $router->get('/transfers/create', TransferController::class, 'createForm');
 $router->post('/transfers/create', TransferController::class, 'create');
+
+// --- Modération ---
+$router->get('/moderation', ModerationController::class, 'index');
+$router->get('/moderation/users', ModerationController::class, 'users');
+$router->post('/moderation/users/{id}/role', ModerationController::class, 'setRole');
+$router->post('/moderation/accounts/{id}/freeze', ModerationController::class, 'freeze');
+$router->post('/moderation/accounts/{id}/unfreeze', ModerationController::class, 'unfreeze');
 
 // --- Partage d'accès ---
 $router->post('/accounts/{accountId}/access', AccessController::class, 'grant');
