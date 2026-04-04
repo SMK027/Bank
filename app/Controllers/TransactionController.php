@@ -36,7 +36,7 @@ class TransactionController extends Controller
             return;
         }
 
-        $data = $this->getPostData(['type', 'amount', 'category', 'comment']);
+        $data = $this->getPostData(['type', 'amount', 'category', 'comment', 'scheduled_at']);
 
         if (empty($data['type']) || empty($data['amount']) || empty($data['category'])) {
             $this->setFlash('danger', 'Le type, le montant et la catégorie sont requis.');
@@ -57,6 +57,18 @@ class TransactionController extends Controller
             return;
         }
 
+        // Traiter la date programmée (dépenses à venir uniquement)
+        $scheduledAt = null;
+        if (!empty($data['scheduled_at'])) {
+            $ts = strtotime($data['scheduled_at']);
+            if ($ts === false || $ts <= time()) {
+                $this->setFlash('danger', 'La date programmée doit être dans le futur.');
+                $this->redirect('/accounts/' . $accountId);
+                return;
+            }
+            $scheduledAt = date('Y-m-d H:i:s', $ts);
+        }
+
         // Bloquer les opérations sortantes si le compte est gelé
         if ($data['type'] === 'expense' && $this->accountModel->isFrozen($accId)) {
             $this->setFlash('danger', 'Ce compte est gelé. Les opérations sortantes sont impossibles.');
@@ -65,9 +77,10 @@ class TransactionController extends Controller
         }
 
         // Vérifier le découvert pour les dépenses (ignoré pour les modérateurs)
+        // On utilise le solde futur (incl. opérations programmées) pour le contrôle
         if ($data['type'] === 'expense' && !$this->isModerator()) {
             $account   = $this->accountModel->find($accId);
-            $balance   = $this->accountModel->getBalance($accId);
+            $balance   = $this->accountModel->getFutureBalance($accId);
             $overdraft = (float) ($account['overdraft'] ?? 0);
             $accountType = $account['type'] ?? 'standard';
             $wouldExceed = ($balance - $amount) < -$overdraft;
@@ -100,11 +113,15 @@ class TransactionController extends Controller
             $amount,
             $data['category'],
             $data['comment'],
-            $userId
+            $userId,
+            $scheduledAt
         );
 
         $label = $data['type'] === 'income' ? 'Entrée' : 'Dépense';
-        $this->setFlash('success', $label . ' enregistrée avec succès.');
+        $msg   = $scheduledAt
+            ? $label . ' programmée pour le ' . date('d/m/Y H:i', strtotime($scheduledAt)) . '.'
+            : $label . ' enregistrée avec succès.';
+        $this->setFlash('success', $msg);
         $this->redirect('/accounts/' . $accountId);
     }
 

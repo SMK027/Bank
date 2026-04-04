@@ -77,7 +77,7 @@ class AccountController extends Controller
         }
 
         $transactions = $this->transactionModel->getByAccount($accountId);
-        // Enrichir chaque transaction avec le nom de l'auteur
+        // Enrichir chaque transaction avec le nom de l'auteur et le statut programmé
         foreach ($transactions as &$t) {
             $author = isset($t['user_id']) && $t['user_id'] ? $this->userModel->find((int) $t['user_id']) : null;
             if ($author && ($author['global_role'] ?? 'user') === 'moderator') {
@@ -85,11 +85,16 @@ class AccountController extends Controller
             } else {
                 $t['author_name'] = $author ? $author['username'] : 'Inconnu';
             }
+            $t['is_pending'] = Transaction::isPending($t);
         }
         unset($t);
-        $balance = $this->accountModel->getBalance($accountId);
-        $totalIncome = $this->transactionModel->getTotalIncome($accountId);
-        $totalExpense = $this->transactionModel->getTotalExpense($accountId);
+        $balance       = $this->accountModel->getBalance($accountId);
+        $futureBalance = $this->accountModel->getFutureBalance($accountId);
+        $totalIncome   = $this->transactionModel->getTotalIncome($accountId, true);
+        $totalExpense  = $this->transactionModel->getTotalExpense($accountId, true);
+        $totalIncomeFuture  = $this->transactionModel->getTotalIncome($accountId);
+        $totalExpenseFuture = $this->transactionModel->getTotalExpense($accountId);
+        $hasPending    = abs($futureBalance - $balance) > 0.001;
         $isOwner = $this->accountModel->isOwner($accountId, $userId);
         $isModerator = $this->isModerator();
         $isFrozen    = $this->accountModel->isFrozen($accountId);
@@ -110,18 +115,22 @@ class AccountController extends Controller
         $owner = $this->userModel->find((int) $account['user_id']);
 
         $this->render('accounts/show', [
-            'title'        => $account['name'],
-            'account'      => $account,
-            'transactions' => $transactions,
-            'balance'      => $balance,
-            'totalIncome'  => $totalIncome,
-            'totalExpense' => $totalExpense,
-            'isOwner'      => $isOwner,
-            'isModerator'  => $isModerator,
-            'isFrozen'     => $isFrozen,
-            'accesses'     => $accesses,
-            'owner'        => $owner,
-            'categories'   => Transaction::CATEGORIES,
+            'title'              => $account['name'],
+            'account'            => $account,
+            'transactions'       => $transactions,
+            'balance'            => $balance,
+            'futureBalance'      => $futureBalance,
+            'hasPending'         => $hasPending,
+            'totalIncome'        => $totalIncome,
+            'totalExpense'       => $totalExpense,
+            'totalIncomeFuture'  => $totalIncomeFuture,
+            'totalExpenseFuture' => $totalExpenseFuture,
+            'isOwner'            => $isOwner,
+            'isModerator'        => $isModerator,
+            'isFrozen'           => $isFrozen,
+            'accesses'           => $accesses,
+            'owner'              => $owner,
+            'categories'         => Transaction::CATEGORIES,
         ]);
     }
 

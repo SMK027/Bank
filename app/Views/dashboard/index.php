@@ -94,6 +94,11 @@
                         <div class="account-balance <?= $account['balance'] >= 0 ? 'balance-positive' : 'balance-negative' ?>">
                             <?= number_format($account['balance'], 2, ',', ' ') ?> <?= e($account['currency']) ?>
                         </div>
+                        <?php if (abs(($account['future_balance'] ?? $account['balance']) - $account['balance']) > 0.001): ?>
+                        <div class="text-small mt-1" style="color:var(--warning,#f59e0b);">
+                            <i class="bi bi-clock"></i> À venir&nbsp;: <strong><?= number_format($account['future_balance'], 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>
+                        </div>
+                        <?php endif; ?>
                         <?php if (!empty($account['_access_expires'])): ?>
                             <div class="text-small text-muted mt-1">
                                 <i class="bi bi-clock"></i> Expire le <?= date('d/m/Y', strtotime($account['_access_expires'])) ?>

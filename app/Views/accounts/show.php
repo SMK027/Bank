@@ -76,13 +76,22 @@
         </div>
         <div class="stat-label">Solde actuel (<?= e($account['currency']) ?>)</div>
     </div>
+    <?php if ($hasPending): ?>
+    <div class="stat-card" style="border-left:3px solid var(--warning, #f59e0b);">
+        <div class="stat-value <?= $futureBalance >= 0 ? 'text-success' : 'text-danger' ?>" style="display:flex;align-items:center;gap:0.4rem;">
+            <?= number_format($futureBalance, 2, ',', ' ') ?>
+            <i class="bi bi-clock" style="font-size:0.7em;opacity:0.7;"></i>
+        </div>
+        <div class="stat-label">Solde à venir (<?= e($account['currency']) ?>)</div>
+    </div>
+    <?php endif; ?>
     <div class="stat-card">
         <div class="stat-value text-success"><?= number_format($totalIncome, 2, ',', ' ') ?></div>
-        <div class="stat-label">Total entrées</div>
+        <div class="stat-label">Total entrées<?= $hasPending && $totalIncomeFuture > $totalIncome ? ' <span style="font-size:0.75em;opacity:0.7;">(' . number_format($totalIncomeFuture, 2, ',', ' ') . ' à venir)</span>' : '' ?></div>
     </div>
     <div class="stat-card">
         <div class="stat-value text-danger"><?= number_format($totalExpense, 2, ',', ' ') ?></div>
-        <div class="stat-label">Total dépenses</div>
+        <div class="stat-label">Total dépenses<?= $hasPending && $totalExpenseFuture > $totalExpense ? ' <span style="font-size:0.75em;opacity:0.7;">(' . number_format($totalExpenseFuture, 2, ',', ' ') . ' à venir)</span>' : '' ?></div>
     </div>
     <?php if ((float) $account['overdraft'] > 0): ?>
         <div class="stat-card">
@@ -175,6 +184,14 @@
                         <label for="comment" class="form-label">Commentaire</label>
                         <input type="text" id="comment" name="comment" class="form-control"
                                placeholder="Ex : Courses supermarché">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="scheduled_at" class="form-label">
+                            <i class="bi bi-clock"></i> Date programmée <span class="text-muted" style="font-weight:400;font-size:0.85em;">(optionnel — laisser vide pour maintenant)</span>
+                        </label>
+                        <input type="datetime-local" id="scheduled_at" name="scheduled_at" class="form-control">
                     </div>
                 </div>
 
@@ -421,6 +438,14 @@
                         <?php endforeach; ?>
                     </select>
                 </div>
+                <div class="form-group" style="margin:0;min-width:150px;">
+                    <label class="form-label" style="font-size:0.8rem;">Statut</label>
+                    <select id="tx-filter-status" class="form-control form-control-sm">
+                        <option value="">Tous</option>
+                        <option value="done">Effectuées</option>
+                        <option value="pending">À venir</option>
+                    </select>
+                </div>
                 <div class="form-group" style="margin:0;">
                     <label class="form-label" style="font-size:0.8rem;">&nbsp;</label>
                     <button type="button" id="tx-filter-reset" class="btn btn-outline btn-sm" style="display:block;">
@@ -448,13 +473,23 @@
                         <?php foreach ($transactions as $t): ?>
                             <tr data-type="<?= e($t['type']) ?>"
                                 data-amount="<?= e((string) (float) $t['amount']) ?>"
-                                data-author="<?= e($t['author_name']) ?>">
-                                <td><?= date('d/m/Y H:i', strtotime($t['created_at'])) ?></td>
+                                data-author="<?= e($t['author_name']) ?>"
+                                data-pending="<?= $t['is_pending'] ? '1' : '0' ?>"
+                                <?php if ($t['is_pending']): ?>style="opacity:0.75;font-style:italic;"<?php endif; ?>>
+                                <td>
+                                    <?= date('d/m/Y H:i', strtotime($t['created_at'])) ?>
+                                    <?php if ($t['is_pending']): ?>
+                                        <br><small class="text-muted"><i class="bi bi-clock"></i> Prévue : <?= date('d/m/Y H:i', strtotime($t['scheduled_at'])) ?></small>
+                                    <?php endif; ?>
+                                </td>
                                 <td>
                                     <?php if ($t['type'] === 'income'): ?>
                                         <span class="badge badge-success">Entrée</span>
                                     <?php else: ?>
                                         <span class="badge badge-danger">Dépense</span>
+                                    <?php endif; ?>
+                                    <?php if ($t['is_pending']): ?>
+                                        <br><span class="badge" style="background:var(--warning,#f59e0b);color:#fff;margin-top:2px;"><i class="bi bi-clock"></i> À venir</span>
                                     <?php endif; ?>
                                 </td>
                                 <td><?= e($t['category']) ?></td>
@@ -503,18 +538,22 @@
                     var min    = minEl.value !== '' ? parseFloat(minEl.value) : null;
                     var max    = maxEl.value !== '' ? parseFloat(maxEl.value) : null;
                     var author = authorEl.value.toLowerCase();
+                    var status = document.getElementById('tx-filter-status').value;
                     var visible = 0;
 
                     rows.forEach(function (row) {
-                        var rType   = row.dataset.type;
-                        var rAmount = parseFloat(row.dataset.amount);
-                        var rAuthor = row.dataset.author.toLowerCase();
+                        var rType    = row.dataset.type;
+                        var rAmount  = parseFloat(row.dataset.amount);
+                        var rAuthor  = row.dataset.author.toLowerCase();
+                        var rPending = row.dataset.pending === '1';
 
                         var ok = true;
-                        if (type   && rType !== type)           ok = false;
-                        if (min !== null && rAmount < min)      ok = false;
-                        if (max !== null && rAmount > max)      ok = false;
-                        if (author && rAuthor !== author)       ok = false;
+                        if (type   && rType !== type)                              ok = false;
+                        if (min !== null && rAmount < min)                         ok = false;
+                        if (max !== null && rAmount > max)                         ok = false;
+                        if (author && rAuthor !== author)                          ok = false;
+                        if (status === 'done'    &&  rPending)                     ok = false;
+                        if (status === 'pending' && !rPending)                     ok = false;
 
                         row.style.display = ok ? '' : 'none';
                         if (ok) visible++;
@@ -528,12 +567,14 @@
                 minEl.addEventListener('input', applyFilters);
                 maxEl.addEventListener('input', applyFilters);
                 authorEl.addEventListener('change', applyFilters);
+                document.getElementById('tx-filter-status').addEventListener('change', applyFilters);
 
                 resetBtn.addEventListener('click', function () {
-                    typeEl.value = '';
-                    minEl.value  = '';
-                    maxEl.value  = '';
+                    typeEl.value   = '';
+                    minEl.value    = '';
+                    maxEl.value    = '';
                     authorEl.value = '';
+                    document.getElementById('tx-filter-status').value = '';
                     applyFilters();
                 });
 

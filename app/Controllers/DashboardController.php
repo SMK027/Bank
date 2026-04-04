@@ -30,13 +30,15 @@ class DashboardController extends Controller
         // Calculer les soldes pour chaque compte
         $totalBalance = 0.0;
         foreach ($ownAccounts as &$account) {
-            $account['balance'] = $this->accountModel->getBalance((int) $account['id']);
+            $account['balance']        = $this->accountModel->getBalance((int) $account['id']);
+            $account['future_balance'] = $this->accountModel->getFutureBalance((int) $account['id']);
             $totalBalance += $account['balance'];
         }
         unset($account);
 
         foreach ($sharedAccounts as &$account) {
-            $account['balance'] = $this->accountModel->getBalance((int) $account['id']);
+            $account['balance']        = $this->accountModel->getBalance((int) $account['id']);
+            $account['future_balance'] = $this->accountModel->getFutureBalance((int) $account['id']);
         }
         unset($account);
 

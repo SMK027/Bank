@@ -52,6 +52,24 @@ class Account extends Model
         $transactions = $transactionModel->findBy(['account_id' => (string) $accountId]);
         $balance = 0.0;
         foreach ($transactions as $t) {
+            if (Transaction::isPending($t)) {
+                continue;
+            }
+            if ($t['type'] === 'income') {
+                $balance += (float) $t['amount'];
+            } else {
+                $balance -= (float) $t['amount'];
+            }
+        }
+        return $balance;
+    }
+
+    public function getFutureBalance(int $accountId): float
+    {
+        $transactionModel = new Transaction($this->dataDir);
+        $transactions = $transactionModel->findBy(['account_id' => (string) $accountId]);
+        $balance = 0.0;
+        foreach ($transactions as $t) {
             if ($t['type'] === 'income') {
                 $balance += (float) $t['amount'];
             } else {
