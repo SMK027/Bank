@@ -5,4 +5,7 @@ set -e
 chown -R www-data:www-data /var/www/html/data 2>/dev/null || true
 chmod -R 777 /var/www/html/data 2>/dev/null || true
 
+# Démarrer le daemon cron (transactions programmées)
+cron
+
 exec apache2-foreground

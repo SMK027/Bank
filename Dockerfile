@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     unzip \
     git \
     curl \
+    cron \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install gd zip \
     && a2enmod rewrite \
@@ -46,6 +47,10 @@ RUN chown -R www-data:www-data /var/www/html \
 # Script d'entrée pour corriger les permissions des volumes
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Cron : transactions programmées
+COPY docker/crontab /etc/cron.d/bankapp
+RUN chmod 0644 /etc/cron.d/bankapp
 
 EXPOSE 80
 ENTRYPOINT ["docker-entrypoint.sh"]
