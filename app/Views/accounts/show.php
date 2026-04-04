@@ -144,7 +144,8 @@
                   data-balance="<?= e((string) $balance) ?>"
                   data-overdraft="<?= e((string) ((float) $account['overdraft'])) ?>"
                   data-no-overdraft="<?= \App\Models\Account::typeAllowsOverdraft($account['type'] ?? 'standard') ? '0' : '1' ?>"
-                  data-is-frozen="<?= $isFrozen ? '1' : '0' ?>">
+                  data-is-frozen="<?= $isFrozen ? '1' : '0' ?>"
+                  data-is-moderator="<?= $isModerator ? '1' : '0' ?>">
                 <?= csrf_field() ?>
                 <div class="form-row">
                     <div class="form-group">
@@ -179,10 +180,16 @@
 
                 <!-- Avertissement découvert (affiché par JS) -->
                 <div id="overdraft-warning" style="display:none; margin-bottom:0.75rem;">
-                    <div class="alert <?= \App\Models\Account::typeAllowsOverdraft($account['type'] ?? 'standard') ? 'alert-warning' : 'alert-danger' ?>" style="margin-bottom:0.5rem;">
+                    <?php $typeAllows = \App\Models\Account::typeAllowsOverdraft($account['type'] ?? 'standard'); ?>
+                    <div class="alert <?= ($typeAllows || $isModerator) ? 'alert-warning' : 'alert-danger' ?>" style="margin-bottom:0.5rem;">
                         <i class="bi bi-exclamation-triangle-fill"></i>
-                        <?php if (\App\Models\Account::typeAllowsOverdraft($account['type'] ?? 'standard')): ?>
+                        <?php if ($typeAllows): ?>
                             <strong>Attention</strong> : cette opération dépasse le découvert autorisé.
+                            Solde prévu&nbsp;: <strong id="overdraft-preview"></strong>.
+                        <?php elseif ($isModerator): ?>
+                            <strong>Exception modérateur</strong> : ce type de compte
+                            (<em><?= e(\App\Models\Account::TYPES[$account['type'] ?? 'standard']['label'] ?? '') ?></em>)
+                            n'autorise pas normalement le solde négatif.
                             Solde prévu&nbsp;: <strong id="overdraft-preview"></strong>.
                         <?php else: ?>
                             <strong>Opération impossible</strong> : ce type de compte
@@ -191,11 +198,11 @@
                             Solde prévu&nbsp;: <strong id="overdraft-preview"></strong>.
                         <?php endif; ?>
                     </div>
-                    <?php if (\App\Models\Account::typeAllowsOverdraft($account['type'] ?? 'standard')): ?>
+                    <?php if ($typeAllows || $isModerator): ?>
                     <div class="form-group" style="margin-bottom:0;">
                         <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-weight:600;color:var(--danger);">
                             <input type="checkbox" id="force-checkbox" name="force_overdraft" value="1">
-                            Forcer l&rsquo;opération et accepter le dépassement
+                            <?= $isModerator && !$typeAllows ? 'Confirmer l&rsquo;exception et forcer l&rsquo;opération' : 'Forcer l&rsquo;opération et accepter le dépassement' ?>
                         </label>
                     </div>
                     <?php else: ?>
@@ -218,11 +225,13 @@
                 var checkbox  = document.getElementById('force-checkbox');
                 var submitBtn = document.getElementById('transaction-submit');
 
-                var balance    = parseFloat(form.dataset.balance)   || 0;
-                var overdraft  = parseFloat(form.dataset.overdraft) || 0;
-                var noOverdraft = form.dataset.noOverdraft === '1';
-                var isFrozen   = form.dataset.isFrozen === '1';
-                var currency   = '<?= e($account['currency']) ?>';
+                var balance      = parseFloat(form.dataset.balance)   || 0;
+                var overdraft    = parseFloat(form.dataset.overdraft) || 0;
+                var noOverdraft  = form.dataset.noOverdraft === '1';
+                var isFrozen     = form.dataset.isFrozen === '1';
+                var isModerator  = form.dataset.isModerator === '1';
+                var canForce     = !noOverdraft || isModerator;
+                var currency     = '<?= e($account['currency']) ?>';
 
                 // Si le compte est gelé, forcer le type sur "income" et désactiver la sélection
                 if (isFrozen) {
@@ -255,15 +264,15 @@
                     if (exceeds) {
                         preview.textContent = fmt(newBalance);
                         warning.style.display = 'block';
-                        if (noOverdraft) {
-                            // Type restreint : impossible de forcer
-                            checkbox.style.display      = 'none';
-                            checkbox.parentElement.style.display = 'none';
-                            submitBtn.disabled = true;
-                        } else {
+                        if (canForce) {
                             checkbox.style.display      = '';
                             checkbox.parentElement.style.display = '';
                             submitBtn.disabled = !checkbox.checked;
+                        } else {
+                            // Type restreint et non modérateur : impossible de forcer
+                            checkbox.style.display      = 'none';
+                            checkbox.parentElement.style.display = 'none';
+                            submitBtn.disabled = true;
                         }
                     } else {
                         warning.style.display = 'none';
@@ -273,7 +282,7 @@
                 }
 
                 checkbox.addEventListener('change', function () {
-                    if (!noOverdraft) submitBtn.disabled = !this.checked;
+                    if (canForce) submitBtn.disabled = !this.checked;
                 });
 
                 typeEl.addEventListener('change', check);
