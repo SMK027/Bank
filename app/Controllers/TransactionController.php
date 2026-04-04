@@ -64,8 +64,8 @@ class TransactionController extends Controller
             return;
         }
 
-        // Vérifier le découvert pour les dépenses
-        if ($data['type'] === 'expense') {
+        // Vérifier le découvert pour les dépenses (ignoré pour les modérateurs)
+        if ($data['type'] === 'expense' && !$this->isModerator()) {
             $account   = $this->accountModel->find($accId);
             $balance   = $this->accountModel->getBalance($accId);
             $overdraft = (float) ($account['overdraft'] ?? 0);
