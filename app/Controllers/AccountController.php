@@ -92,7 +92,7 @@ class AccountController extends Controller
 
         // Récupérer les accès partagés
         $accesses = [];
-        if ($isOwner) {
+        if ($isOwner || $isModerator) {
             $rawAccesses = $this->accessModel->getAccessesForAccount($accountId);
             foreach ($rawAccesses as &$access) {
                 $user = $this->userModel->find((int) $access['user_id']);

@@ -29,8 +29,9 @@ class AccessController extends Controller
 
         $accId = (int) $accountId;
         $userId = $this->getCurrentUserId();
+        $isModerator = $this->isModerator();
 
-        if (!$this->accountModel->isOwner($accId, $userId)) {
+        if (!$isModerator && !$this->accountModel->isOwner($accId, $userId)) {
             $this->setFlash('danger', 'Seul le propriétaire peut partager ce compte.');
             $this->redirect('/dashboard');
             return;
@@ -51,7 +52,14 @@ class AccessController extends Controller
             return;
         }
 
-        if ((int) $targetUser['id'] === $userId) {
+        $account = $this->accountModel->find($accId);
+        if ($account && (int) $targetUser['id'] === (int) $account['user_id']) {
+            $this->setFlash('danger', 'Cet utilisateur est déjà propriétaire de ce compte.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        if (!$isModerator && (int) $targetUser['id'] === $userId) {
             $this->setFlash('danger', 'Vous ne pouvez pas partager un compte avec vous-même.');
             $this->redirect('/accounts/' . $accountId);
             return;
@@ -87,7 +95,7 @@ class AccessController extends Controller
         $accId = (int) $accountId;
         $currentUserId = $this->getCurrentUserId();
 
-        if (!$this->accountModel->isOwner($accId, $currentUserId)) {
+        if (!$this->isModerator() && !$this->accountModel->isOwner($accId, $currentUserId)) {
             $this->setFlash('danger', 'Seul le propriétaire peut révoquer un accès.');
             $this->redirect('/dashboard');
             return;

@@ -283,13 +283,19 @@
         </div>
     </div>
 
-    <!-- Partage de compte (propriétaire uniquement) -->
-    <?php if ($isOwner): ?>
+    <!-- Partage de compte (propriétaire ou modérateur) -->
+    <?php if ($isOwner || $isModerator): ?>
     <div class="card mb-2">
         <div class="card-header">
             <h3><i class="bi bi-person-plus"></i> Partager l'accès</h3>
         </div>
         <div class="card-body">
+            <?php if ($isModerator && !$isOwner): ?>
+            <div class="alert alert-info" style="margin-bottom:1rem;display:flex;align-items:center;gap:0.5rem;">
+                <i class="bi bi-shield-check"></i>
+                <span>Vous gérez ce compte en tant que <strong>modérateur</strong>.</span>
+            </div>
+            <?php endif; ?>
             <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/access">
                 <?= csrf_field() ?>
                 <div class="form-group">
