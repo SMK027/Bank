@@ -6,16 +6,19 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Models\Account;
+use App\Models\AccountAccess;
 use App\Models\User;
 
 class ModerationController extends Controller
 {
     private Account $accountModel;
+    private AccountAccess $accessModel;
     private User $userModel;
 
     public function __construct()
     {
         $this->accountModel = new Account();
+        $this->accessModel  = new AccountAccess();
         $this->userModel    = new User();
     }
 
@@ -28,11 +31,21 @@ class ModerationController extends Controller
 
         $allAccounts = $this->accountModel->findAll('id', 'ASC');
 
-        // Enrichir chaque compte avec son solde et son propriétaire
+        // Enrichir chaque compte avec son solde, son propriétaire et les utilisateurs avec accès partagé
         foreach ($allAccounts as &$acc) {
             $acc['balance'] = $this->accountModel->getBalance((int) $acc['id']);
             $owner = $this->userModel->find((int) $acc['user_id']);
             $acc['owner_name'] = $owner ? $owner['username'] : 'Inconnu';
+
+            $sharedUsers = [];
+            $accesses = $this->accessModel->getAccessesForAccount((int) $acc['id']);
+            foreach ($accesses as $access) {
+                $u = $this->userModel->find((int) $access['user_id']);
+                if ($u) {
+                    $sharedUsers[] = $u['username'];
+                }
+            }
+            $acc['shared_users'] = $sharedUsers;
         }
         unset($acc);
 

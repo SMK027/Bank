@@ -13,8 +13,14 @@
 <?php else: ?>
 
 <?php
-    // Listes dédupliquées pour les filtres
-    $ownerNames = array_values(array_unique(array_column($allAccounts, 'owner_name')));
+    // Listes dédupliquées pour les filtres : propriétaires + utilisateurs partagés
+    $ownerNames = array_unique(array_column($allAccounts, 'owner_name'));
+    foreach ($allAccounts as $__acc) {
+        foreach ($__acc['shared_users'] ?? [] as $__su) {
+            $ownerNames[] = $__su;
+        }
+    }
+    $ownerNames = array_values(array_unique($ownerNames));
     sort($ownerNames);
 ?>
 
@@ -73,7 +79,7 @@
                     <tr>
                         <th>ID</th>
                         <th>Nom</th>
-                        <th>Propriétaire</th>
+                        <th>Propriétaire / Accès</th>
                         <th>Type</th>
                         <th>Devise</th>
                         <th class="text-right">Solde</th>
@@ -86,6 +92,7 @@
                         <?php $frozen = !empty($acc['frozen']); ?>
                         <tr class="<?= $frozen ? 'row-frozen' : '' ?>"
                             data-owner="<?= e($acc['owner_name']) ?>"
+                            data-shared-users="<?= e(implode('|', $acc['shared_users'] ?? [])) ?>"
                             data-status="<?= $frozen ? 'frozen' : 'active' ?>"
                             data-name="<?= e(strtolower($acc['name'])) ?>">
                             <td class="text-muted text-small">#<?= (int) $acc['id'] ?></td>
@@ -94,7 +101,18 @@
                                     <?= e($acc['name']) ?>
                                 </a>
                             </td>
-                            <td><?= e($acc['owner_name']) ?></td>
+                            <td>
+                                <span><?= e($acc['owner_name']) ?></span>
+                                <?php if (!empty($acc['shared_users'])): ?>
+                                    <div style="margin-top:0.25rem;display:flex;flex-wrap:wrap;gap:0.25rem;">
+                                        <?php foreach ($acc['shared_users'] as $su): ?>
+                                            <span class="badge badge-secondary" style="font-size:0.7rem;">
+                                                <i class="bi bi-share"></i> <?= e($su) ?>
+                                            </span>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>
+                            </td>
                             <td>
                                 <?php $typeLabel = \App\Models\Account::TYPES[$acc['type'] ?? '']['label'] ?? '—'; ?>
                                 <span class="text-small"><?= e($typeLabel) ?></span>
@@ -238,7 +256,10 @@
         }
 
         rows.forEach(function (row) {
-            var matchOwner  = !ownerFilter || row.dataset.owner === ownerFilter;
+            var sharedUsers = row.dataset.sharedUsers ? row.dataset.sharedUsers.split('|') : [];
+            var matchOwner  = !ownerFilter
+                || row.dataset.owner === ownerFilter
+                || sharedUsers.indexOf(ownerFilter) !== -1;
             var matchStatus = !status      || row.dataset.status === status;
             var matchSearch = !search      || row.dataset.name.indexOf(search) !== -1;
 
