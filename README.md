@@ -1,58 +1,41 @@
-# ToolBox — Framework MVC PHP
+# 🏦 BankApp — Simulation bancaire en PHP
 
-Boîte à outils PHP clé en main pour démarrer rapidement un projet web avec une architecture MVC solide.
+Application de simulation bancaire développée en PHP avec une architecture MVC, Docker et stockage en fichiers JSON.
 
-## Composants inclus
+## Fonctionnalités
 
-| Composant | Description |
-|-----------|-------------|
-| **MVC** | Router, Controller abstrait, Model abstrait avec CRUD PDO |
-| **Sécurité** | CSRF, Session sécurisée, JWT (API), Middleware d'accès |
-| **Docker** | Dockerfile PHP-Apache, Docker Compose (dev + prod) |
-| **Migrations** | Système de migrations SQL automatisé |
-| **CSS** | Framework CSS responsive mobile-first avec variables CSS |
-| **Tests** | Suite PHPUnit unitaire complète |
+- **Inscription / Connexion** sécurisée avec sessions et protection CSRF
+- **Multi-comptes** : créez plusieurs comptes bancaires avec nom, devise et découvert autorisé
+- **Transactions** : enregistrez vos dépenses et entrées d'argent avec catégorie et commentaire
+- **Partage d'accès** : donnez un accès permanent ou temporaire à d'autres utilisateurs
+- **Tableau de bord** : vue globale avec soldes colorés (vert = positif, rouge = négatif) et total
+- **Responsive** : fonctionne sur PC, tablette et mobile (Android/iOS)
 
 ## Stack technique
 
 | Composant | Technologie |
 |-----------|-------------|
-| Backend | PHP 8.2, architecture MVC custom |
-| Base de données | MySQL 8.0 avec PDO (requêtes préparées) |
-| Frontend | HTML5, CSS3 (mobile-first, variables CSS, Flexbox/Grid), JavaScript vanilla |
+| Backend | PHP 8.2, architecture MVC orientée objet |
+| Stockage | Fichiers JSON dans le dossier `data/` |
+| Frontend | HTML5, CSS3 responsive (mobile-first), JavaScript vanilla |
 | Serveur | Apache avec mod_rewrite |
 | Conteneurisation | Docker / Docker Compose |
 | Tests | PHPUnit 9.6 |
-| Autoloading | Composer PSR-4 |
 
 ## Installation avec Docker
 
 ```bash
-# Cloner le projet
-git clone <url-du-repo> mon-projet
-cd mon-projet
-
-# Configurer l'environnement
 cp .env.example .env
-
-# Lancer les conteneurs
-docker-compose -f docker-compose.dev.yml up -d
+docker compose -f docker-compose.dev.yml up --build
 ```
 
-L'application sera accessible sur :
-- **Application** : http://localhost:8080
-- **phpMyAdmin** : http://localhost:8081
+L'application sera accessible sur **http://localhost:8080**.
 
-## Installation manuelle
+## Installation sans Docker
 
 ```bash
-# Installer les dépendances
 composer install
-
-# Configurer les variables d'environnement
 cp .env.example .env
-
-# Lancer le serveur de développement PHP
 php -S localhost:8080 -t public/
 ```
 
@@ -60,64 +43,34 @@ php -S localhost:8080 -t public/
 
 ```
 app/
-├── Config/          # Configuration (Database singleton PDO)
-├── Controllers/     # Contrôleurs MVC
-│   └── Api/         # Contrôleurs API REST (JWT)
-├── Core/            # Framework (Router, Controller, Model, Session, CSRF, JWT, Middleware)
-├── Helpers/         # Fonctions utilitaires globales
-├── Models/          # Modèles de données
-└── Views/           # Vues PHP
-    ├── auth/        # Pages de connexion / inscription
-    ├── errors/      # Pages d'erreur
-    ├── home/        # Page d'accueil
-    ├── layouts/     # Layout principal
-    └── partials/    # Composants réutilisables
-database/
-├── migrate.php      # Script de migration automatique
-└── migrations/      # Fichiers SQL numérotés
-public/
-├── css/             # Feuilles de style
-├── js/              # JavaScript
-├── index.php        # Front controller + routes
-└── .htaccess        # Réécriture Apache
-tests/
-└── Unit/            # Tests unitaires PHPUnit
+├── Config/          # Configuration
+├── Controllers/     # Contrôleurs MVC (Auth, Dashboard, Account, Transaction, Access)
+├── Core/            # Framework (Model JSON, Controller, Router, Session, CSRF, JWT)
+├── Helpers/         # Fonctions utilitaires
+├── Models/          # Modèles (User, Account, Transaction, AccountAccess)
+└── Views/           # Vues PHP (layouts, dashboard, accounts, auth)
+data/                # Stockage JSON (users, accounts, transactions, accesses)
+public/              # Point d'entrée + assets CSS/JS
+tests/               # Tests unitaires PHPUnit
 ```
 
-## Sécurité
+## Données
 
-- **Injection SQL** : toutes les requêtes utilisent des requêtes préparées PDO
-- **XSS** : échappement systématique via la fonction `e()` (htmlspecialchars)
-- **CSRF** : token unique par session, validé sur chaque formulaire POST
-- **Mots de passe** : hashés avec `password_hash()` (bcrypt)
-- **Sessions** : régénération d'ID après connexion
-- **JWT** : authentification API avec HMAC-SHA256
+Les données sont stockées en clair au format JSON dans le dossier `data/` :
+- `users.json` — Utilisateurs inscrits
+- `accounts.json` — Comptes bancaires
+- `transactions.json` — Dépenses et entrées d'argent
+- `accesses.json` — Partages d'accès entre utilisateurs
 
 ## Tests
 
 ```bash
-# Lancer tous les tests
 ./vendor/bin/phpunit
-
-# Lancer uniquement les tests unitaires
-./vendor/bin/phpunit --testsuite Unit
-
-# Avec couverture de code
-./vendor/bin/phpunit --coverage-html coverage/
 ```
 
-## Personnalisation
+## Sécurité
 
-Ce projet est conçu comme point de départ. Adaptez les éléments suivants :
-
-1. **composer.json** : Changez le `name` et la `description`
-2. **.env.example** : Ajustez les variables selon votre projet
-3. **docker-compose.yml** : Modifiez les labels Traefik pour votre domaine
-4. **public/index.php** : Définissez vos propres routes
-5. **app/Models/** : Créez vos modèles métier
-6. **app/Views/** : Développez vos vues
-7. **database/migrations/** : Écrivez vos migrations SQL
-
-## Licence
-
-Projet personnel — libre d'utilisation.
+- **XSS** : échappement via `e()` (htmlspecialchars)
+- **CSRF** : token par session, validé sur chaque POST
+- **Mots de passe** : hashés avec bcrypt
+- **Sessions** : régénération d'ID après connexion

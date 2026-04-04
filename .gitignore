@@ -1,32 +1,18 @@
 # Dependencies
 /vendor/
+node_modules/
 
+# Environment
+.env
 
+# Data files (JSON storage)
+/data/*.json
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-}    }        "test": "phpunit"    "scripts": {    },        }            "Tests\\": "tests/"        "psr-4": {    "autoload-dev": {    },        ]            "app/Helpers/functions.php"        "files": [        },            "App\\": "app/"        "psr-4": {    "autoload": {    },        "phpunit/phpunit": "^9.6"    "require-dev": {    },        "php": ">=8.0"    "require": {    "type": "project",    "description": "Boîte à outils PHP – Framework MVC léger et réutilisable",node_modules/
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
 
 # Environment
 .env

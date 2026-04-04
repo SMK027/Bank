@@ -1112,6 +1112,52 @@ select.form-control {
 .flex-wrap { flex-wrap: wrap; }
 
 /* -----------------------------------------------------------
+   Comptes bancaires
+   ----------------------------------------------------------- */
+.account-card {
+    border-left: 4px solid var(--gray-light);
+    transition: var(--transition);
+}
+
+.account-card.account-positive {
+    border-left-color: var(--success);
+}
+
+.account-card.account-negative {
+    border-left-color: var(--danger);
+}
+
+.account-card.account-shared {
+    border-left-color: var(--info);
+}
+
+.account-balance {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-top: 0.5rem;
+}
+
+.balance-positive {
+    color: var(--success-dark);
+}
+
+.balance-negative {
+    color: var(--danger);
+}
+
+.account-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+}
+
+@media (max-width: 992px) {
+    .account-detail-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* -----------------------------------------------------------
    Responsive - Tablette
    ----------------------------------------------------------- */
 @media (max-width: 992px) {

@@ -4,154 +4,171 @@ declare(strict_types=1);
 
 namespace App\Core;
 
-use App\Config\Database;
-
 /**
- * Modèle abstrait de base avec opérations CRUD.
- * Chaque modèle concret doit définir la propriété $table.
+ * Modèle abstrait de base avec opérations CRUD sur fichiers JSON.
+ * Chaque modèle concret doit définir la propriété $file (nom du fichier JSON).
  */
 abstract class Model
 {
-    protected \PDO $db;
-    protected string $table = '';
+    protected string $file = '';
+    protected string $dataDir;
 
-    public function __construct(?\PDO $pdo = null)
+    public function __construct(?string $dataDir = null)
     {
-        $this->db = $pdo ?? Database::getInstance()->getConnection();
+        $this->dataDir = $dataDir ?? dirname(__DIR__, 2) . '/data';
+        $this->ensureDataDir();
     }
 
-    /**
-     * Trouve un enregistrement par son ID.
-     */
+    private function ensureDataDir(): void
+    {
+        if (!is_dir($this->dataDir)) {
+            mkdir($this->dataDir, 0755, true);
+        }
+    }
+
+    protected function getFilePath(): string
+    {
+        return $this->dataDir . '/' . $this->file;
+    }
+
+    protected function readAll(): array
+    {
+        $path = $this->getFilePath();
+        if (!file_exists($path)) {
+            return [];
+        }
+        $content = file_get_contents($path);
+        $data = json_decode($content, true);
+        return is_array($data) ? $data : [];
+    }
+
+    protected function writeAll(array $data): void
+    {
+        $path = $this->getFilePath();
+        file_put_contents($path, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
+    }
+
+    private function getNextId(array $records): int
+    {
+        if (empty($records)) {
+            return 1;
+        }
+        return max(array_column($records, 'id')) + 1;
+    }
+
     public function find(int $id): ?array
     {
-        $stmt = $this->db->prepare("SELECT * FROM {$this->table} WHERE id = :id LIMIT 1");
-        $stmt->execute(['id' => $id]);
-        $result = $stmt->fetch(\PDO::FETCH_ASSOC);
-        return $result ?: null;
+        $records = $this->readAll();
+        foreach ($records as $record) {
+            if ((int) $record['id'] === $id) {
+                return $record;
+            }
+        }
+        return null;
     }
 
-    /**
-     * Retourne tous les enregistrements.
-     */
     public function findAll(string $orderBy = 'id', string $direction = 'ASC'): array
     {
+        $records = $this->readAll();
         $direction = strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC';
-        $stmt = $this->db->query("SELECT * FROM {$this->table} ORDER BY {$orderBy} {$direction}");
-        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        usort($records, function ($a, $b) use ($orderBy, $direction) {
+            $valA = $a[$orderBy] ?? '';
+            $valB = $b[$orderBy] ?? '';
+            $cmp = $valA <=> $valB;
+            return $direction === 'DESC' ? -$cmp : $cmp;
+        });
+
+        return $records;
     }
 
-    /**
-     * Recherche par critères (AND).
-     */
     public function findBy(array $criteria, string $orderBy = 'id', string $direction = 'ASC'): array
     {
+        $records = $this->readAll();
+        $filtered = array_filter($records, function ($record) use ($criteria) {
+            foreach ($criteria as $key => $value) {
+                if (!isset($record[$key]) || (string) $record[$key] !== (string) $value) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        $result = array_values($filtered);
         $direction = strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC';
-        $conditions = [];
-        $params = [];
 
-        foreach ($criteria as $key => $value) {
-            $conditions[] = "{$key} = :{$key}";
-            $params[$key] = $value;
-        }
+        usort($result, function ($a, $b) use ($orderBy, $direction) {
+            $valA = $a[$orderBy] ?? '';
+            $valB = $b[$orderBy] ?? '';
+            $cmp = $valA <=> $valB;
+            return $direction === 'DESC' ? -$cmp : $cmp;
+        });
 
-        $where = implode(' AND ', $conditions);
-        $stmt = $this->db->prepare("SELECT * FROM {$this->table} WHERE {$where} ORDER BY {$orderBy} {$direction}");
-        $stmt->execute($params);
-        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        return $result;
     }
 
-    /**
-     * Recherche un seul enregistrement par critères.
-     */
     public function findOneBy(array $criteria): ?array
     {
-        $conditions = [];
-        $params = [];
-
-        foreach ($criteria as $key => $value) {
-            $conditions[] = "{$key} = :{$key}";
-            $params[$key] = $value;
+        $records = $this->readAll();
+        foreach ($records as $record) {
+            $match = true;
+            foreach ($criteria as $key => $value) {
+                if (!isset($record[$key]) || (string) $record[$key] !== (string) $value) {
+                    $match = false;
+                    break;
+                }
+            }
+            if ($match) {
+                return $record;
+            }
         }
-
-        $where = implode(' AND ', $conditions);
-        $stmt = $this->db->prepare("SELECT * FROM {$this->table} WHERE {$where} LIMIT 1");
-        $stmt->execute($params);
-        $result = $stmt->fetch(\PDO::FETCH_ASSOC);
-        return $result ?: null;
+        return null;
     }
 
-    /**
-     * Crée un enregistrement et retourne son ID.
-     */
     public function create(array $data): int
     {
-        $columns = implode(', ', array_keys($data));
-        $placeholders = ':' . implode(', :', array_keys($data));
-
-        $stmt = $this->db->prepare("INSERT INTO {$this->table} ({$columns}) VALUES ({$placeholders})");
-        $stmt->execute($data);
-        return (int) $this->db->lastInsertId();
+        $records = $this->readAll();
+        $id = $this->getNextId($records);
+        $data['id'] = $id;
+        $data['created_at'] = date('Y-m-d H:i:s');
+        $data['updated_at'] = date('Y-m-d H:i:s');
+        $records[] = $data;
+        $this->writeAll($records);
+        return $id;
     }
 
-    /**
-     * Met à jour un enregistrement par son ID.
-     */
     public function update(int $id, array $data): bool
     {
-        $sets = [];
-        $params = ['id' => $id];
-
-        foreach ($data as $key => $value) {
-            $sets[] = "{$key} = :{$key}";
-            $params[$key] = $value;
+        $records = $this->readAll();
+        foreach ($records as &$record) {
+            if ((int) $record['id'] === $id) {
+                foreach ($data as $key => $value) {
+                    $record[$key] = $value;
+                }
+                $record['updated_at'] = date('Y-m-d H:i:s');
+                $this->writeAll($records);
+                return true;
+            }
         }
-
-        $setClause = implode(', ', $sets);
-        $stmt = $this->db->prepare("UPDATE {$this->table} SET {$setClause} WHERE id = :id");
-        return $stmt->execute($params);
+        return false;
     }
 
-    /**
-     * Supprime un enregistrement par son ID.
-     */
     public function delete(int $id): bool
     {
-        $stmt = $this->db->prepare("DELETE FROM {$this->table} WHERE id = :id");
-        return $stmt->execute(['id' => $id]);
+        $records = $this->readAll();
+        $filtered = array_filter($records, fn($r) => (int) $r['id'] !== $id);
+        if (count($filtered) === count($records)) {
+            return false;
+        }
+        $this->writeAll(array_values($filtered));
+        return true;
     }
 
-    /**
-     * Compte les enregistrements correspondant aux critères.
-     */
     public function count(array $criteria = []): int
     {
         if (empty($criteria)) {
-            $stmt = $this->db->query("SELECT COUNT(*) FROM {$this->table}");
-            return (int) $stmt->fetchColumn();
+            return count($this->readAll());
         }
-
-        $conditions = [];
-        $params = [];
-
-        foreach ($criteria as $key => $value) {
-            $conditions[] = "{$key} = :{$key}";
-            $params[$key] = $value;
-        }
-
-        $where = implode(' AND ', $conditions);
-        $stmt = $this->db->prepare("SELECT COUNT(*) FROM {$this->table} WHERE {$where}");
-        $stmt->execute($params);
-        return (int) $stmt->fetchColumn();
-    }
-
-    /**
-     * Exécute une requête SQL préparée.
-     */
-    public function query(string $sql, array $params = []): \PDOStatement
-    {
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        return $stmt;
+        return count($this->findBy($criteria));
     }
 }

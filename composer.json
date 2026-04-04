@@ -1,6 +1,6 @@
 {
-    "name": "toolbox/app",
-    "description": "Boîte à outils PHP — Framework MVC réutilisable",
+    "name": "bankapp/app",
+    "description": "Application de simulation bancaire en PHP",
     "type": "project",
     "require": {
         "php": ">=8.0"

@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= e($title ?? 'Application') ?></title>
+    <title><?= e($title ?? 'BankApp') ?></title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="/css/style.css?v=<?= filemtime($_SERVER['DOCUMENT_ROOT'] . '/css/style.css') ?>">
 </head>
 <body>
     <nav class="navbar">
         <div class="container navbar-container">
-            <a href="/" class="navbar-brand">🛠️ Mon Application</a>
+            <a href="<?= is_authenticated() ? '/dashboard' : '/' ?>" class="navbar-brand">🏦 BankApp</a>
 
             <button class="navbar-toggle" id="navToggle" aria-label="Menu">
                 <span></span>
@@ -20,7 +20,8 @@
 
             <div class="navbar-menu" id="navMenu">
                 <?php if (is_authenticated()): ?>
-                    <a href="/" class="navbar-link">Accueil</a>
+                    <a href="/dashboard" class="navbar-link"><i class="bi bi-speedometer2"></i> Tableau de bord</a>
+                    <a href="/accounts/create" class="navbar-link"><i class="bi bi-plus-circle"></i> Nouveau compte</a>
                     <div class="navbar-user">
                         <a href="/profile" class="navbar-link navbar-profile-link">
                             <span class="navbar-avatar navbar-avatar-placeholder"><?= strtoupper(substr(current_username(), 0, 1)) ?></span>
@@ -45,10 +46,7 @@
 
     <footer class="footer">
         <div class="container">
-            <p>&copy; <?= date('Y') ?> Mon Application</p>
-            <p style="margin-top: 0.4rem;">
-                <a href="/legal" style="color: var(--gray); text-decoration: underline;">Mentions légales</a>
-            </p>
+            <p>&copy; <?= date('Y') ?> BankApp — Simulation bancaire</p>
         </div>
     </footer>
 

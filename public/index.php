@@ -17,6 +17,10 @@ use App\Core\Router;
 use App\Core\Session;
 use App\Controllers\HomeController;
 use App\Controllers\AuthController;
+use App\Controllers\DashboardController;
+use App\Controllers\AccountController;
+use App\Controllers\TransactionController;
+use App\Controllers\AccessController;
 
 // Démarrer la session
 Session::start();
@@ -40,7 +44,6 @@ $router = new Router();
 
 // --- Routes publiques ---
 $router->get('/', HomeController::class, 'index');
-$router->get('/legal', HomeController::class, 'legal');
 
 // --- Routes d'authentification ---
 $router->get('/login', AuthController::class, 'loginForm');
@@ -49,19 +52,24 @@ $router->get('/register', AuthController::class, 'registerForm');
 $router->post('/register', AuthController::class, 'register');
 $router->get('/logout', AuthController::class, 'logout');
 
-// ============================================================
-// Ajoutez vos routes ici
-// ============================================================
-// $router->get('/dashboard', DashboardController::class, 'index');
-// $router->get('/items', ItemController::class, 'index');
-// $router->get('/items/{id}', ItemController::class, 'show');
-// $router->post('/items/create', ItemController::class, 'create');
-// $router->post('/items/{id}/edit', ItemController::class, 'update');
-// $router->post('/items/{id}/delete', ItemController::class, 'delete');
+// --- Dashboard ---
+$router->get('/dashboard', DashboardController::class, 'index');
 
-// --- Routes API (exemple) ---
-// $router->post('/api/login', AuthApiController::class, 'login');
-// $router->get('/api/items', ItemApiController::class, 'index');
+// --- Comptes bancaires ---
+$router->get('/accounts/create', AccountController::class, 'createForm');
+$router->post('/accounts/create', AccountController::class, 'create');
+$router->get('/accounts/{id}', AccountController::class, 'show');
+$router->get('/accounts/{id}/edit', AccountController::class, 'editForm');
+$router->post('/accounts/{id}/edit', AccountController::class, 'edit');
+$router->post('/accounts/{id}/delete', AccountController::class, 'deleteAccount');
+
+// --- Transactions ---
+$router->post('/accounts/{accountId}/transactions', TransactionController::class, 'create');
+$router->post('/accounts/{accountId}/transactions/{transactionId}/delete', TransactionController::class, 'deleteTransaction');
+
+// --- Partage d'accès ---
+$router->post('/accounts/{accountId}/access', AccessController::class, 'grant');
+$router->post('/accounts/{accountId}/access/{userId}/revoke', AccessController::class, 'revoke');
 
 // Dispatcher la requête
 $router->dispatch();

@@ -60,7 +60,7 @@ class AuthController extends Controller
         Session::set('global_role', $user['global_role']);
 
         $this->setFlash('success', 'Bienvenue, ' . $user['username'] . ' !');
-        $this->redirect('/');
+        $this->redirect('/dashboard');
     }
 
     /**
@@ -113,7 +113,7 @@ class AuthController extends Controller
         Session::set('global_role', 'user');
 
         $this->setFlash('success', 'Compte créé avec succès !');
-        $this->redirect('/');
+        $this->redirect('/dashboard');
     }
 
     /**
