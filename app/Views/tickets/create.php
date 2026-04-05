@@ -41,7 +41,7 @@
                     <?php foreach ($accounts as $acc): ?>
                         <option value="<?= (int) $acc['id'] ?>">
                             <?= e($acc['name']) ?> (<?= e($acc['currency']) ?>)
-                            <?php if (!empty($acc['user_name']) && $acc['user_name'] !== ($acc['current_user_name'] ?? '')): ?>
+                            <?php if (!empty($acc['user_name']) && $acc['user_name'] !== ($currentUserName ?? '')): ?>
                                 — <?= e($acc['user_name']) ?>
                             <?php endif; ?>
                         </option>

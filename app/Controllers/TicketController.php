@@ -47,13 +47,32 @@ class TicketController extends Controller
     {
         $this->requireAuth();
 
-        $userId   = $this->getCurrentUserId();
-        $accounts = $this->accountModel->getAccessibleAccounts($userId);
+        $userId     = $this->getCurrentUserId();
+        $accessible = $this->accountModel->getAccessibleAccounts($userId);
+        $userModel  = new \App\Models\User();
+        $currentUser = $userModel->find($userId);
+        $currentUserName = $currentUser['username'] ?? '';
+
+        // Aplatir les comptes propres + partagés en un seul tableau
+        $accounts = [];
+        foreach ($accessible['own'] as $acc) {
+            $acc['user_name'] = $currentUserName;
+            $accounts[] = $acc;
+        }
+        foreach ($accessible['shared'] as $acc) {
+            if (empty($acc['user_name'])) {
+                // Récupérer le nom du propriétaire
+                $owner = $userModel->find((int) $acc['user_id']);
+                $acc['user_name'] = $owner['username'] ?? 'Inconnu';
+            }
+            $accounts[] = $acc;
+        }
 
         $this->render('tickets/create', [
-            'title'    => 'Nouvelle demande',
-            'types'    => Ticket::TYPES,
-            'accounts' => $accounts,
+            'title'           => 'Nouvelle demande',
+            'types'           => Ticket::TYPES,
+            'accounts'        => $accounts,
+            'currentUserName' => $currentUserName,
         ]);
     }
 
