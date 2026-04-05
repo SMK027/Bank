@@ -23,6 +23,24 @@ class Account extends Model
         'minor'    => ['label' => 'Compte mineur',        'overdraft' => false, 'cap' => false],
     ];
 
+    /** Types accessibles aux mineurs uniquement. */
+    public const MINOR_ALLOWED_TYPES = ['minor', 'savings'];
+
+    /**
+     * Retourne les types de comptes accessibles selon le statut mineur/majeur.
+     */
+    public static function getAllowedTypes(bool $isMinor): array
+    {
+        if (!$isMinor) {
+            return self::TYPES;
+        }
+        return array_filter(
+            self::TYPES,
+            fn(string $key) => in_array($key, self::MINOR_ALLOWED_TYPES, true),
+            ARRAY_FILTER_USE_KEY
+        );
+    }
+
     public static function typeAllowsOverdraft(string $type): bool
     {
         return self::TYPES[$type]['overdraft'] ?? true;

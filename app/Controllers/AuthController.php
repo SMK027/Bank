@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Core\Session;
+use App\Models\Account;
 use App\Models\User;
 
 /**
@@ -77,10 +78,10 @@ class AuthController extends Controller
     public function register(): void
     {
         $this->validateCSRF();
-        $data = $this->getPostData(['username', 'email', 'password']);
+        $data = $this->getPostData(['username', 'email', 'password', 'birth_date']);
 
-        if (empty($data['username']) || empty($data['email']) || empty($data['password'])) {
-            $this->setFlash('danger', 'Tous les champs sont requis.');
+        if (empty($data['username']) || empty($data['email']) || empty($data['password']) || empty($data['birth_date'])) {
+            $this->setFlash('danger', 'Tous les champs sont requis, y compris la date de naissance.');
             $this->redirect('/register');
             return;
         }
@@ -91,28 +92,45 @@ class AuthController extends Controller
             return;
         }
 
-        // Vérifier l'unicité de l'email
+        $dob = \DateTime::createFromFormat('Y-m-d', $data['birth_date']);
+        if (!$dob || $dob->format('Y-m-d') !== $data['birth_date']) {
+            $this->setFlash('danger', 'Date de naissance invalide.');
+            $this->redirect('/register');
+            return;
+        }
+        $now = new \DateTime();
+        if ($dob > $now) {
+            $this->setFlash('danger', 'La date de naissance ne peut pas être dans le futur.');
+            $this->redirect('/register');
+            return;
+        }
+        if ($now->diff($dob)->y > 120) {
+            $this->setFlash('danger', 'Date de naissance invalide.');
+            $this->redirect('/register');
+            return;
+        }
+
         if ($this->userModel->findByEmail($data['email'])) {
             $this->setFlash('danger', 'Cette adresse email est déjà utilisée.');
             $this->redirect('/register');
             return;
         }
 
-        // Vérifier l'unicité du nom d'utilisateur
         if ($this->userModel->findByUsername($data['username'])) {
             $this->setFlash('danger', 'Ce nom d\'utilisateur est déjà pris.');
             $this->redirect('/register');
             return;
         }
 
-        $userId = $this->userModel->register($data['username'], $data['email'], $data['password']);
+        $userId = $this->userModel->register($data['username'], $data['email'], $data['password'], $data['birth_date']);
 
         Session::regenerate();
         Session::set('user_id', $userId);
         Session::set('username', $data['username']);
         Session::set('global_role', 'user');
 
-        $this->setFlash('success', 'Compte créé avec succès !');
+        $isMinor = User::isMinorFromDate($data['birth_date']);
+        $this->setFlash('success', 'Compte créé avec succès !' . ($isMinor ? ' (profil mineur : types de comptes limités)' : ''));
         $this->redirect('/dashboard');
     }
 

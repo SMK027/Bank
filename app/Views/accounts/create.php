@@ -2,6 +2,15 @@
     <div class="card">
         <div class="card-body">
             <h2><i class="bi bi-plus-circle"></i> Créer un compte bancaire</h2>
+            <?php if ($isMinor): ?>
+            <div class="alert alert-warning" style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;">
+                <i class="bi bi-person-arms-up" style="font-size:1.2rem;"></i>
+                <span>
+                    <strong>Profil mineur</strong> — Seuls les comptes
+                    <strong>Mineur</strong> et <strong>Épargne</strong> sont disponibles.
+                </span>
+            </div>
+            <?php endif; ?>
             <form method="POST" action="/accounts/create">
                 <?= csrf_field() ?>
                 <div class="form-group">

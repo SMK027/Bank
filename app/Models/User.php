@@ -10,13 +10,14 @@ class User extends Model
 {
     protected string $table = 'users';
 
-    public function register(string $username, string $email, string $password): int
+    public function register(string $username, string $email, string $password, string $birthDate): int
     {
         return $this->create([
             'username'    => $username,
             'email'       => $email,
             'password'    => password_hash($password, PASSWORD_BCRYPT),
             'global_role' => 'user',
+            'birth_date'  => $birthDate,
         ]);
     }
 
@@ -53,5 +54,21 @@ class User extends Model
             return false;
         }
         return $this->update($userId, ['global_role' => $role]);
+    }
+
+    /**
+     * Retourne vrai si l'utilisateur est mineur (moins de 18 ans).
+     * Renvoie false si birth_date est NULL (utilisateur existant → traité comme majeur).
+     */
+    public static function isMinorFromDate(?string $birthDate): bool
+    {
+        if (empty($birthDate)) {
+            return false;
+        }
+        $dob = \DateTime::createFromFormat('Y-m-d', $birthDate);
+        if (!$dob) {
+            return false;
+        }
+        return (new \DateTime())->diff($dob)->y < 18;
     }
 }

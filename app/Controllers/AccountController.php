@@ -32,9 +32,12 @@ class AccountController extends Controller
     public function createForm(): void
     {
         $this->requireAuth();
+        $user    = $this->userModel->find($this->getCurrentUserId());
+        $isMinor = User::isMinorFromDate($user['birth_date'] ?? null);
         $this->render('accounts/create', [
-            'title' => 'Créer un compte bancaire',
-            'accountTypes' => Account::TYPES,
+            'title'        => 'Créer un compte bancaire',
+            'accountTypes' => Account::getAllowedTypes($isMinor),
+            'isMinor'      => $isMinor,
         ]);
     }
 
@@ -51,7 +54,17 @@ class AccountController extends Controller
             return;
         }
 
-        $type      = array_key_exists($data['account_type'], Account::TYPES) ? $data['account_type'] : 'standard';
+        $user         = $this->userModel->find($this->getCurrentUserId());
+        $isMinor      = User::isMinorFromDate($user['birth_date'] ?? null);
+        $allowedTypes = Account::getAllowedTypes($isMinor);
+
+        if (!array_key_exists($data['account_type'], $allowedTypes)) {
+            $this->setFlash('danger', 'Type de compte non autorisé pour votre profil.');
+            $this->redirect('/accounts/create');
+            return;
+        }
+
+        $type      = $data['account_type'];
         $overdraft = Account::typeAllowsOverdraft($type) ? abs((float) ($data['overdraft'] ?: 0)) : 0.0;
         $cap       = Account::typeHasCap($type) && $data['cap'] !== '' ? abs((float) $data['cap']) : null;
 
