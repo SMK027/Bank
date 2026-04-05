@@ -408,20 +408,154 @@
     <?php endif; ?>
 </div>
 
-<!-- Historique des transactions -->
-<div class="card mt-2">
-    <div class="card-header">
-        <h3><i class="bi bi-clock-history"></i> Historique des opérations</h3>
+<!-- ======================================================= -->
+<!-- Section : Opérations à venir                          -->
+<!-- ======================================================= -->
+<?php $hasUpcoming = !empty($pendingTransactions) || !empty($upcomingDebits); ?>
+<div class="card mt-2" style="border-left: 3px solid var(--warning, #f59e0b);">
+    <div class="card-header" style="display:flex;align-items:center;gap:0.6rem;">
+        <h3 style="margin:0;"><i class="bi bi-clock" style="color:var(--warning,#f59e0b);"></i> Opérations à venir</h3>
+        <?php if ($hasUpcoming): ?>
+            <span class="badge" style="background:var(--warning,#f59e0b);color:#fff;">
+                <?= count($pendingTransactions) + count($upcomingDebits) ?>
+            </span>
+        <?php endif; ?>
     </div>
     <div class="card-body">
-        <?php if (empty($transactions)): ?>
+        <?php if (!$hasUpcoming): ?>
+            <div class="empty-state">
+                <div class="empty-icon">🕐</div>
+                <p>Aucune opération à venir.</p>
+            </div>
+        <?php else: ?>
+
+            <?php if (!empty($pendingTransactions)): ?>
+            <!-- Transactions programmées (income / expense programmés) -->
+            <h4 style="margin-bottom:0.6rem;font-size:0.95rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">
+                <i class="bi bi-calendar-event"></i> Débits / Crédits programmés
+                <span class="badge badge-secondary"><?= count($pendingTransactions) ?></span>
+            </h4>
+            <div class="table-responsive" style="margin-bottom:1.25rem;">
+                <table class="table" id="pending-tx-table">
+                    <thead>
+                        <tr>
+                            <th>Date prévue</th>
+                            <th>Type</th>
+                            <th>Catégorie</th>
+                            <th>Par</th>
+                            <th>Commentaire</th>
+                            <th class="text-right">Montant</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($pendingTransactions as $t): ?>
+                            <tr style="opacity:0.85;font-style:italic;">
+                                <td>
+                                    <i class="bi bi-clock" style="color:var(--warning,#f59e0b);"></i>
+                                    <?= date('d/m/Y H:i', strtotime($t['scheduled_at'])) ?>
+                                    <br><small class="text-muted" style="font-style:normal;">Créée le <?= date('d/m/Y', strtotime($t['created_at'])) ?></small>
+                                </td>
+                                <td>
+                                    <?php if ($t['type'] === 'income'): ?>
+                                        <span class="badge badge-success">Entrée</span>
+                                    <?php else: ?>
+                                        <span class="badge badge-danger">Dépense</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?= e($t['category']) ?></td>
+                                <td>
+                                    <span class="badge badge-secondary">
+                                        <i class="bi bi-person"></i> <?= e($t['author_name']) ?>
+                                    </span>
+                                </td>
+                                <td><?= e($t['comment'] ?? '') ?></td>
+                                <td class="text-right font-bold <?= $t['type'] === 'income' ? 'text-success' : 'text-danger' ?>">
+                                    <?= $t['type'] === 'income' ? '+' : '-' ?><?= number_format((float) $t['amount'], 2, ',', ' ') ?>
+                                </td>
+                                <td>
+                                    <?php if ($isModerator): ?>
+                                    <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/transactions/<?= (int) $t['id'] ?>/delete"
+                                          style="display:inline">
+                                        <?= csrf_field() ?>
+                                        <button type="submit" class="btn btn-outline-danger btn-sm"
+                                                onclick="return confirm('Supprimer cette opération programmée ?')">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+
+            <?php if (!empty($upcomingDebits)): ?>
+            <!-- Prélèvements planifiés -->
+            <h4 style="margin-bottom:0.6rem;font-size:0.95rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">
+                <i class="bi bi-bank"></i> Prélèvements planifiés
+                <span class="badge badge-secondary"><?= count($upcomingDebits) ?></span>
+            </h4>
+            <div class="table-responsive">
+                <table class="table" id="upcoming-debits-table">
+                    <thead>
+                        <tr>
+                            <th>Date prévue</th>
+                            <th>N° mandat</th>
+                            <th>Motif</th>
+                            <th class="text-right">Montant</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($upcomingDebits as $d): ?>
+                            <?php $isDue = strtotime($d['scheduled_at']) <= time(); ?>
+                            <tr style="opacity:0.85;font-style:italic;">
+                                <td>
+                                    <?php if ($isDue): ?>
+                                        <i class="bi bi-hourglass-split" style="color:var(--danger);"></i>
+                                        <strong style="color:var(--danger);"><?= date('d/m/Y H:i', strtotime($d['scheduled_at'])) ?></strong>
+                                        <br><small class="text-danger" style="font-style:normal;">En attente d'exécution</small>
+                                    <?php else: ?>
+                                        <i class="bi bi-clock" style="color:var(--warning,#f59e0b);"></i>
+                                        <?= date('d/m/Y H:i', strtotime($d['scheduled_at'])) ?>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <span class="badge badge-secondary"><?= e($d['mandate_number']) ?></span>
+                                </td>
+                                <td><?= e($d['motif'] ?? '—') ?></td>
+                                <td class="text-right font-bold text-danger">
+                                    -<?= number_format((float) $d['amount'], 2, ',', ' ') ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+
+        <?php endif; ?>
+    </div>
+</div>
+
+<!-- ======================================================= -->
+<!-- Section : Opérations effectuées                         -->
+<!-- ======================================================= -->
+<div class="card mt-2">
+    <div class="card-header">
+        <h3><i class="bi bi-clock-history"></i> Opérations effectuées</h3>
+    </div>
+    <div class="card-body">
+        <?php if (empty($executedTransactions)): ?>
             <div class="empty-state">
                 <div class="empty-icon">📊</div>
-                <p>Aucune opération enregistrée pour le moment.</p>
+                <p>Aucune opération effectuée pour le moment.</p>
             </div>
         <?php else: ?>
             <?php
-                $txAuthors = array_values(array_unique(array_column($transactions, 'author_name')));
+                $txAuthors = array_values(array_unique(array_column($executedTransactions, 'author_name')));
                 sort($txAuthors);
             ?>
             <!-- Barre de filtres -->
@@ -451,14 +585,6 @@
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="form-group" style="margin:0;min-width:150px;">
-                    <label class="form-label" style="font-size:0.8rem;">Statut</label>
-                    <select id="tx-filter-status" class="form-control form-control-sm">
-                        <option value="">Tous</option>
-                        <option value="done">Effectuées</option>
-                        <option value="pending">À venir</option>
-                    </select>
-                </div>
                 <div class="form-group" style="margin:0;">
                     <label class="form-label" style="font-size:0.8rem;">&nbsp;</label>
                     <button type="button" id="tx-filter-reset" class="btn btn-outline btn-sm" style="display:block;">
@@ -483,26 +609,16 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($transactions as $t): ?>
+                        <?php foreach ($executedTransactions as $t): ?>
                             <tr data-type="<?= e($t['type']) ?>"
                                 data-amount="<?= e((string) (float) $t['amount']) ?>"
-                                data-author="<?= e($t['author_name']) ?>"
-                                data-pending="<?= $t['is_pending'] ? '1' : '0' ?>"
-                                <?php if ($t['is_pending']): ?>style="opacity:0.75;font-style:italic;"<?php endif; ?>>
-                                <td>
-                                    <?= date('d/m/Y H:i', strtotime($t['created_at'])) ?>
-                                    <?php if ($t['is_pending']): ?>
-                                        <br><small class="text-muted"><i class="bi bi-clock"></i> Prévue : <?= date('d/m/Y H:i', strtotime($t['scheduled_at'])) ?></small>
-                                    <?php endif; ?>
-                                </td>
+                                data-author="<?= e($t['author_name']) ?>">
+                                <td><?= date('d/m/Y H:i', strtotime($t['created_at'])) ?></td>
                                 <td>
                                     <?php if ($t['type'] === 'income'): ?>
                                         <span class="badge badge-success">Entrée</span>
                                     <?php else: ?>
                                         <span class="badge badge-danger">Dépense</span>
-                                    <?php endif; ?>
-                                    <?php if ($t['is_pending']): ?>
-                                        <br><span class="badge" style="background:var(--warning,#f59e0b);color:#fff;margin-top:2px;"><i class="bi bi-clock"></i> À venir</span>
                                     <?php endif; ?>
                                 </td>
                                 <td><?= e($t['category']) ?></td>
@@ -551,22 +667,18 @@
                     var min    = minEl.value !== '' ? parseFloat(minEl.value) : null;
                     var max    = maxEl.value !== '' ? parseFloat(maxEl.value) : null;
                     var author = authorEl.value.toLowerCase();
-                    var status = document.getElementById('tx-filter-status').value;
                     var visible = 0;
 
                     rows.forEach(function (row) {
-                        var rType    = row.dataset.type;
-                        var rAmount  = parseFloat(row.dataset.amount);
-                        var rAuthor  = row.dataset.author.toLowerCase();
-                        var rPending = row.dataset.pending === '1';
+                        var rType   = row.dataset.type;
+                        var rAmount = parseFloat(row.dataset.amount);
+                        var rAuthor = row.dataset.author.toLowerCase();
 
                         var ok = true;
-                        if (type   && rType !== type)                              ok = false;
-                        if (min !== null && rAmount < min)                         ok = false;
-                        if (max !== null && rAmount > max)                         ok = false;
-                        if (author && rAuthor !== author)                          ok = false;
-                        if (status === 'done'    &&  rPending)                     ok = false;
-                        if (status === 'pending' && !rPending)                     ok = false;
+                        if (type   && rType !== type)     ok = false;
+                        if (min !== null && rAmount < min) ok = false;
+                        if (max !== null && rAmount > max) ok = false;
+                        if (author && rAuthor !== author)  ok = false;
 
                         row.style.display = ok ? '' : 'none';
                         if (ok) visible++;
@@ -580,14 +692,12 @@
                 minEl.addEventListener('input', applyFilters);
                 maxEl.addEventListener('input', applyFilters);
                 authorEl.addEventListener('change', applyFilters);
-                document.getElementById('tx-filter-status').addEventListener('change', applyFilters);
 
                 resetBtn.addEventListener('click', function () {
                     typeEl.value   = '';
                     minEl.value    = '';
                     maxEl.value    = '';
                     authorEl.value = '';
-                    document.getElementById('tx-filter-status').value = '';
                     applyFilters();
                 });
 

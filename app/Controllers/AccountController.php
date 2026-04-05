@@ -9,6 +9,7 @@ use App\Core\Session;
 use App\Models\Account;
 use App\Models\Transaction;
 use App\Models\AccountAccess;
+use App\Models\DirectDebit;
 use App\Models\User;
 
 class AccountController extends Controller
@@ -16,14 +17,16 @@ class AccountController extends Controller
     private Account $accountModel;
     private Transaction $transactionModel;
     private AccountAccess $accessModel;
+    private DirectDebit $directDebitModel;
     private User $userModel;
 
     public function __construct()
     {
-        $this->accountModel = new Account();
+        $this->accountModel    = new Account();
         $this->transactionModel = new Transaction();
-        $this->accessModel = new AccountAccess();
-        $this->userModel = new User();
+        $this->accessModel      = new AccountAccess();
+        $this->directDebitModel = new DirectDebit();
+        $this->userModel        = new User();
     }
 
     public function createForm(): void
@@ -124,11 +127,25 @@ class AccountController extends Controller
         // Récupérer le propriétaire
         $owner = $this->userModel->find((int) $account['user_id']);
 
+        // Séparer les transactions à venir des exécutées
+        $pendingTransactions  = array_values(array_filter($transactions, fn($t) => $t['is_pending']));
+        $executedTransactions = array_values(array_filter($transactions, fn($t) => !$t['is_pending']));
+
+        // Prélèvements planifiés sur ce compte (to_account) non encore exécutés
+        $upcomingDebits = $this->directDebitModel->findBy(
+            ['to_account_id' => $accountId, 'status' => DirectDebit::STATUS_SCHEDULED],
+            'scheduled_at',
+            'ASC'
+        );
+
         $this->render('accounts/show', [
-            'title'              => $account['name'],
-            'account'            => $account,
-            'transactions'       => $transactions,
-            'balance'            => $balance,
+            'title'                => $account['name'],
+            'account'             => $account,
+            'transactions'        => $transactions,
+            'pendingTransactions'  => $pendingTransactions,
+            'executedTransactions' => $executedTransactions,
+            'upcomingDebits'       => $upcomingDebits,
+            'balance'             => $balance,
             'futureBalance'      => $futureBalance,
             'hasPending'         => $hasPending,
             'totalIncome'        => $totalIncome,
