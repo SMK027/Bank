@@ -43,10 +43,37 @@ foreach ($guardianships as $g) {
 }
 ?>
 
-<div style="display:flex;flex-direction:column;gap:1rem;">
+<div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;flex-wrap:wrap;">
+    <div style="display:flex;border:1px solid var(--border-color);border-radius:6px;overflow:hidden;flex-shrink:0;">
+        <button id="filter-by-minor" onclick="setFilterMode('minor')"
+                class="btn btn-sm"
+                style="border-radius:0;border:none;padding:0.35rem 0.9rem;font-size:0.82rem;background:var(--primary,#3b82f6);color:#fff;">
+            <i class="bi bi-person-badge"></i> Par enfant
+        </button>
+        <button id="filter-by-guardian" onclick="setFilterMode('guardian')"
+                class="btn btn-sm"
+                style="border-radius:0;border:none;border-left:1px solid var(--border-color);padding:0.35rem 0.9rem;font-size:0.82rem;background:var(--card-bg,#fff);color:var(--text-muted);">
+            <i class="bi bi-person-check"></i> Par tuteur
+        </button>
+    </div>
+    <div style="position:relative;flex:1;min-width:180px;max-width:340px;">
+        <i class="bi bi-search" style="position:absolute;left:0.6rem;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:0.82rem;pointer-events:none;"></i>
+        <input type="text" id="guardianship-filter"
+               placeholder="Filtrer…"
+               autocomplete="off"
+               oninput="applyFilter()"
+               style="width:100%;padding:0.35rem 0.6rem 0.35rem 1.9rem;font-size:0.83rem;border:1px solid var(--border-color);border-radius:6px;background:var(--input-bg,#fff);color:var(--text);box-sizing:border-box;">
+    </div>
+    <span id="filter-count" style="font-size:0.78rem;color:var(--text-muted);"></span>
+</div>
+
+<div id="guardianship-list" style="display:flex;flex-direction:column;gap:1rem;">
 <?php foreach ($byMinor as $minorId => $links): ?>
 <?php $first = $links[0]; ?>
-<div class="card">
+<?php $guardianNames = implode(' ', array_column($links, 'guardian_username')); ?>
+<div class="card guardianship-card"
+     data-minor="<?= e(strtolower($first['minor_username'])) ?>"
+     data-guardians="<?= e(strtolower($guardianNames)) ?>">
     <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
         <div style="display:flex;align-items:center;gap:0.6rem;">
             <i class="bi bi-person-badge" style="font-size:1.1rem;"></i>
@@ -208,6 +235,48 @@ foreach ($guardianships as $g) {
 
 <script>
 var USER_SEARCH_URL = '/moderation/users/search';
+var _filterMode = 'minor';
+
+function setFilterMode(mode) {
+    _filterMode = mode;
+    var btnMinor    = document.getElementById('filter-by-minor');
+    var btnGuardian = document.getElementById('filter-by-guardian');
+    if (mode === 'minor') {
+        btnMinor.style.background    = 'var(--primary,#3b82f6)';
+        btnMinor.style.color         = '#fff';
+        btnGuardian.style.background = 'var(--card-bg,#fff)';
+        btnGuardian.style.color      = 'var(--text-muted)';
+        document.getElementById('guardianship-filter').placeholder = 'Filtrer par enfant…';
+    } else {
+        btnGuardian.style.background = 'var(--primary,#3b82f6)';
+        btnGuardian.style.color      = '#fff';
+        btnMinor.style.background    = 'var(--card-bg,#fff)';
+        btnMinor.style.color         = 'var(--text-muted)';
+        document.getElementById('guardianship-filter').placeholder = 'Filtrer par tuteur…';
+    }
+    applyFilter();
+}
+
+function applyFilter() {
+    var q     = document.getElementById('guardianship-filter').value.trim().toLowerCase();
+    var cards = document.querySelectorAll('.guardianship-card');
+    var shown = 0;
+    cards.forEach(function(card) {
+        var haystack = _filterMode === 'minor'
+            ? card.dataset.minor
+            : card.dataset.guardians;
+        var match = !q || haystack.indexOf(q) !== -1;
+        card.style.display = match ? '' : 'none';
+        if (match) shown++;
+    });
+    var countEl = document.getElementById('filter-count');
+    if (q) {
+        countEl.textContent = shown + ' résultat' + (shown > 1 ? 's' : '');
+    } else {
+        countEl.textContent = '';
+    }
+}
+
 var _acTimers = {};
 
 function setupUserAc(prefix, type) {
