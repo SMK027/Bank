@@ -59,6 +59,16 @@ class AccessController extends Controller
             return;
         }
 
+        // Partage interdit sur les comptes mineurs sauf par un modérateur
+        if (!$isModerator && $account) {
+            $accountOwner = $this->userModel->find((int) $account['user_id']);
+            if (User::isMinorFromDate($accountOwner['birth_date'] ?? null)) {
+                $this->setFlash('danger', 'Le partage d’accès est interdit sur un compte mineur. Seul un modérateur peut accorder des accès.');
+                $this->redirect('/accounts/' . $accountId);
+                return;
+            }
+        }
+
         if (!$isModerator && (int) $targetUser['id'] === $userId) {
             $this->setFlash('danger', 'Vous ne pouvez pas partager un compte avec vous-même.');
             $this->redirect('/accounts/' . $accountId);
@@ -95,10 +105,25 @@ class AccessController extends Controller
         $accId = (int) $accountId;
         $currentUserId = $this->getCurrentUserId();
 
-        if (!$this->isModerator() && !$this->accountModel->isOwner($accId, $currentUserId)) {
+        $isModerator = $this->isModerator();
+
+        if (!$isModerator && !$this->accountModel->isOwner($accId, $currentUserId)) {
             $this->setFlash('danger', 'Seul le propriétaire peut révoquer un accès.');
             $this->redirect('/dashboard');
             return;
+        }
+
+        // Révocation interdite sur les comptes mineurs sauf par un modérateur
+        if (!$isModerator) {
+            $account = $this->accountModel->find($accId);
+            if ($account) {
+                $accountOwner = $this->userModel->find((int) $account['user_id']);
+                if (User::isMinorFromDate($accountOwner['birth_date'] ?? null)) {
+                    $this->setFlash('danger', 'La gestion des accès est interdite sur un compte mineur.');
+                    $this->redirect('/accounts/' . $accountId);
+                    return;
+                }
+            }
         }
 
         $this->accessModel->revokeAccess($accId, (int) $userId);

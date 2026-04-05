@@ -326,8 +326,21 @@
         </div>
     </div>
 
-    <!-- Partage de compte (propriétaire ou modérateur) -->
-    <?php if ($isOwner || $isModerator): ?>
+    <!-- Partage de compte (propriétaire ou modérateur, interdit pour comptes mineurs sauf modérateur) -->
+    <?php if ($isMinorAccount && $isOwner && !$isModerator): ?>
+    <div class="card mb-2" style="border-left:4px solid #f59e0b;">
+        <div class="card-header">
+            <h3><i class="bi bi-person-plus"></i> Partager l'accès</h3>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-warning" style="margin:0;display:flex;align-items:center;gap:0.6rem;">
+                <i class="bi bi-lock-fill" style="font-size:1.2rem;"></i>
+                <span>Le partage d'accès est <strong>interdit</strong> pour les comptes mineurs.
+                Seul un <strong>modérateur</strong> peut accorder des accès exceptionnels.</span>
+            </div>
+        </div>
+    </div>
+    <?php elseif ($isOwner || $isModerator): ?>
     <div class="card mb-2">
         <div class="card-header">
             <h3><i class="bi bi-person-plus"></i> Partager l'accès</h3>
