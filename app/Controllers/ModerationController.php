@@ -449,6 +449,67 @@ class ModerationController extends Controller
     }
 
     /**
+     * Rejeter un prélèvement exécuté (POST) — crée des transactions inverses.
+     */
+    public function rejectDirectDebit(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $debitId     = (int) $id;
+        $directDebit = $this->directDebitModel->find($debitId);
+
+        if (!$directDebit) {
+            $this->setFlash('danger', 'Prélèvement introuvable.');
+            $this->redirect('/moderation/direct-debits');
+            return;
+        }
+
+        if (!$this->directDebitModel->canReject($directDebit)) {
+            $this->setFlash('danger', 'Ce prélèvement ne peut pas être rejeté (seuls les prélèvements exécutés sont rejetables).');
+            $this->redirect('/moderation/direct-debits');
+            return;
+        }
+
+        $amount        = (float) $directDebit['amount'];
+        $toAccountId   = (int) $directDebit['to_account_id'];
+        $fromAccountId = $directDebit['from_account_id'] !== null ? (int) $directDebit['from_account_id'] : null;
+        $comment       = 'Rejet prélèvement mandat ' . $directDebit['mandate_number'];
+        $moderatorId   = $this->getCurrentUserId();
+
+        // Remboursement du compte débité (crédit = reversal)
+        $this->transactionModel->addTransaction(
+            $toAccountId,
+            'income',
+            $amount,
+            'Rejet de prélèvement',
+            $comment,
+            $moderatorId
+        );
+
+        // Reprise sur le compte émetteur si applicable (débit = reversal)
+        if ($fromAccountId !== null) {
+            $this->transactionModel->addTransaction(
+                $fromAccountId,
+                'expense',
+                $amount,
+                'Rejet de prélèvement',
+                $comment,
+                $moderatorId
+            );
+        }
+
+        $this->directDebitModel->markRejected($debitId);
+        $this->setFlash('success', sprintf(
+            'Prélèvement #%d (mandat %s) rejeté — montant de %s € recrédité sur le compte.',
+            $debitId,
+            $directDebit['mandate_number'],
+            number_format($amount, 2, ',', ' ')
+        ));
+        $this->redirect('/moderation/direct-debits');
+    }
+
+    /**
      * Recherche de comptes pour l'autocomplete (GET, JSON).
      * Paramètre : ?q=terme_de_recherche
      */

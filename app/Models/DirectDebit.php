@@ -33,12 +33,14 @@ class DirectDebit extends Model
     public const STATUS_SUCCESS   = 'success';
     public const STATUS_FAILED    = 'failed';
     public const STATUS_CANCELLED = 'cancelled';
+    public const STATUS_REJECTED  = 'rejected';
 
     public const STATUS_LABELS = [
         self::STATUS_SCHEDULED => 'Planifié',
         self::STATUS_SUCCESS   => 'Exécuté',
         self::STATUS_FAILED    => 'Échoué',
         self::STATUS_CANCELLED => 'Annulé',
+        self::STATUS_REJECTED  => 'Rejeté',
     ];
 
     /**
@@ -119,5 +121,21 @@ class DirectDebit extends Model
     public function canCancel(array $directDebit): bool
     {
         return ($directDebit['status'] ?? '') === self::STATUS_SCHEDULED;
+    }
+
+    /**
+     * Vérifie si un prélèvement peut être rejeté (statut success uniquement).
+     */
+    public function canReject(array $directDebit): bool
+    {
+        return ($directDebit['status'] ?? '') === self::STATUS_SUCCESS;
+    }
+
+    /**
+     * Marque le prélèvement comme rejeté (après exécution — transactions inversées par le contrôleur).
+     */
+    public function markRejected(int $id): bool
+    {
+        return $this->update($id, ['status' => self::STATUS_REJECTED]);
     }
 }

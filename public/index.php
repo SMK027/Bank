@@ -91,6 +91,7 @@ $router->get('/moderation/direct-debits', ModerationController::class, 'directDe
 $router->get('/moderation/direct-debits/create', ModerationController::class, 'createDirectDebitForm');
 $router->post('/moderation/direct-debits', ModerationController::class, 'createDirectDebit');
 $router->post('/moderation/direct-debits/{id}/cancel', ModerationController::class, 'cancelDirectDebit');
+$router->post('/moderation/direct-debits/{id}/reject', ModerationController::class, 'rejectDirectDebit');
 $router->get('/moderation/direct-debits/accounts/search', ModerationController::class, 'searchAccounts');
 
 // --- Partage d'accès ---

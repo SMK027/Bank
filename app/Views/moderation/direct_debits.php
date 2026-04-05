@@ -45,6 +45,7 @@
                     <option value="success">Exécuté</option>
                     <option value="failed">Échoué</option>
                     <option value="cancelled">Annulé</option>
+                    <option value="rejected">Rejeté</option>
                 </select>
             </div>
             <div>
@@ -124,6 +125,7 @@ var STATUS_BADGE = {
     success:   '<span class="badge badge-success">Exécuté</span>',
     failed:    '<span class="badge badge-danger">Échoué</span>',
     cancelled: '<span class="badge badge-secondary">Annulé</span>',
+    rejected:  '<span class="badge badge-danger" style="opacity:0.8">Rejeté</span>',
 };
 
 function esc(s) {
@@ -165,15 +167,14 @@ function renderTable() {
                 + '<button type="submit" class="btn btn-danger btn-sm" style="padding:0.2rem 0.5rem;font-size:0.76rem;">'
                 + '<i class="bi bi-x-circle"></i> Annuler</button>'
                 + '</form>';
-        } else {
-            actionCell = '<span style="color:var(--text-muted);font-size:0.76rem;">—</span>';
-        }
-
-        html +=
-            '<tr>'
-            + '<td style="padding:0.5rem 0.8rem;white-space:nowrap">' + esc(String(d.id)) + '</td>'
-            + '<td style="padding:0.5rem 0.8rem;white-space:nowrap;font-family:monospace">' + esc(d.mandate_number) + '</td>'
-            + '<td style="padding:0.5rem 0.8rem;white-space:nowrap;font-weight:600">' + fmtAmount(d.amount) + '</td>'
+        } else if (d.status === 'success') {
+            actionCell =
+                '<form method="POST" action="/moderation/direct-debits/' + esc(String(d.id)) + '/reject"'
+                + ' style="display:inline" onsubmit="return confirm(\'Rejeter le prélèvement #' + d.id + ' (mandat ' + esc(d.mandate_number) + ') ?\\nLe montant sera recrédité sur le compte débité.\');">'  
+                + '<input type="hidden" name="csrf_token" value="' + esc(DD_CSRF) + '">'
+                + '<button type="submit" class="btn btn-warning btn-sm" style="padding:0.2rem 0.5rem;font-size:0.76rem;">'
+                + '<i class="bi bi-arrow-counterclockwise"></i> Rejeter</button>'
+                + '</form>';
             + '<td style="padding:0.5rem 0.8rem;white-space:nowrap">' + esc(d.from_account) + '</td>'
             + '<td style="padding:0.5rem 0.8rem;white-space:nowrap">' + esc(d.to_account) + '</td>'
             + '<td style="padding:0.5rem 0.8rem;max-width:160px;overflow:hidden;text-overflow:ellipsis">' + esc(d.motif || '—') + '</td>'
