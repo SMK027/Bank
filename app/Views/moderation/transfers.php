@@ -31,14 +31,15 @@
 <div class="card mb-2">
     <div class="card-body" style="padding:0.9rem 1.1rem;">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem 0.75rem;">
-            <div>
+            <div style="position:relative">
                 <label style="font-size:0.76rem;font-weight:600;margin-bottom:2px;display:block">Auteur</label>
-                <select id="tf-author" class="form-control" style="font-size:0.82rem;padding:0.3rem 0.5rem;height:auto">
-                    <option value="">Tous</option>
-                    <?php foreach ($tfAuthors as $uname): ?>
-                        <option value="<?= e($uname) ?>"><?= e($uname) ?></option>
-                    <?php endforeach; ?>
-                </select>
+                <input type="text" id="tf-author-search"
+                       class="form-control"
+                       style="font-size:0.82rem;padding:0.3rem 0.5rem;height:auto"
+                       placeholder="Tous…"
+                       autocomplete="off">
+                <div id="tf-author-results"
+                     style="display:none;position:absolute;z-index:300;width:100%;background:var(--card-bg,#fff);border:1px solid var(--border-color);border-radius:4px;max-height:180px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.15);top:calc(100% + 2px);left:0;"></div>
             </div>
             <div>
                 <label style="font-size:0.76rem;font-weight:600;margin-bottom:2px;display:block">Statut</label>
@@ -111,8 +112,9 @@
 
 <script>
 (function () {
-    var TRANSFERS = <?= $transfersJson ?? '[]' ?>;
-    var TF_CSRF   = <?= json_encode($csrfToken ?? '') ?>;
+    var TRANSFERS   = <?= $transfersJson ?? '[]' ?>;
+    var TF_CSRF     = <?= json_encode($csrfToken ?? '') ?>;
+    var TF_AUTHORS  = <?= json_encode(array_values($tfAuthors ?? []), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?>;
 
     var STATUS_LABELS = {
         'scheduled': 'Planifié',
@@ -210,8 +212,49 @@
         tbody.innerHTML = html;
     }
 
+    // ── Autocomplete auteur ─────────────────────────────────────────────
+    (function () {
+        var input   = document.getElementById('tf-author-search');
+        var results = document.getElementById('tf-author-results');
+        if (!input || !results) return;
+
+        function showSuggestions(q) {
+            var lower = q.toLowerCase();
+            var matches = q === ''
+                ? TF_AUTHORS
+                : TF_AUTHORS.filter(function (n) { return n.toLowerCase().indexOf(lower) !== -1; });
+            if (!matches.length) { results.style.display = 'none'; return; }
+            var html = '';
+            matches.forEach(function (n) {
+                html += '<div class="tf-ac-item"
+                     style="padding:0.45rem 0.75rem;cursor:pointer;font-size:0.83rem;border-bottom:1px solid var(--border-color);"'
+                     + ' data-name="' + n.replace(/"/g, '&quot;') + '">'
+                     + n.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
+            });
+            results.innerHTML = html;
+            results.querySelectorAll('.tf-ac-item').forEach(function (el) {
+                el.addEventListener('mouseenter', function () { this.style.background = 'var(--bg-secondary)'; });
+                el.addEventListener('mouseleave', function () { this.style.background = ''; });
+                el.addEventListener('mousedown', function (e) {
+                    e.preventDefault();
+                    input.value = this.dataset.name;
+                    results.style.display = 'none';
+                    filterTransfers();
+                });
+            });
+            results.style.display = 'block';
+        }
+
+        input.addEventListener('input',  function () { showSuggestions(this.value.trim()); filterTransfers(); });
+        input.addEventListener('focus',  function () { if (this.value.trim() === '') showSuggestions(''); });
+        input.addEventListener('blur',   function () { setTimeout(function () { results.style.display = 'none'; }, 150); });
+        document.addEventListener('click', function (e) {
+            if (!input.contains(e.target) && !results.contains(e.target)) results.style.display = 'none';
+        });
+    })();
+
     function filterTransfers() {
-        var author   = (document.getElementById('tf-author')     || {value:''}).value;
+        var author   = ((document.getElementById('tf-author-search') || {value:''}).value || '').trim().toLowerCase();
         var status   = (document.getElementById('tf-status')     || {value:''}).value;
         var amtMinEl = document.getElementById('tf-amount-min');
         var amtMaxEl = document.getElementById('tf-amount-max');
@@ -222,7 +265,7 @@
         var motif    = ((document.getElementById('tf-motif')     || {value:''}).value || '').toLowerCase().trim();
 
         var filtered = TRANSFERS.filter(function (t) {
-            if (author && t.user_name !== author)                                          return false;
+            if (author && t.user_name.toLowerCase().indexOf(author) === -1)               return false;
             if (status && t.status    !== status)                                          return false;
             if (t.amount < amtMin)                                                         return false;
             if (amtMax !== Infinity && t.amount > amtMax)                                  return false;
@@ -235,7 +278,7 @@
         renderTransfers(filtered);
     }
 
-    ['tf-author','tf-status','tf-amount-min','tf-amount-max','tf-date-from','tf-date-to'].forEach(function (id) {
+    ['tf-status','tf-amount-min','tf-amount-max','tf-date-from','tf-date-to'].forEach(function (id) {
         var el = document.getElementById(id);
         if (el) el.addEventListener('change', filterTransfers);
     });
@@ -246,10 +289,12 @@
     }
 
     window.resetTfFilters = function () {
-        ['tf-author','tf-status','tf-amount-min','tf-amount-max','tf-date-from','tf-date-to','tf-motif'].forEach(function (id) {
+        ['tf-status','tf-amount-min','tf-amount-max','tf-date-from','tf-date-to','tf-motif'].forEach(function (id) {
             var el = document.getElementById(id);
             if (el) el.value = '';
         });
+        var authorEl = document.getElementById('tf-author-search');
+        if (authorEl) authorEl.value = '';
         filterTransfers();
     };
 
