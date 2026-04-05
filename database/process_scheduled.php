@@ -89,13 +89,12 @@ foreach ($transferModel->getDueScheduled() as $transfer) {
    2. Traitement des prélèvements automatiques échus
    ───────────────────────────────────────────────────────────────── */
 foreach ($directDebitModel->getDue() as $debit) {
-    $debitId      = (int) $debit['id'];
-    $toAccountId  = (int) $debit['to_account_id'];
+    $debitId       = (int) $debit['id'];
+    $toAccountId   = (int) $debit['to_account_id'];
     $fromAccountId = $debit['from_account_id'] !== null ? (int) $debit['from_account_id'] : null;
-    $amount       = (float) $debit['amount'];
-    $mandate      = $debit['mandate_number'];
-    $motif        = $debit['motif'] ?? '';
-    $comment      = 'Prélèvement' . ($motif !== '' ? ' — ' . $motif : '') . ' (mandat ' . $mandate . ')';
+    $amount        = (float) $debit['amount'];
+    $mandate       = $debit['mandate_number'];
+    $motif         = $debit['motif'] ?? '';
 
     $ok = true;
 
@@ -128,13 +127,36 @@ foreach ($directDebitModel->getDue() as $debit) {
         }
     }
 
+    // Construire les commentaires détaillés
+    $toName   = $toAccount['name'] ?? ('Compte #' . $toAccountId);
+    $motifStr = $motif !== '' ? ' — ' . $motif : '';
+
+    if ($fromAccountId !== null) {
+        $fromAccount  = $accountModel->find($fromAccountId);
+        $fromName     = $fromAccount['name'] ?? ('Compte #' . $fromAccountId);
+
+        // Côté débité : "Prélèvement de <intitulé émetteur> (#<id>) — <motif> (mandat …)"
+        $debitComment  = 'Prélèvement de ' . $fromName . ' (#' . $fromAccountId . ')'
+                       . $motifStr . ' (mandat ' . $mandate . ')';
+
+        // Côté crédité : "Prélèvement vers <intitulé destinataire> (#<id>) — <motif> (mandat …)"
+        $creditComment = 'Prélèvement vers ' . $toName . ' (#' . $toAccountId . ')'
+                       . $motifStr . ' (mandat ' . $mandate . ')';
+    } else {
+        // Pas de compte émetteur (prélèvement banque)
+        $fromName      = null;
+        $debitComment  = 'Prélèvement bancaire — ' . $toName . ' (#' . $toAccountId . ')'
+                       . $motifStr . ' (mandat ' . $mandate . ')';
+        $creditComment = null;
+    }
+
     // Créer la transaction de débit sur le compte destinataire
     $debitTxId = $transactionModel->addTransaction(
         $toAccountId,
         'expense',
         $amount,
         'Prélèvement',
-        $comment,
+        $debitComment,
         0  // user_id = 0 → affiché comme "Modération"
     );
 
@@ -147,7 +169,7 @@ foreach ($directDebitModel->getDue() as $debit) {
                 'income',
                 $amount,
                 'Prélèvement',
-                $comment,
+                $creditComment,
                 0
             );
         } catch (\Throwable $e) {

@@ -30,11 +30,21 @@ foreach ($files as $file) {
 
     $sql = file_get_contents($file);
 
-    // Exécuter chaque instruction séparément (PDO::exec ne supporte pas
-    // plusieurs requêtes en mode mysql strict)
-    $pdo->exec($sql);
-
-    echo "OK\n";
+    try {
+        // Exécuter chaque instruction séparément (PDO::exec ne supporte pas
+        // plusieurs requêtes en mode mysql strict)
+        $pdo->exec($sql);
+        echo "OK\n";
+    } catch (\PDOException $e) {
+        // Colonne / index / table déjà existant(e) : on passe sans bloquer
+        $code = (int) $e->getCode();
+        if (in_array($code, [1060, 1061, 1050], true)) {
+            echo "SKIP (déjà appliquée : " . $e->getMessage() . ")\n";
+        } else {
+            echo "ERREUR\n";
+            throw $e;
+        }
+    }
 }
 
 echo "\nToutes les migrations ont été appliquées.\n";

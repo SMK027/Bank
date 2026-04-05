@@ -3,5 +3,5 @@
 -- ============================================================
 
 ALTER TABLE `users`
-    ADD COLUMN `birth_date` DATE NULL DEFAULT NULL
+    ADD COLUMN IF NOT EXISTS `birth_date` DATE NULL DEFAULT NULL
     AFTER `global_role`;
