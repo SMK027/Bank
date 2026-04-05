@@ -59,6 +59,7 @@ class AuthController extends Controller
         Session::set('user_id', $user['id']);
         Session::set('username', $user['username']);
         Session::set('global_role', $user['global_role']);
+        Session::set('birth_date_missing', empty($user['birth_date']));
 
         $this->setFlash('success', 'Bienvenue, ' . $user['username'] . ' !');
         $this->redirect('/dashboard');
@@ -128,6 +129,7 @@ class AuthController extends Controller
         Session::set('user_id', $userId);
         Session::set('username', $data['username']);
         Session::set('global_role', 'user');
+        Session::set('birth_date_missing', false);
 
         $isMinor = User::isMinorFromDate($data['birth_date']);
         $this->setFlash('success', 'Compte créé avec succès !' . ($isMinor ? ' (profil mineur : types de comptes limités)' : ''));

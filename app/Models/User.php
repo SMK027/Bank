@@ -56,6 +56,11 @@ class User extends Model
         return $this->update($userId, ['global_role' => $role]);
     }
 
+    public function updateBirthDate(int $userId, string $birthDate): bool
+    {
+        return $this->update($userId, ['birth_date' => $birthDate]);
+    }
+
     /**
      * Retourne vrai si l'utilisateur est mineur (moins de 18 ans).
      * Renvoie false si birth_date est NULL (utilisateur existant → traité comme majeur).

@@ -82,6 +82,7 @@ abstract class Controller
 
     /**
      * Exige que l'utilisateur soit connecté.
+     * Si la date de naissance est manquante, redirige vers le formulaire dédié.
      */
     protected function requireAuth(): void
     {
@@ -91,6 +92,14 @@ abstract class Controller
             }
             $this->setFlash('danger', 'Vous devez être connecté.');
             $this->redirect('/login');
+        }
+
+        // Forcer la saisie de la date de naissance pour les utilisateurs existants
+        if (Session::get('birth_date_missing')) {
+            $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+            if ($path !== '/profile/birth-date' && $path !== '/logout') {
+                $this->redirect('/profile/birth-date');
+            }
         }
     }
 

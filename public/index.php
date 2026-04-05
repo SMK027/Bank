@@ -61,6 +61,8 @@ $router->get('/dashboard', DashboardController::class, 'index');
 // --- Profil ---
 $router->get('/profile', ProfileController::class, 'index');
 $router->post('/profile/password', ProfileController::class, 'updatePassword');
+$router->get('/profile/birth-date', ProfileController::class, 'birthDateForm');
+$router->post('/profile/birth-date', ProfileController::class, 'saveBirthDate');
 
 // --- Comptes bancaires ---
 $router->get('/accounts/create', AccountController::class, 'createForm');
