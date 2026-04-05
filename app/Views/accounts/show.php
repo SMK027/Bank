@@ -7,13 +7,18 @@
             <?php endif; ?>
         </h1>
         <p class="page-description">
-            <?php if ($isModerator && !$isOwner): ?>
-                <span class="badge badge-mod" style="margin-right:0.4rem;"><i class="bi bi-shield-check"></i> Vue modérateur</span>
-                Propriétaire : <?= e($owner['username'] ?? 'Inconnu') ?> — Devise : <?= e($account['currency']) ?>
-            <?php elseif ($isOwner): ?>
-                Mon compte — Devise : <?= e($account['currency']) ?>            <?php elseif ($isGuardian): ?>
+            <?php if ($isOwner): ?>
+                Mon compte — Devise : <?= e($account['currency']) ?>
+            <?php elseif ($isGuardian): ?>
                 <span class="badge" style="background:#f59e0b;color:#fff;margin-right:0.4rem;"><i class="bi bi-person-lock"></i> Responsable légal</span>
-                Compte de <?= e($owner['username'] ?? 'Inconnu') ?> — Devise : <?= e($account['currency']) ?>            <?php else: ?>
+                <?php if ($isModerator): ?>
+                    <span class="badge badge-mod" style="margin-right:0.4rem;"><i class="bi bi-shield-check"></i> Modérateur</span>
+                <?php endif; ?>
+                Compte de <?= e($owner['username'] ?? 'Inconnu') ?> — Devise : <?= e($account['currency']) ?>
+            <?php elseif ($isModerator && !$isOwner): ?>
+                <span class="badge badge-mod" style="margin-right:0.4rem;"><i class="bi bi-shield-check"></i> Vue modérateur</span>
+                Propriétaire : <?= e($owner['username'] ?? 'Inconnu') ?> — Devise : <?= e($account['currency']) ?>
+            <?php else: ?>
                 Compte partagé par <?= e($owner['username'] ?? 'Inconnu') ?> — Devise : <?= e($account['currency']) ?>
             <?php endif; ?>
         </p>

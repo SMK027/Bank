@@ -167,7 +167,7 @@ class AccountController extends Controller
         $isGuardian      = false;
         if ($isMinorAccount) {
             $guardianshipModel = new Guardianship();
-            $isGuardian = !$isOwner && !$isModerator
+            $isGuardian = !$isOwner
                 && $guardianshipModel->isActiveGuardianOf($userId, (int) $account['user_id']);
             foreach ($guardianshipModel->getGuardiansOf((int) $account['user_id']) as $g) {
                 $guardianUser = $this->userModel->find((int) $g['guardian_user_id']);
