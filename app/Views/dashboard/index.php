@@ -70,6 +70,11 @@
                                 <i class="bi bi-shield-check"></i> Découvert autorisé : <?= number_format((float) $account['overdraft'], 2, ',', ' ') ?> <?= e($account['currency']) ?>
                             </div>
                         <?php endif; ?>
+                        <?php if (abs(($account['future_balance'] ?? $account['balance']) - $account['balance']) > 0.001): ?>
+                        <div class="text-small mt-1" style="color:var(--warning,#f59e0b);">
+                            <i class="bi bi-clock"></i> À venir&nbsp;: <strong><?= number_format($account['future_balance'], 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>
+                        </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </a>
