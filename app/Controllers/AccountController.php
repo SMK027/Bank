@@ -35,6 +35,11 @@ class AccountController extends Controller
         $this->requireAuth();
         $user    = $this->userModel->find($this->getCurrentUserId());
         $isMinor = User::isMinorFromDate($user['birth_date'] ?? null);
+        if ($isMinor) {
+            $this->setFlash('danger', 'Les mineurs ne peuvent pas créer de compte. Les comptes sont ouverts par la modération.');
+            $this->redirect('/dashboard');
+            return;
+        }
         $this->render('accounts/create', [
             'title'        => 'Créer un compte bancaire',
             'accountTypes' => Account::getAllowedTypes($isMinor),
@@ -55,15 +60,23 @@ class AccountController extends Controller
             return;
         }
 
-        // Le type 'minor' est réservé à la modération, jamais au formulaire utilisateur
-        if (($data['account_type'] ?? '') === 'minor') {
-            $this->setFlash('danger', 'Les comptes mineurs sont créés uniquement par la modération.');
-            $this->redirect('/accounts/create');
+        $user    = $this->userModel->find($this->getCurrentUserId());
+        $isMinor = User::isMinorFromDate($user['birth_date'] ?? null);
+
+        // Les mineurs ne peuvent pas créer de compte eux-mêmes
+        if ($isMinor) {
+            $this->setFlash('danger', 'Les mineurs ne peuvent pas créer de compte. Les comptes sont ouverts par la modération.');
+            $this->redirect('/dashboard');
             return;
         }
 
-        $user         = $this->userModel->find($this->getCurrentUserId());
-        $isMinor      = User::isMinorFromDate($user['birth_date'] ?? null);
+        // Le type 'minor' est réservé à la modération, jamais au formulaire utilisateur
+        if (($data['account_type'] ?? '') === 'minor') {
+            $this->setFlash('danger', 'Les comptes mineurs sont créés uniquement par la modération.');
+            $this->redirect('/dashboard');
+            return;
+        }
+
         $allowedTypes = Account::getAllowedTypes($isMinor);
 
         if (!array_key_exists($data['account_type'], $allowedTypes)) {

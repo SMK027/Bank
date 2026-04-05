@@ -3,7 +3,9 @@
         <h1><i class="bi bi-bank2"></i> Tableau de bord</h1>
         <p class="page-description">Bienvenue, <?= e(current_username()) ?> ! Voici un aperçu de vos comptes.</p>
     </div>
+    <?php if (!$isMinor): ?>
     <a href="/accounts/create" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Nouveau compte</a>
+    <?php endif; ?>
 </div>
 
 <!-- Total global -->
@@ -30,8 +32,13 @@
 <?php if (empty($ownAccounts)): ?>
     <div class="empty-state">
         <div class="empty-icon">🏦</div>
-        <p>Vous n'avez pas encore de compte bancaire.</p>
-        <a href="/accounts/create" class="btn btn-primary">Créer mon premier compte</a>
+        <?php if ($isMinor): ?>
+            <p>Aucun compte bancaire ouvert pour le moment.</p>
+            <p class="text-muted text-small">Les comptes mineurs sont ouverts par la modération.</p>
+        <?php else: ?>
+            <p>Vous n'avez pas encore de compte bancaire.</p>
+            <a href="/accounts/create" class="btn btn-primary">Créer mon premier compte</a>
+        <?php endif; ?>
     </div>
 <?php else: ?>
     <div class="card-grid">
