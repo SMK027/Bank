@@ -67,30 +67,6 @@ class TransferController extends Controller
                 ];
             }
             $allAccountsJson = json_encode($enriched, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE);
-
-            // Liste enrichie de tous les virements pour l'historique modération
-            $accountsMap  = array_column($this->accountModel->findAll('id', 'ASC'), null, 'id');
-            $rawTransfers = $this->transferModel->findAll('created_at', 'DESC');
-            $enrichedTransfers = [];
-            foreach ($rawTransfers as $t) {
-                $tUid    = (int) ($t['user_id'] ?? 0);
-                $fromAcc = $accountsMap[$t['from_account_id']] ?? null;
-                $toAcc   = $accountsMap[$t['to_account_id']]   ?? null;
-                $tUser   = $usersMap[$tUid] ?? null;
-                $enrichedTransfers[] = [
-                    'id'           => (int) $t['id'],
-                    'user_name'    => $tUser ? ($tUser['username'] ?? 'Utilisateur #' . $tUid) : 'Utilisateur #' . $tUid,
-                    'from_account' => $fromAcc ? ($fromAcc['name'] ?? 'Compte #' . $t['from_account_id']) : 'Compte #' . $t['from_account_id'],
-                    'to_account'   => $toAcc   ? ($toAcc['name']   ?? 'Compte #' . $t['to_account_id'])   : 'Compte #' . $t['to_account_id'],
-                    'amount'       => (float) ($t['amount'] ?? 0),
-                    'motif'        => $t['motif'] ?? '',
-                    'status'       => $t['status'] ?? Transfer::STATUS_SUCCESS,
-                    'scheduled_at' => $t['scheduled_at'] ?? null,
-                    'executed_at'  => $t['executed_at']  ?? null,
-                    'created_at'   => $t['created_at']   ?? null,
-                ];
-            }
-            $transfersJson = json_encode($enrichedTransfers, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE);
         }
 
         // Pré-sélection du compte émetteur si passé en GET
@@ -108,7 +84,6 @@ class TransferController extends Controller
             'allUsers'       => $allUsers,
             'accountTypes'   => Account::TYPES,
             'activeTab'      => $activeTab,
-            'transfersJson'  => $transfersJson ?? null,
         ]);
     }
 

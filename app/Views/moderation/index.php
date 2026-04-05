@@ -3,9 +3,14 @@
         <h1><i class="bi bi-shield-check"></i> Modération — Comptes</h1>
         <p class="page-description">Vue globale de tous les comptes bancaires</p>
     </div>
-    <a href="/moderation/users" class="btn btn-outline btn-sm">
-        <i class="bi bi-people"></i> Gérer les utilisateurs
-    </a>
+    <div style="display:flex;gap:0.5rem;">
+        <a href="/moderation/transfers" class="btn btn-outline btn-sm">
+            <i class="bi bi-arrow-left-right"></i> Virements
+        </a>
+        <a href="/moderation/users" class="btn btn-outline btn-sm">
+            <i class="bi bi-people"></i> Gérer les utilisateurs
+        </a>
+    </div>
 </div>
 
 <?php if (empty($allAccounts)): ?>

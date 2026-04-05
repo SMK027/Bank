@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Models\Account;
 use App\Models\AccountAccess;
+use App\Models\Transfer;
 use App\Models\User;
 
 class ModerationController extends Controller
@@ -14,12 +15,14 @@ class ModerationController extends Controller
     private Account $accountModel;
     private AccountAccess $accessModel;
     private User $userModel;
+    private Transfer $transferModel;
 
     public function __construct()
     {
-        $this->accountModel = new Account();
-        $this->accessModel  = new AccountAccess();
-        $this->userModel    = new User();
+        $this->accountModel  = new Account();
+        $this->accessModel   = new AccountAccess();
+        $this->userModel     = new User();
+        $this->transferModel = new Transfer();
     }
 
     /**
@@ -152,5 +155,58 @@ class ModerationController extends Controller
         $labels = ['user' => 'Utilisateur', 'moderator' => 'Modérateur'];
         $this->setFlash('success', 'Rôle de « ' . $target['username'] . ' » mis à jour : ' . ($labels[$role] ?? $role) . '.');
         $this->redirect('/moderation/users');
+    }
+
+    /**
+     * Liste de tous les virements (espace modération).
+     */
+    public function transfers(): void
+    {
+        $this->requireModerator();
+
+        $allUsers    = $this->userModel->findAll('username', 'ASC');
+        $usersMap    = array_column($allUsers, null, 'id');
+        $accountsMap = array_column($this->accountModel->findAll('id', 'ASC'), null, 'id');
+
+        $rawTransfers      = $this->transferModel->findAll('created_at', 'DESC');
+        $enrichedTransfers = [];
+        foreach ($rawTransfers as $t) {
+            $tUid    = (int) ($t['user_id'] ?? 0);
+            $fromAcc = $accountsMap[$t['from_account_id']] ?? null;
+            $toAcc   = $accountsMap[$t['to_account_id']]   ?? null;
+            $tUser   = $usersMap[$tUid] ?? null;
+            $enrichedTransfers[] = [
+                'id'           => (int) $t['id'],
+                'user_name'    => $tUser   ? ($tUser['username']  ?? 'Utilisateur #' . $tUid)            : 'Utilisateur #' . $tUid,
+                'from_account' => $fromAcc ? ($fromAcc['name']    ?? 'Compte #' . $t['from_account_id']) : 'Compte #' . $t['from_account_id'],
+                'to_account'   => $toAcc   ? ($toAcc['name']      ?? 'Compte #' . $t['to_account_id'])   : 'Compte #' . $t['to_account_id'],
+                'amount'       => (float)  ($t['amount']       ?? 0),
+                'motif'        => $t['motif']       ?? '',
+                'status'       => $t['status']       ?? Transfer::STATUS_SUCCESS,
+                'scheduled_at' => $t['scheduled_at'] ?? null,
+                'executed_at'  => $t['executed_at']  ?? null,
+                'created_at'   => $t['created_at']   ?? null,
+            ];
+        }
+
+        $transfersJson = json_encode(
+            $enrichedTransfers,
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE
+        );
+
+        $tfAuthors = [];
+        foreach ($enrichedTransfers as $tf) {
+            if (!empty($tf['user_name']) && !in_array($tf['user_name'], $tfAuthors, true)) {
+                $tfAuthors[] = $tf['user_name'];
+            }
+        }
+        sort($tfAuthors);
+
+        $this->render('moderation/transfers', [
+            'title'         => 'Modération — Virements',
+            'transfersJson' => $transfersJson,
+            'tfAuthors'     => $tfAuthors,
+            'totalCount'    => count($enrichedTransfers),
+        ]);
     }
 }

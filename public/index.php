@@ -75,6 +75,7 @@ $router->post('/transfers/create', TransferController::class, 'create');
 
 // --- Modération ---
 $router->get('/moderation', ModerationController::class, 'index');
+$router->get('/moderation/transfers', ModerationController::class, 'transfers');
 $router->get('/moderation/users', ModerationController::class, 'users');
 $router->post('/moderation/users/{id}/role', ModerationController::class, 'setRole');
 $router->post('/moderation/accounts/{id}/freeze', ModerationController::class, 'freeze');
