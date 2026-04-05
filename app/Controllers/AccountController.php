@@ -164,8 +164,11 @@ class AccountController extends Controller
         // Responsables légaux si le propriétaire est mineur
         $guardians       = [];
         $isMinorAccount  = User::isMinorFromDate($owner['birth_date'] ?? null);
+        $isGuardian      = false;
         if ($isMinorAccount) {
             $guardianshipModel = new Guardianship();
+            $isGuardian = !$isOwner && !$isModerator
+                && $guardianshipModel->isActiveGuardianOf($userId, (int) $account['user_id']);
             foreach ($guardianshipModel->getGuardiansOf((int) $account['user_id']) as $g) {
                 $guardianUser = $this->userModel->find((int) $g['guardian_user_id']);
                 if ($guardianUser) {
@@ -206,6 +209,7 @@ class AccountController extends Controller
             'owner'              => $owner,
             'guardians'          => $guardians,
             'isMinorAccount'     => $isMinorAccount,
+            'isGuardian'         => $isGuardian,
             'categories'         => Transaction::CATEGORIES,
         ]);
     }
