@@ -31,7 +31,7 @@ services:
       - MYSQL_USER=${DB_USERNAME:-bankapp}
       - MYSQL_PASSWORD=${DB_PASSWORD:-bankapp_secret}
     volumes:
-      - bankapp_db_data:/var/lib/mysql
+      - ./data/mysql:/var/lib/mysql
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s
@@ -39,5 +39,3 @@ services:
       retries: 10
     restart: unless-stopped
 
-volumes:
-  bankapp_db_data:
