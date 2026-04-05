@@ -26,7 +26,7 @@ class UserTest extends TestCase
 
     public function testRegisterCreatesUser(): void
     {
-        $id = $this->user->register('alice', 'alice@test.com', 'password123');
+        $id = $this->user->register('alice', 'alice@test.com', 'password123', '1990-06-15');
         $this->assertGreaterThan(0, $id);
 
         $found = $this->user->find($id);
@@ -37,7 +37,7 @@ class UserTest extends TestCase
 
     public function testPasswordIsHashed(): void
     {
-        $id = $this->user->register('bob', 'bob@test.com', 'mypassword');
+        $id = $this->user->register('bob', 'bob@test.com', 'mypassword', '1985-03-22');
         $found = $this->user->find($id);
 
         $this->assertNotSame('mypassword', $found['password']);
@@ -46,7 +46,7 @@ class UserTest extends TestCase
 
     public function testAuthenticateSuccess(): void
     {
-        $this->user->register('charlie', 'charlie@test.com', 'secret123');
+        $this->user->register('charlie', 'charlie@test.com', 'secret123', '1992-11-01');
         $result = $this->user->authenticate('charlie@test.com', 'secret123');
 
         $this->assertNotNull($result);
@@ -55,7 +55,7 @@ class UserTest extends TestCase
 
     public function testAuthenticateFailsWithWrongPassword(): void
     {
-        $this->user->register('dave', 'dave@test.com', 'correctpassword');
+        $this->user->register('dave', 'dave@test.com', 'correctpassword', '1988-07-10');
         $result = $this->user->authenticate('dave@test.com', 'wrongpassword');
 
         $this->assertNull($result);
@@ -69,7 +69,7 @@ class UserTest extends TestCase
 
     public function testFindByUsername(): void
     {
-        $this->user->register('eve', 'eve@test.com', 'password123');
+        $this->user->register('eve', 'eve@test.com', 'password123', '1995-01-30');
         $found = $this->user->findByUsername('eve');
 
         $this->assertNotNull($found);
@@ -78,7 +78,7 @@ class UserTest extends TestCase
 
     public function testFindByEmail(): void
     {
-        $this->user->register('frank', 'frank@test.com', 'password123');
+        $this->user->register('frank', 'frank@test.com', 'password123', '1983-09-05');
         $found = $this->user->findByEmail('frank@test.com');
 
         $this->assertNotNull($found);
@@ -92,7 +92,7 @@ class UserTest extends TestCase
 
     public function testUpdatePassword(): void
     {
-        $id = $this->user->register('grace', 'grace@test.com', 'oldpassword');
+        $id = $this->user->register('grace', 'grace@test.com', 'oldpassword', '1991-04-18');
         $this->user->updatePassword($id, 'newpassword');
 
         $result = $this->user->authenticate('grace@test.com', 'newpassword');
@@ -104,7 +104,7 @@ class UserTest extends TestCase
 
     public function testUpdateRoleToModerator(): void
     {
-        $id = $this->user->register('henry', 'henry@test.com', 'password123');
+        $id = $this->user->register('henry', 'henry@test.com', 'password123', '1987-12-25');
         $found = $this->user->find($id);
         $this->assertSame('user', $found['global_role']);
 
@@ -117,7 +117,7 @@ class UserTest extends TestCase
 
     public function testUpdateRoleRejectsInvalidRole(): void
     {
-        $id = $this->user->register('irene', 'irene@test.com', 'password123');
+        $id = $this->user->register('irene', 'irene@test.com', 'password123', '1993-08-14');
         $result = $this->user->updateRole($id, 'superadmin');
         $this->assertFalse($result);
 
@@ -127,7 +127,7 @@ class UserTest extends TestCase
 
     public function testUpdateRoleBackToUser(): void
     {
-        $id = $this->user->register('jack', 'jack@test.com', 'password123');
+        $id = $this->user->register('jack', 'jack@test.com', 'password123', '1980-02-28');
         $this->user->updateRole($id, 'moderator');
         $this->user->updateRole($id, 'user');
 

@@ -45,6 +45,7 @@ class TestDatabase
                 email       TEXT    NOT NULL UNIQUE,
                 password    TEXT    NOT NULL,
                 global_role TEXT    NOT NULL DEFAULT 'user',
+                birth_date  TEXT    DEFAULT NULL,
                 created_at  TEXT,
                 updated_at  TEXT
             );
