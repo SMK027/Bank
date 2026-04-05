@@ -211,14 +211,12 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                         <i class="bi bi-search"></i> Filtrer les comptes
                     </p>
                     <div class="form-row" style="margin-bottom:0">
-                        <div class="form-group" style="margin-bottom:0">
-                            <label for="filter-user" class="form-label">Utilisateur</label>
-                            <select id="filter-user" class="form-control">
-                                <option value="">Tous les utilisateurs</option>
-                                <?php foreach ($allUsers as $u): ?>
-                                    <option value="<?= (int) $u['id'] ?>"><?= e($u['username']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
+                        <div class="form-group" style="margin-bottom:0;position:relative">
+                            <label for="filter-user-search" class="form-label">Utilisateur</label>
+                            <input type="text" id="filter-user-search" class="form-control"
+                                   placeholder="Tous les utilisateurs…" autocomplete="off">
+                            <div id="filter-user-results"
+                                 style="display:none;position:absolute;z-index:400;width:100%;background:var(--card-bg,#fff);border:1px solid var(--border-color);border-radius:4px;max-height:180px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.15);top:calc(100% + 2px);left:0;"></div>
                         </div>
                         <div class="form-group" style="margin-bottom:0">
                             <label for="filter-type" class="form-label">Type de compte</label>
@@ -426,9 +424,11 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
     /* ─── ONGLET MODÉRATION ────────────────────────────────────────────── */
     var ALL_ACCOUNTS = <?= $allAccounts ?>;
 
-    var filterUser   = document.getElementById('filter-user');
-    var filterType   = document.getElementById('filter-type');
-    var modFrom      = document.getElementById('mod-from');
+    var filterUserSearch = document.getElementById('filter-user-search');
+    var filterUserResults = document.getElementById('filter-user-results');
+    var filterUserQuery   = '';  // texte courant (correspondance partielle)
+    var filterType        = document.getElementById('filter-type');
+    var modFrom           = document.getElementById('mod-from');
     var modTo        = document.getElementById('mod-to');
     var amountMEl    = document.getElementById('amount-m');
 
@@ -449,10 +449,10 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
         }
 
         function filteredAccounts() {
-            var uid  = filterUser ? filterUser.value : '';
+            var q    = filterUserQuery.trim().toLowerCase();
             var typ  = filterType ? filterType.value : '';
             return ALL_ACCOUNTS.filter(function (a) {
-                if (uid && String(a.user_id) !== uid) return false;
+                if (q && a.user_name.toLowerCase().indexOf(q) === -1) return false;
                 if (typ && a.type !== typ) return false;
                 return true;
             });
@@ -563,8 +563,63 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
             submitM.disabled = sameAcc || frozen || fundErr || dateMErr;
         }
 
-        if (filterUser) filterUser.addEventListener('change', rebuildSelects);
         if (filterType) filterType.addEventListener('change', rebuildSelects);
+
+        // Autocomplete filter-user
+        if (filterUserSearch && filterUserResults) {
+            // Construire la liste unique des utilisateurs depuis ALL_ACCOUNTS
+            function getUniqueUsers() {
+                var seen = {}, list = [];
+                ALL_ACCOUNTS.forEach(function (a) {
+                    if (!seen[a.user_name]) { seen[a.user_name] = true; list.push(a.user_name); }
+                });
+                list.sort();
+                return list;
+            }
+
+            function showUserSuggestions(q) {
+                var lower = q.toLowerCase();
+                var users = getUniqueUsers();
+                var matches = q === '' ? users : users.filter(function (n) { return n.toLowerCase().indexOf(lower) !== -1; });
+                if (!matches.length) { filterUserResults.style.display = 'none'; return; }
+                var html = '';
+                matches.forEach(function (n) {
+                    html += '<div class="fu-item" style="padding:0.45rem 0.75rem;cursor:pointer;font-size:0.83rem;border-bottom:1px solid var(--border-color);"'
+                          + ' data-name="' + n.replace(/"/g, '&quot;') + '">'
+                          + n.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
+                });
+                filterUserResults.innerHTML = html;
+                filterUserResults.querySelectorAll('.fu-item').forEach(function (el) {
+                    el.addEventListener('mouseenter', function () { this.style.background = 'var(--bg-secondary)'; });
+                    el.addEventListener('mouseleave', function () { this.style.background = ''; });
+                    el.addEventListener('mousedown', function (e) {
+                        e.preventDefault();
+                        filterUserSearch.value = this.dataset.name;
+                        filterUserQuery        = this.dataset.name;
+                        filterUserResults.style.display = 'none';
+                        rebuildSelects();
+                    });
+                });
+                filterUserResults.style.display = 'block';
+            }
+
+            filterUserSearch.addEventListener('input', function () {
+                filterUserQuery = this.value;
+                showUserSuggestions(this.value.trim());
+                rebuildSelects();
+            });
+            filterUserSearch.addEventListener('focus', function () {
+                if (this.value.trim() === '') showUserSuggestions('');
+            });
+            filterUserSearch.addEventListener('blur', function () {
+                setTimeout(function () { filterUserResults.style.display = 'none'; }, 150);
+            });
+            document.addEventListener('click', function (e) {
+                if (!filterUserSearch.contains(e.target) && !filterUserResults.contains(e.target)) {
+                    filterUserResults.style.display = 'none';
+                }
+            });
+        }
         modFrom.addEventListener('change', function () { updateFromInfoM(); checkMod(); });
         modTo.addEventListener('change', checkMod);
         if (amountMEl) amountMEl.addEventListener('input', checkMod);
