@@ -176,7 +176,7 @@ class TransferController extends Controller
         $label = 'Virement' . ($motif !== '' ? ' — ' . $motif : '');
 
         // Débit sur le compte émetteur
-        $this->transactionModel->addTransaction(
+        $debitTxId = $this->transactionModel->addTransaction(
             $fromId,
             'expense',
             $amount,
@@ -186,13 +186,25 @@ class TransferController extends Controller
         );
 
         // Crédit sur le compte destinataire
-        $this->transactionModel->addTransaction(
+        $creditTxId = $this->transactionModel->addTransaction(
             $toId,
             'income',
             $amount,
             'Virement',
             $label,
             $userId
+        );
+
+        // Enregistrement du virement en base
+        $this->transferModel->createTransfer(
+            $fromId,
+            $toId,
+            $userId,
+            $amount,
+            $motif,
+            null,
+            $debitTxId,
+            $creditTxId
         );
 
         $this->setFlash('success', sprintf(
