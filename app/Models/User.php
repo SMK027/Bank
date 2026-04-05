@@ -76,4 +76,18 @@ class User extends Model
         }
         return (new \DateTime())->diff($dob)->y < 18;
     }
+
+    public function searchByQuery(string $q, int $limit = 15): array
+    {
+        $term = '%' . $q . '%';
+        $stmt = $this->getPdo()->prepare(
+            'SELECT id, username, email, birth_date
+             FROM users
+             WHERE username LIKE ? OR email LIKE ?
+             ORDER BY username ASC
+             LIMIT ' . (int) $limit
+        );
+        $stmt->execute([$term, $term]);
+        return $stmt->fetchAll();
+    }
 }

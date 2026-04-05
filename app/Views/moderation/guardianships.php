@@ -67,28 +67,24 @@ foreach ($guardianships as $g) {
             <?php endif; ?>
         </div>
         <?php if ($first['is_still_minor'] && count($links) < 2): ?>
+        <?php $fid = 'inline_g_' . (int) $minorId; ?>
         <form method="POST"
               action="/moderation/guardianships/<?= (int) $minorId ?>/add"
-              style="display:flex;align-items:center;gap:0.4rem;">
+              style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;"
+              onsubmit="return document.getElementById('<?= $fid ?>_id').value !== '' || (alert('Veuillez sélectionner un responsable légal.'), false)">
             <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
-            <select name="guardian_user_id" class="form-control"
-                    style="width:auto;padding:0.3rem 0.6rem;font-size:0.82rem;" required>
-                <option value="">— Ajouter un tuteur —</option>
-                <?php foreach ($adultUsers as $u): ?>
-                    <?php
-                    // Ne pas proposer un adulte déjà tuteur de ce mineur
-                    $alreadyTutor = false;
-                    foreach ($links as $l) {
-                        if ((int) $l['guardian_user_id'] === (int) $u['id']) {
-                            $alreadyTutor = true;
-                            break;
-                        }
-                    }
-                    if ($alreadyTutor) continue;
-                    ?>
-                    <option value="<?= (int) $u['id'] ?>"><?= e($u['username']) ?></option>
-                <?php endforeach; ?>
-            </select>
+            <input type="hidden" name="guardian_user_id" id="<?= $fid ?>_id" value="">
+            <div class="ac-wrap" style="position:relative;min-width:200px;">
+                <input type="text" id="<?= $fid ?>_search" class="form-control"
+                       placeholder="Rechercher un adulte…" autocomplete="off"
+                       style="padding:0.3rem 0.6rem;font-size:0.82rem;">
+                <div id="<?= $fid ?>_results" class="ac-results" style="display:none;position:absolute;z-index:200;width:100%;background:var(--card-bg,#fff);border:1px solid var(--border-color);border-radius:4px;max-height:180px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.15);"></div>
+                <div id="<?= $fid ?>_selected" style="display:none;align-items:center;gap:0.4rem;margin-top:0.25rem;background:rgba(59,130,246,0.08);border-radius:5px;padding:0.2rem 0.6rem;font-size:0.8rem;">
+                    <i class="bi bi-person-check" style="color:#3b82f6;"></i>
+                    <span id="<?= $fid ?>_label"></span>
+                    <button type="button" onclick="clearUserAc('<?= $fid ?>')" style="background:none;border:none;cursor:pointer;padding:0 0 0 0.3rem;color:var(--text-muted);font-size:1rem;line-height:1;">×</button>
+                </div>
+            </div>
             <button type="submit" class="btn btn-primary btn-sm">
                 <i class="bi bi-plus-lg"></i> Ajouter
             </button>
@@ -160,30 +156,46 @@ foreach ($guardianships as $g) {
     </div>
     <div class="card-body">
         <form method="POST" action="" id="add-guardianship-form"
-              onsubmit="this.action='/moderation/guardianships/'+document.getElementById('add-minor-select').value+'/add'">
+              onsubmit="
+                var mid = document.getElementById('add_minor_id').value;
+                var gid = document.getElementById('add_guardian_id').value;
+                if (!mid) { alert('Veuillez sélectionner un mineur.'); return false; }
+                if (!gid) { alert('Veuillez sélectionner un responsable légal.'); return false; }
+                this.action = '/moderation/guardianships/' + mid + '/add';
+              ">
             <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
-            <div class="form-row" style="gap:0.75rem;align-items:flex-end;">
+            <div class="form-row" style="gap:0.75rem;align-items:flex-start;">
                 <div class="form-group" style="margin:0;flex:1;">
                     <label class="form-label" style="font-size:0.8rem;">Mineur</label>
-                    <select id="add-minor-select" class="form-control"
-                            style="font-size:0.84rem;padding:0.35rem 0.6rem;" required>
-                        <option value="">— Sélectionner —</option>
-                        <?php foreach ($minorUsers as $u): ?>
-                            <option value="<?= (int) $u['id'] ?>"><?= e($u['username']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
+                    <input type="hidden" id="add_minor_id" value="">
+                    <div class="ac-wrap" style="position:relative;">
+                        <input type="text" id="add_minor_search" class="form-control"
+                               placeholder="Rechercher un mineur…" autocomplete="off"
+                               style="font-size:0.84rem;padding:0.35rem 0.6rem;">
+                        <div id="add_minor_results" class="ac-results" style="display:none;position:absolute;z-index:200;width:100%;background:var(--card-bg,#fff);border:1px solid var(--border-color);border-radius:4px;max-height:180px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.15);"></div>
+                        <div id="add_minor_selected" style="display:none;align-items:center;gap:0.4rem;margin-top:0.25rem;background:rgba(59,130,246,0.08);border-radius:5px;padding:0.2rem 0.6rem;font-size:0.8rem;">
+                            <i class="bi bi-person-badge" style="color:#3b82f6;"></i>
+                            <span id="add_minor_label"></span>
+                            <button type="button" onclick="clearUserAc('add_minor')" style="background:none;border:none;cursor:pointer;padding:0 0 0 0.3rem;color:var(--text-muted);font-size:1rem;line-height:1;">×</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="form-group" style="margin:0;flex:1;">
                     <label class="form-label" style="font-size:0.8rem;">Responsable légal (adulte)</label>
-                    <select name="guardian_user_id" class="form-control"
-                            style="font-size:0.84rem;padding:0.35rem 0.6rem;" required>
-                        <option value="">— Sélectionner —</option>
-                        <?php foreach ($adultUsers as $u): ?>
-                            <option value="<?= (int) $u['id'] ?>"><?= e($u['username']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
+                    <input type="hidden" name="guardian_user_id" id="add_guardian_id" value="">
+                    <div class="ac-wrap" style="position:relative;">
+                        <input type="text" id="add_guardian_search" class="form-control"
+                               placeholder="Rechercher un adulte…" autocomplete="off"
+                               style="font-size:0.84rem;padding:0.35rem 0.6rem;">
+                        <div id="add_guardian_results" class="ac-results" style="display:none;position:absolute;z-index:200;width:100%;background:var(--card-bg,#fff);border:1px solid var(--border-color);border-radius:4px;max-height:180px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.15);"></div>
+                        <div id="add_guardian_selected" style="display:none;align-items:center;gap:0.4rem;margin-top:0.25rem;background:rgba(59,130,246,0.08);border-radius:5px;padding:0.2rem 0.6rem;font-size:0.8rem;">
+                            <i class="bi bi-person-check" style="color:#3b82f6;"></i>
+                            <span id="add_guardian_label"></span>
+                            <button type="button" onclick="clearUserAc('add_guardian')" style="background:none;border:none;cursor:pointer;padding:0 0 0 0.3rem;color:var(--text-muted);font-size:1rem;line-height:1;">×</button>
+                        </div>
+                    </div>
                 </div>
-                <div style="padding-bottom:0.05rem;">
+                <div style="padding-top:1.55rem;">
                     <button type="submit" class="btn btn-primary btn-sm">
                         <i class="bi bi-plus-lg"></i> Ajouter
                     </button>
@@ -193,3 +205,86 @@ foreach ($guardianships as $g) {
     </div>
 </div>
 <?php endif; ?>
+
+<script>
+var USER_SEARCH_URL = '/moderation/users/search';
+var _acTimers = {};
+
+function setupUserAc(prefix, type) {
+    var input   = document.getElementById(prefix + '_search');
+    var results = document.getElementById(prefix + '_results');
+    if (!input || !results) return;
+
+    input.addEventListener('input', function() {
+        clearTimeout(_acTimers[prefix]);
+        var q = this.value.trim();
+        if (q.length < 2) { results.style.display = 'none'; return; }
+
+        _acTimers[prefix] = setTimeout(function() {
+            fetch(USER_SEARCH_URL + '?q=' + encodeURIComponent(q) + '&type=' + encodeURIComponent(type), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.length) {
+                    results.innerHTML = '<div style="padding:0.6rem 0.9rem;color:var(--text-muted);font-size:0.82rem;">Aucun résultat</div>';
+                } else {
+                    var html = '';
+                    data.forEach(function(item) {
+                        html += '<div class="uac-item" data-id="' + item.id + '" data-username="' + _escAttr(item.username) + '" data-email="' + _escAttr(item.email) + '"'
+                              + ' style="padding:0.5rem 0.9rem;cursor:pointer;font-size:0.83rem;border-bottom:1px solid var(--border-color);">'
+                              + '<strong>' + _esc(item.username) + '</strong>'
+                              + ' <span style="color:var(--text-muted);font-size:0.78rem;">' + _esc(item.email) + '</span>'
+                              + '</div>';
+                    });
+                    results.innerHTML = html;
+                    results.querySelectorAll('.uac-item').forEach(function(el) {
+                        el.addEventListener('mouseenter', function() { this.style.background = 'var(--bg-secondary)'; });
+                        el.addEventListener('mouseleave', function() { this.style.background = ''; });
+                        el.addEventListener('click', function() {
+                            selectUserAc(prefix, this.dataset.id, this.dataset.username, this.dataset.email);
+                        });
+                    });
+                }
+                results.style.display = 'block';
+            })
+            .catch(function() { results.style.display = 'none'; });
+        }, 280);
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!input.contains(e.target) && !results.contains(e.target)) {
+            results.style.display = 'none';
+        }
+    });
+}
+
+function selectUserAc(prefix, id, username, email) {
+    document.getElementById(prefix + '_id').value                = id;
+    document.getElementById(prefix + '_label').textContent       = username + ' — ' + email;
+    document.getElementById(prefix + '_selected').style.display  = 'flex';
+    document.getElementById(prefix + '_search').value            = '';
+    document.getElementById(prefix + '_results').style.display   = 'none';
+}
+
+function clearUserAc(prefix) {
+    document.getElementById(prefix + '_id').value                = '';
+    document.getElementById(prefix + '_label').textContent       = '';
+    document.getElementById(prefix + '_selected').style.display  = 'none';
+}
+
+function _esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function _escAttr(s) { return String(s).replace(/"/g,'&quot;'); }
+
+// Formulaire global en bas
+setupUserAc('add_minor',    'minor');
+setupUserAc('add_guardian', 'adult');
+
+// Formulaires inline (un par mineur)
+document.querySelectorAll('[id^="inline_g_"][id$="_search"]').forEach(function(el) {
+    var prefix = el.id.replace('_search', '');
+    setupUserAc(prefix, 'adult');
+});
+</script>

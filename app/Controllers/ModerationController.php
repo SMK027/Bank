@@ -541,6 +541,36 @@ class ModerationController extends Controller
         $this->json($results);
     }
 
+    public function searchUsers(): void
+    {
+        $this->requireModerator();
+
+        $q = trim($_GET['q'] ?? '');
+        if (strlen($q) < 2) {
+            $this->json([]);
+            return;
+        }
+
+        $type = $_GET['type'] ?? 'all'; // 'minor', 'adult', 'all'
+        $rows = $this->userModel->searchByQuery($q, 20);
+
+        $results = [];
+        foreach ($rows as $row) {
+            $isMinor = User::isMinorFromDate($row['birth_date'] ?? null);
+            if ($type === 'minor' && !$isMinor) continue;
+            if ($type === 'adult' && $isMinor) continue;
+
+            $results[] = [
+                'id'       => (int) $row['id'],
+                'label'    => $row['username'] . ' — ' . $row['email'],
+                'username' => $row['username'],
+                'email'    => $row['email'],
+            ];
+        }
+
+        $this->json($results);
+    }
+
     // =========================================================
     // TUTELLES LÉGALES — COMPTES MINEURS
     // =========================================================
