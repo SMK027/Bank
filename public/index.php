@@ -23,6 +23,7 @@ use App\Controllers\TransactionController;
 use App\Controllers\AccessController;
 use App\Controllers\TransferController;
 use App\Controllers\ModerationController;
+use App\Controllers\ProfileController;
 
 // Démarrer la session
 Session::start();
@@ -56,6 +57,10 @@ $router->get('/logout', AuthController::class, 'logout');
 
 // --- Dashboard ---
 $router->get('/dashboard', DashboardController::class, 'index');
+
+// --- Profil ---
+$router->get('/profile', ProfileController::class, 'index');
+$router->post('/profile/password', ProfileController::class, 'updatePassword');
 
 // --- Comptes bancaires ---
 $router->get('/accounts/create', AccountController::class, 'createForm');

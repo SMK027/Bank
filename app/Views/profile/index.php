@@ -1,0 +1,106 @@
+<div class="page-header">
+    <h1><i class="bi bi-person-circle"></i> Mon profil</h1>
+</div>
+
+<div class="profile-header">
+    <div class="profile-avatar">
+        <?= strtoupper(substr(e($user['username']), 0, 1)) ?>
+    </div>
+    <div class="profile-info">
+        <h2><?= e($user['username']) ?></h2>
+        <p class="profile-role">
+            <?php if ($user['global_role'] === 'moderator'): ?>
+                <span class="badge badge-mod"><i class="bi bi-shield-check"></i> Modérateur</span>
+            <?php else: ?>
+                <span class="badge badge-secondary"><i class="bi bi-person"></i> Utilisateur</span>
+            <?php endif; ?>
+        </p>
+    </div>
+</div>
+
+<div class="grid grid-2" style="gap:1.5rem;align-items:start">
+
+    <!-- Informations du compte -->
+    <div class="card">
+        <div class="card-header">
+            <h3><i class="bi bi-info-circle"></i> Informations</h3>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <tbody>
+                    <tr>
+                        <th style="width:40%">Nom d'utilisateur</th>
+                        <td><?= e($user['username']) ?></td>
+                    </tr>
+                    <tr>
+                        <th>Adresse email</th>
+                        <td><?= e($user['email']) ?></td>
+                    </tr>
+                    <tr>
+                        <th>Rôle</th>
+                        <td>
+                            <?php if ($user['global_role'] === 'moderator'): ?>
+                                <span class="badge badge-mod">Modérateur</span>
+                            <?php else: ?>
+                                <span class="badge badge-secondary">Utilisateur</span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Membre depuis</th>
+                        <td><?= date('d/m/Y', strtotime($user['created_at'])) ?></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Changer le mot de passe -->
+    <div class="card">
+        <div class="card-header">
+            <h3><i class="bi bi-lock"></i> Changer le mot de passe</h3>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="/profile/password">
+                <?= csrf_field() ?>
+                <div class="form-group">
+                    <label for="current_password" class="form-label">Mot de passe actuel</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="current_password" name="current_password"
+                               class="form-control" required>
+                        <button type="button" class="btn-toggle-password"
+                                data-target="current_password" title="Afficher">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="new_password" class="form-label">Nouveau mot de passe</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="new_password" name="new_password"
+                               class="form-control" required minlength="8">
+                        <button type="button" class="btn-toggle-password"
+                                data-target="new_password" title="Afficher">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="confirm_password" class="form-label">Confirmer le mot de passe</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="confirm_password" name="confirm_password"
+                               class="form-control" required minlength="8">
+                        <button type="button" class="btn-toggle-password"
+                                data-target="confirm_password" title="Afficher">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">
+                    <i class="bi bi-check-lg"></i> Mettre à jour
+                </button>
+            </form>
+        </div>
+    </div>
+
+</div>
