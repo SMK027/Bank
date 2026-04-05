@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Core\Model;
+use App\Models\DirectDebit;
 
 class Account extends Model
 {
@@ -85,6 +86,16 @@ class Account extends Model
                 $balance -= (float) $t['amount'];
             }
         }
+
+        // Déduire les prélèvements planifiés non encore exécutés
+        $directDebitModel = new DirectDebit();
+        $upcomingDebits = $directDebitModel->findBy(
+            ['to_account_id' => $accountId, 'status' => DirectDebit::STATUS_SCHEDULED]
+        );
+        foreach ($upcomingDebits as $d) {
+            $balance -= (float) $d['amount'];
+        }
+
         return $balance;
     }
 
