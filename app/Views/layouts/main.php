@@ -23,6 +23,7 @@
                     <a href="/dashboard" class="navbar-link"><i class="bi bi-speedometer2"></i> Tableau de bord</a>
                     <a href="/accounts/create" class="navbar-link"><i class="bi bi-plus-circle"></i> Nouveau compte</a>
                     <a href="/transfers/create" class="navbar-link"><i class="bi bi-arrow-left-right"></i> Virement</a>
+                    <a href="/tickets" class="navbar-link"><i class="bi bi-ticket-perforated"></i> Mes demandes</a>
                     <?php if (is_moderator()): ?>
                     <a href="/moderation" class="navbar-link navbar-link-mod"><i class="bi bi-shield-check"></i> Modération</a>
                     <?php endif; ?>

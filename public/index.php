@@ -24,6 +24,7 @@ use App\Controllers\AccessController;
 use App\Controllers\TransferController;
 use App\Controllers\ModerationController;
 use App\Controllers\ProfileController;
+use App\Controllers\TicketController;
 
 // Démarrer la session
 Session::start();
@@ -106,6 +107,20 @@ $router->post('/moderation/guardianships/{id}/remove', ModerationController::cla
 // --- Partage d'accès ---
 $router->post('/accounts/{accountId}/access', AccessController::class, 'grant');
 $router->post('/accounts/{accountId}/access/{userId}/revoke', AccessController::class, 'revoke');
+
+// --- Tickets (utilisateurs) ---
+$router->get('/tickets', TicketController::class, 'index');
+$router->get('/tickets/create', TicketController::class, 'createForm');
+$router->post('/tickets', TicketController::class, 'store');
+$router->get('/tickets/{id}', TicketController::class, 'show');
+$router->post('/tickets/{id}/reply', TicketController::class, 'reply');
+$router->post('/tickets/{id}/close', TicketController::class, 'close');
+
+// --- Tickets (modération) ---
+$router->get('/moderation/tickets', ModerationController::class, 'ticketIndex');
+$router->get('/moderation/tickets/{id}', ModerationController::class, 'ticketShow');
+$router->post('/moderation/tickets/{id}/reply', ModerationController::class, 'ticketReply');
+$router->post('/moderation/tickets/{id}/status', ModerationController::class, 'ticketUpdateStatus');
 
 // Dispatcher la requête
 $router->dispatch();

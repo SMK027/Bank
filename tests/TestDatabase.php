@@ -110,6 +110,27 @@ class TestDatabase
                 created_at       TEXT,
                 updated_at       TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS tickets (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     INTEGER NOT NULL DEFAULT 0,
+                type        TEXT    NOT NULL,
+                subject     TEXT    NOT NULL,
+                status      TEXT    NOT NULL DEFAULT 'open',
+                account_id  INTEGER DEFAULT NULL,
+                priority    TEXT    NOT NULL DEFAULT 'normal',
+                created_at  TEXT,
+                updated_at  TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS ticket_messages (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticket_id   INTEGER NOT NULL DEFAULT 0,
+                user_id     INTEGER NOT NULL DEFAULT 0,
+                is_staff    INTEGER NOT NULL DEFAULT 0,
+                body        TEXT    NOT NULL,
+                created_at  TEXT
+            );
         SQL;
     }
 }

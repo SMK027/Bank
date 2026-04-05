@@ -9,6 +9,8 @@ use App\Models\Account;
 use App\Models\AccountAccess;
 use App\Models\DirectDebit;
 use App\Models\Guardianship;
+use App\Models\Ticket;
+use App\Models\TicketMessage;
 use App\Models\Transaction;
 use App\Models\Transfer;
 use App\Models\User;
@@ -21,17 +23,21 @@ class ModerationController extends Controller
     private Transfer $transferModel;
     private Transaction $transactionModel;
     private DirectDebit $directDebitModel;
-    private Guardianship $guardianshipModel;
+    private Guardianship   $guardianshipModel;
+    private Ticket         $ticketModel;
+    private TicketMessage  $ticketMessageModel;
 
     public function __construct()
     {
-        $this->accountModel      = new Account();
-        $this->accessModel       = new AccountAccess();
-        $this->userModel         = new User();
-        $this->transferModel     = new Transfer();
-        $this->transactionModel  = new Transaction();
-        $this->directDebitModel  = new DirectDebit();
-        $this->guardianshipModel = new Guardianship();
+        $this->accountModel       = new Account();
+        $this->accessModel        = new AccountAccess();
+        $this->userModel          = new User();
+        $this->transferModel      = new Transfer();
+        $this->transactionModel   = new Transaction();
+        $this->directDebitModel   = new DirectDebit();
+        $this->guardianshipModel  = new Guardianship();
+        $this->ticketModel        = new Ticket();
+        $this->ticketMessageModel = new TicketMessage();
     }
 
     /**
@@ -799,5 +805,132 @@ class ModerationController extends Controller
         $this->guardianshipModel->removeGuardianship($guardianshipId);
         $this->setFlash('success', 'Tutelle légale supprimée.');
         $this->redirect('/moderation/guardianships');
+    }
+
+    // ============================================================
+    // TICKETING
+    // ============================================================
+
+    /**
+     * Liste de tous les tickets (modération).
+     */
+    public function ticketIndex(): void
+    {
+        $this->requireModerator();
+
+        $statusFilter = trim($_GET['status'] ?? '');
+        if ($statusFilter !== '' && !array_key_exists($statusFilter, Ticket::STATUSES)) {
+            $statusFilter = '';
+        }
+
+        $tickets   = $this->ticketModel->getAll($statusFilter);
+        $openCount = $this->ticketModel->countOpen();
+
+        $this->render('moderation/tickets', [
+            'title'        => 'Tickets — Modération',
+            'tickets'      => $tickets,
+            'statuses'     => Ticket::STATUSES,
+            'statusFilter' => $statusFilter,
+            'openCount'    => $openCount,
+        ]);
+    }
+
+    /**
+     * Détail d'un ticket + réponse modérateur.
+     */
+    public function ticketShow(string $id): void
+    {
+        $this->requireModerator();
+
+        $ticketId = (int) $id;
+        $ticket   = $this->ticketModel->findWithUser($ticketId);
+        if (!$ticket) {
+            $this->setFlash('danger', 'Ticket introuvable.');
+            $this->redirect('/moderation/tickets');
+            return;
+        }
+
+        // Passer automatiquement en "in_progress" à la première ouverture
+        if ($ticket['status'] === 'open') {
+            $this->ticketModel->update($ticketId, ['status' => 'in_progress']);
+            $ticket['status'] = 'in_progress';
+        }
+
+        $messages = $this->ticketMessageModel->getByTicket($ticketId);
+        $account  = $ticket['account_id'] ? $this->accountModel->find((int) $ticket['account_id']) : null;
+
+        $this->render('moderation/ticket_show', [
+            'title'    => '[Mod] Ticket #' . $ticketId . ' — ' . $ticket['subject'],
+            'ticket'   => $ticket,
+            'messages' => $messages,
+            'account'  => $account,
+            'statuses' => Ticket::STATUSES,
+        ]);
+    }
+
+    /**
+     * Réponse du modérateur à un ticket.
+     */
+    public function ticketReply(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $ticketId    = (int) $id;
+        $moderatorId = $this->getCurrentUserId();
+
+        $ticket = $this->ticketModel->find($ticketId);
+        if (!$ticket) {
+            $this->setFlash('danger', 'Ticket introuvable.');
+            $this->redirect('/moderation/tickets');
+            return;
+        }
+
+        $data = $this->getPostData(['body']);
+        $body = trim($data['body']);
+        if (mb_strlen($body) < 2) {
+            $this->setFlash('danger', 'Réponse trop courte.');
+            $this->redirect('/moderation/tickets/' . $ticketId);
+            return;
+        }
+
+        $this->ticketMessageModel->post($ticketId, $moderatorId, $body, true);
+
+        // Passer en "pending_user" une fois que le modérateur a répondu
+        if (!Ticket::isClosed($ticket['status'])) {
+            $this->ticketModel->update($ticketId, ['status' => 'pending_user']);
+        }
+
+        $this->setFlash('success', 'Réponse envoyée.');
+        $this->redirect('/moderation/tickets/' . $ticketId . '#messages');
+    }
+
+    /**
+     * Mise à jour du statut d'un ticket.
+     */
+    public function ticketUpdateStatus(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $ticketId = (int) $id;
+        $ticket   = $this->ticketModel->find($ticketId);
+        if (!$ticket) {
+            $this->setFlash('danger', 'Ticket introuvable.');
+            $this->redirect('/moderation/tickets');
+            return;
+        }
+
+        $data      = $this->getPostData(['status']);
+        $newStatus = $data['status'];
+        if (!array_key_exists($newStatus, Ticket::STATUSES)) {
+            $this->setFlash('danger', 'Statut invalide.');
+            $this->redirect('/moderation/tickets/' . $ticketId);
+            return;
+        }
+
+        $this->ticketModel->update($ticketId, ['status' => $newStatus]);
+        $this->setFlash('success', 'Statut mis à jour : ' . Ticket::statusLabel($newStatus) . '.');
+        $this->redirect('/moderation/tickets/' . $ticketId);
     }
 }
