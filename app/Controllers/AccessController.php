@@ -63,7 +63,20 @@ class AccessController extends Controller
         if (!$isModerator && $account) {
             $accountOwner = $this->userModel->find((int) $account['user_id']);
             if (User::isMinorFromDate($accountOwner['birth_date'] ?? null)) {
-                $this->setFlash('danger', 'Le partage d’accès est interdit sur un compte mineur. Seul un modérateur peut accorder des accès.');
+                $this->setFlash('danger', 'Le partage d\'accès est interdit sur un compte mineur. Seul un modérateur peut accorder des accès.');
+                $this->redirect('/accounts/' . $accountId);
+                return;
+            }
+        }
+
+        // Un mineur ne peut pas être ajouté à un compte réservé aux majeurs (sauf modérateur)
+        if (!$isModerator && $account && User::isMinorFromDate($targetUser['birth_date'] ?? null)) {
+            if (Account::isAdultOnlyAccount($account)) {
+                $typeLabel = Account::TYPES[$account['type']]['label'] ?? $account['type'];
+                $this->setFlash('danger',
+                    'L\'ajout d\'un mineur est interdit sur ce type de compte (' . $typeLabel . '). '
+                    . 'Contactez un modérateur si une dérogation est nécessaire.'
+                );
                 $this->redirect('/accounts/' . $accountId);
                 return;
             }

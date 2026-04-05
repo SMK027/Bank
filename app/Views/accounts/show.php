@@ -352,6 +352,14 @@
                 <span>Vous gérez ce compte en tant que <strong>modérateur</strong>.</span>
             </div>
             <?php endif; ?>
+            <?php if (!$isModerator && \App\Models\Account::isAdultOnlyAccount($account)): ?>
+            <div class="alert alert-warning" style="margin-bottom:1rem;display:flex;align-items:center;gap:0.5rem;">
+                <i class="bi bi-person-x-fill" style="flex-shrink:0;font-size:1.1rem;"></i>
+                <span>Ce type de compte (<strong><?= e(\App\Models\Account::TYPES[$account['type']]['label'] ?? $account['type']) ?></strong>)
+                est <strong>réservé aux majeurs</strong>. L'ajout d'un utilisateur mineur sera
+                automatiquement refusé. Seul un <strong>modérateur</strong> peut accorder une dérogation.</span>
+            </div>
+            <?php endif; ?>
             <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/access">
                 <?= csrf_field() ?>
                 <div class="form-group">

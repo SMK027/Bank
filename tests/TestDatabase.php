@@ -58,6 +58,7 @@ class TestDatabase
                 overdraft   REAL    NOT NULL DEFAULT 0,
                 type        TEXT    NOT NULL DEFAULT 'standard',
                 frozen      INTEGER NOT NULL DEFAULT 0,
+                cap         REAL    DEFAULT NULL,
                 created_at  TEXT,
                 updated_at  TEXT
             );
@@ -99,6 +100,15 @@ class TestDatabase
                 credit_tx_id    INTEGER NOT NULL DEFAULT 0,
                 created_at      TEXT,
                 updated_at      TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS guardianships (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                minor_user_id    INTEGER NOT NULL DEFAULT 0,
+                guardian_user_id INTEGER NOT NULL DEFAULT 0,
+                created_by       INTEGER NOT NULL DEFAULT 0,
+                created_at       TEXT,
+                updated_at       TEXT
             );
         SQL;
     }

@@ -52,6 +52,25 @@ class Account extends Model
         );
     }
 
+    /**
+     * Indique si le compte est réservé exclusivement aux utilisateurs majeurs :
+     * - compte courant (standard)
+     * - compte professionnel (pro)
+     * - compte joint avec découvert autorisé (overdraft > 0)
+     * Les mineurs ne peuvent y être ajoutés qu'à la main par un modérateur.
+     */
+    public static function isAdultOnlyAccount(array $account): bool
+    {
+        $type = $account['type'] ?? '';
+        if (in_array($type, ['pro', 'standard'], true)) {
+            return true;
+        }
+        if ($type === 'joint' && (float) ($account['overdraft'] ?? 0) > 0.0) {
+            return true;
+        }
+        return false;
+    }
+
     public static function typeAllowsOverdraft(string $type): bool
     {
         return self::TYPES[$type]['overdraft'] ?? true;
