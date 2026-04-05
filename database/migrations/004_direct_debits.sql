@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS `direct_debits` (
     `to_account_id`   INT UNSIGNED    NOT NULL COMMENT 'Compte débité',
     `debit_tx_id`     INT UNSIGNED    NULL DEFAULT NULL,
     `credit_tx_id`    INT UNSIGNED    NULL DEFAULT NULL,
-    `status`          ENUM('scheduled','success','failed','cancelled') NOT NULL DEFAULT 'scheduled',
+    `status`          ENUM('scheduled','success','failed','cancelled','rejected') NOT NULL DEFAULT 'scheduled',
     `created_by`      INT UNSIGNED    NOT NULL DEFAULT 0,
     `created_at`      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at`      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
