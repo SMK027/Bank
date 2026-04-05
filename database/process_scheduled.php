@@ -110,6 +110,24 @@ foreach ($directDebitModel->getDue() as $debit) {
         continue;
     }
 
+    // Rejeter automatiquement si le type de compte n'autorise pas le découvert
+    // et que le prélèvement ferait basculer le solde en négatif.
+    // Types concernés : minor, savings, online (overdraft: false).
+    $toAccount = $accountModel->find($toAccountId);
+    $toType    = $toAccount['type'] ?? 'standard';
+    if (!Account::typeAllowsOverdraft($toType)) {
+        $currentBalance = $accountModel->getBalance($toAccountId);
+        if ($currentBalance - $amount < 0) {
+            echo sprintf(
+                "[%s] REJET AUTO prélèvement #%d : compte #%d (type '%s') solde insuffisant (%.2f < %.2f).\n",
+                date('Y-m-d H:i:s'), $debitId, $toAccountId, $toType, $currentBalance, $amount
+            );
+            $directDebitModel->markAutoRejected($debitId);
+            $errors++;
+            continue;
+        }
+    }
+
     // Créer la transaction de débit sur le compte destinataire
     $debitTxId = $transactionModel->addTransaction(
         $toAccountId,

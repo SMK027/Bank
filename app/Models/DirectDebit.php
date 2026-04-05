@@ -146,4 +146,17 @@ class DirectDebit extends Model
     {
         return $this->update($id, ['status' => self::STATUS_REJECTED]);
     }
+
+    /**
+     * Rejette automatiquement un prélèvement avant toute exécution
+     * (compte sans découvert, solde insuffisant).
+     * Enregistre executed_at pour traçabilité.
+     */
+    public function markAutoRejected(int $id): bool
+    {
+        return $this->update($id, [
+            'status'      => self::STATUS_REJECTED,
+            'executed_at' => date('Y-m-d H:i:s'),
+        ]);
+    }
 }
