@@ -11,7 +11,16 @@
                 </div>
                 <div class="form-group">
                     <label for="account_type" class="form-label">Type de compte</label>
+                    <?php if ($isMinor): ?>
+                    <div class="alert alert-warning" style="margin-bottom:0.5rem;display:flex;align-items:center;gap:0.5rem;">
+                        <i class="bi bi-lock-fill"></i>
+                        <span>Le type de compte ne peut pas être modifié pour un compte mineur.</span>
+                    </div>
+                    <input type="hidden" name="account_type" value="<?= e($account['type'] ?? 'savings') ?>">
+                    <select id="account_type" class="form-control" disabled>
+                    <?php else: ?>
                     <select id="account_type" name="account_type" class="form-control" required>
+                    <?php endif; ?>
                         <?php foreach ($accountTypes as $key => $info): ?>
                             <option value="<?= e($key) ?>"
                                     data-no-overdraft="<?= $info['overdraft'] ? '0' : '1' ?>"

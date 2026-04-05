@@ -227,10 +227,14 @@ class AccountController extends Controller
             return;
         }
 
+        $owner   = $this->userModel->find((int) $account['user_id']);
+        $isMinor = User::isMinorFromDate($owner['birth_date'] ?? null);
+
         $this->render('accounts/edit', [
             'title'        => 'Modifier le compte',
             'account'      => $account,
             'accountTypes' => Account::TYPES,
+            'isMinor'      => $isMinor,
         ]);
     }
 
@@ -253,6 +257,13 @@ class AccountController extends Controller
             $this->setFlash('danger', 'Le nom et la devise sont requis.');
             $this->redirect('/accounts/' . $id . '/edit');
             return;
+        }
+
+        // Les mineurs ne peuvent pas changer le type de leur compte
+        $account = $this->accountModel->find($accountId);
+        $accountOwner = $this->userModel->find((int) ($account['user_id'] ?? 0));
+        if (User::isMinorFromDate($accountOwner['birth_date'] ?? null)) {
+            $data['account_type'] = $account['type'] ?? 'savings';
         }
 
         $type      = array_key_exists($data['account_type'], Account::TYPES) ? $data['account_type'] : 'standard';
