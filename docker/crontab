@@ -1,2 +1,2 @@
 # Exécution des transactions programmées échues – toutes les minutes
-* * * * * www-data php /var/www/html/database/process_scheduled.php >> /var/log/scheduled-transactions.log 2>&1
+* * * * * www-data php /var/www/html/database/process_scheduled.php >> /var/www/html/data/scheduled-cron.log 2>&1

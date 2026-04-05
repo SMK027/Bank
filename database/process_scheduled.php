@@ -22,6 +22,9 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 
+// Forcer le même fuseau horaire que l'application web
+date_default_timezone_set('Europe/Paris');
+
 use App\Models\Account;
 use App\Models\DirectDebit;
 use App\Models\Transaction;
