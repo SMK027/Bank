@@ -3,9 +3,17 @@
         <h1><i class="bi bi-people"></i> Modération — Utilisateurs</h1>
         <p class="page-description">Gestion des rôles globaux</p>
     </div>
-    <a href="/moderation" class="btn btn-outline btn-sm">
-        <i class="bi bi-arrow-left"></i> Retour aux comptes
-    </a>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <a href="/moderation" class="btn btn-outline btn-sm">
+            <i class="bi bi-bank"></i> Comptes
+        </a>
+        <a href="/moderation/transfers" class="btn btn-outline btn-sm">
+            <i class="bi bi-arrow-left-right"></i> Virements
+        </a>
+        <a href="/moderation/direct-debits" class="btn btn-outline btn-sm">
+            <i class="bi bi-file-earmark-arrow-down"></i> Prélèvements
+        </a>
+    </div>
 </div>
 
 <div class="card">

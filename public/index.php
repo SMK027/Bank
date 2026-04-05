@@ -86,6 +86,12 @@ $router->get('/moderation/users', ModerationController::class, 'users');
 $router->post('/moderation/users/{id}/role', ModerationController::class, 'setRole');
 $router->post('/moderation/accounts/{id}/freeze', ModerationController::class, 'freeze');
 $router->post('/moderation/accounts/{id}/unfreeze', ModerationController::class, 'unfreeze');
+// Prélèvements
+$router->get('/moderation/direct-debits', ModerationController::class, 'directDebits');
+$router->get('/moderation/direct-debits/create', ModerationController::class, 'createDirectDebitForm');
+$router->post('/moderation/direct-debits', ModerationController::class, 'createDirectDebit');
+$router->post('/moderation/direct-debits/{id}/cancel', ModerationController::class, 'cancelDirectDebit');
+$router->get('/moderation/direct-debits/accounts/search', ModerationController::class, 'searchAccounts');
 
 // --- Partage d'accès ---
 $router->post('/accounts/{accountId}/access', AccessController::class, 'grant');

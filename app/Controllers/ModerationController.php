@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Models\Account;
 use App\Models\AccountAccess;
+use App\Models\DirectDebit;
 use App\Models\Transaction;
 use App\Models\Transfer;
 use App\Models\User;
@@ -18,6 +19,7 @@ class ModerationController extends Controller
     private User $userModel;
     private Transfer $transferModel;
     private Transaction $transactionModel;
+    private DirectDebit $directDebitModel;
 
     public function __construct()
     {
@@ -26,6 +28,7 @@ class ModerationController extends Controller
         $this->userModel        = new User();
         $this->transferModel    = new Transfer();
         $this->transactionModel = new Transaction();
+        $this->directDebitModel = new DirectDebit();
     }
 
     /**
@@ -267,5 +270,210 @@ class ModerationController extends Controller
 
         $this->setFlash('success', 'Virement #' . $transferId . ' annulé avec succès. Les soldes ont été rétablis.');
         $this->redirect('/moderation/transfers');
+    }
+
+    // =========================================================
+    // PRÉLÈVEMENTS
+    // =========================================================
+
+    /**
+     * Liste de tous les prélèvements.
+     */
+    public function directDebits(): void
+    {
+        $this->requireModerator();
+
+        $accountsMap = array_column($this->accountModel->findAll('id', 'ASC'), null, 'id');
+        $allUsers    = $this->userModel->findAll('username', 'ASC');
+        $usersMap    = array_column($allUsers, null, 'id');
+
+        $rawDebits = $this->directDebitModel->findAll('created_at', 'DESC');
+        $enriched  = [];
+        foreach ($rawDebits as $d) {
+            $toAcc   = $accountsMap[$d['to_account_id']]   ?? null;
+            $fromAcc = ($d['from_account_id'] !== null) ? ($accountsMap[$d['from_account_id']] ?? null) : null;
+            $creator = $usersMap[$d['created_by']] ?? null;
+            $enriched[] = [
+                'id'              => (int) $d['id'],
+                'mandate_number'  => $d['mandate_number'],
+                'scheduled_at'    => $d['scheduled_at'],
+                'executed_at'     => $d['executed_at'],
+                'amount'          => (float) $d['amount'],
+                'motif'           => $d['motif'] ?? '',
+                'from_account'    => $fromAcc ? ($fromAcc['name'] ?? 'Compte #' . $d['from_account_id']) : 'Banque',
+                'to_account'      => $toAcc   ? ($toAcc['name']   ?? 'Compte #' . $d['to_account_id'])   : 'Compte #' . $d['to_account_id'],
+                'status'          => $d['status'],
+                'created_by_name' => $creator ? $creator['username'] : 'Modération',
+                'created_at'      => $d['created_at'],
+            ];
+        }
+
+        $debitsJson = json_encode(
+            $enriched,
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE
+        );
+
+        $this->render('moderation/direct_debits', [
+            'title'      => 'Modération — Prélèvements',
+            'debitsJson' => $debitsJson,
+            'totalCount' => count($enriched),
+            'csrfToken'  => csrf_token(),
+        ]);
+    }
+
+    /**
+     * Formulaire de création d'un prélèvement (GET).
+     */
+    public function createDirectDebitForm(): void
+    {
+        $this->requireModerator();
+
+        $allAccounts = $this->accountModel->findAll('name', 'ASC');
+
+        $this->render('moderation/direct_debits_create', [
+            'title'       => 'Modération — Nouveau prélèvement',
+            'allAccounts' => $allAccounts,
+            'csrfToken'   => csrf_token(),
+        ]);
+    }
+
+    /**
+     * Créer un prélèvement (POST).
+     */
+    public function createDirectDebit(): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $data = $this->getPostData(['mandate_number', 'scheduled_at', 'amount', 'motif', 'from_account_id', 'to_account_id']);
+
+        // Validation du numéro de mandat
+        $mandateNumber = trim($data['mandate_number'] ?? '');
+        if ($mandateNumber === '') {
+            $this->setFlash('danger', 'Le numéro de mandat est obligatoire.');
+            $this->redirect('/moderation/direct-debits/create');
+            return;
+        }
+
+        // Validation de la date d'exécution
+        $ts = strtotime($data['scheduled_at'] ?? '');
+        if ($ts === false || $ts <= 0) {
+            $this->setFlash('danger', 'La date d\'exécution est invalide.');
+            $this->redirect('/moderation/direct-debits/create');
+            return;
+        }
+        $scheduledAt = date('Y-m-d H:i:s', $ts);
+
+        // Validation du montant
+        $amount = (float) ($data['amount'] ?? 0);
+        if ($amount <= 0) {
+            $this->setFlash('danger', 'Le montant doit être strictement positif.');
+            $this->redirect('/moderation/direct-debits/create');
+            return;
+        }
+
+        // Compte destinataire (obligatoire)
+        $toAccountId = (int) ($data['to_account_id'] ?? 0);
+        $toAccount   = $toAccountId > 0 ? $this->accountModel->find($toAccountId) : null;
+        if (!$toAccount) {
+            $this->setFlash('danger', 'Compte destinataire invalide ou introuvable.');
+            $this->redirect('/moderation/direct-debits/create');
+            return;
+        }
+
+        // Compte émetteur (facultatif — vide ou 0 = banque)
+        $fromAccountRaw = trim($data['from_account_id'] ?? '');
+        $fromAccountId  = null;
+        if ($fromAccountRaw !== '' && $fromAccountRaw !== '0') {
+            $fromAccountId = (int) $fromAccountRaw;
+            if (!$this->accountModel->find($fromAccountId)) {
+                $this->setFlash('danger', 'Compte émetteur introuvable.');
+                $this->redirect('/moderation/direct-debits/create');
+                return;
+            }
+            if ($fromAccountId === $toAccountId) {
+                $this->setFlash('danger', 'Le compte émetteur et le compte destinataire doivent être différents.');
+                $this->redirect('/moderation/direct-debits/create');
+                return;
+            }
+        }
+
+        $motif = trim($data['motif'] ?? '') ?: null;
+
+        $this->directDebitModel->createDirectDebit(
+            $mandateNumber,
+            $scheduledAt,
+            $amount,
+            $toAccountId,
+            $fromAccountId,
+            $motif,
+            $this->getCurrentUserId()
+        );
+
+        $this->setFlash('success', sprintf(
+            'Prélèvement de %s € planifié pour le %s sur « %s » (mandat %s).',
+            number_format($amount, 2, ',', ' '),
+            date('d/m/Y à H\hi', $ts),
+            $toAccount['name'],
+            $mandateNumber
+        ));
+        $this->redirect('/moderation/direct-debits');
+    }
+
+    /**
+     * Annuler un prélèvement planifié (POST).
+     */
+    public function cancelDirectDebit(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $debitId     = (int) $id;
+        $directDebit = $this->directDebitModel->find($debitId);
+
+        if (!$directDebit) {
+            $this->setFlash('danger', 'Prélèvement introuvable.');
+            $this->redirect('/moderation/direct-debits');
+            return;
+        }
+
+        if (!$this->directDebitModel->canCancel($directDebit)) {
+            $this->setFlash('danger', 'Ce prélèvement ne peut pas être annulé (statut incompatible).');
+            $this->redirect('/moderation/direct-debits');
+            return;
+        }
+
+        $this->directDebitModel->markCancelled($debitId);
+        $this->setFlash('success', 'Prélèvement #' . $debitId . ' (mandat ' . $directDebit['mandate_number'] . ') annulé.');
+        $this->redirect('/moderation/direct-debits');
+    }
+
+    /**
+     * Recherche de comptes pour l'autocomplete (GET, JSON).
+     * Paramètre : ?q=terme_de_recherche
+     */
+    public function searchAccounts(): void
+    {
+        $this->requireModerator();
+
+        $q = trim($_GET['q'] ?? '');
+        if (strlen($q) < 2) {
+            $this->json([]);
+            return;
+        }
+
+        $rows    = $this->accountModel->searchByQuery($q, 15);
+        $results = [];
+        foreach ($rows as $row) {
+            $results[] = [
+                'id'       => (int) $row['id'],
+                'label'    => $row['name'] . ' (' . $row['username'] . ') — ' . strtoupper((string) $row['currency']),
+                'name'     => $row['name'],
+                'currency' => $row['currency'],
+                'owner'    => $row['username'],
+            ];
+        }
+
+        $this->json($results);
     }
 }

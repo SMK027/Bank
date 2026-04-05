@@ -139,4 +139,22 @@ class Account extends Model
 
         return ['own' => $ownAccounts, 'shared' => $sharedAccounts];
     }
+
+    /**
+     * Recherche de comptes par nom de compte ou nom d'utilisateur (pour l'autocomplete).
+     */
+    public function searchByQuery(string $q, int $limit = 15): array
+    {
+        $term = '%' . $q . '%';
+        $stmt = $this->getPdo()->prepare(
+            'SELECT a.id, a.name, a.currency, a.type, u.username
+             FROM accounts a
+             LEFT JOIN users u ON u.id = a.user_id
+             WHERE a.name LIKE ? OR u.username LIKE ?
+             ORDER BY a.name ASC
+             LIMIT ' . (int) $limit
+        );
+        $stmt->execute([$term, $term]);
+        return $stmt->fetchAll();
+    }
 }
