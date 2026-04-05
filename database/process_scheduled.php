@@ -3,27 +3,34 @@
 declare(strict_types=1);
 
 /**
- * Script CLI : exécution des virements planifiés échus.
+ * Script CLI : exécution des opérations planifiées échues.
  *
  * Lancé automatiquement par cron toutes les minutes.
  *
- * Pour chaque virement avec status = 'scheduled' et scheduled_at <= maintenant :
- *   1. Matérialise les deux transactions liées (scheduled_at → null)
- *   2. Passe le virement en status 'success' (ou 'failed' en cas d'erreur)
+ * 1. Virements planifiés (status = 'scheduled', scheduled_at <= now)
+ *    → matérialise les transactions pré-créées, passe en 'success' ou 'failed'.
  *
- * Les transactions planifiées orphelines (sans virement associé) sont également
- * matérialisées à la fin pour rétro-compatibilité.
+ * 2. Prélèvements automatiques (direct_debits, status = 'scheduled', scheduled_at <= now)
+ *    → crée les transactions débit (et crédit si compte émetteur défini),
+ *      passe en 'success' ou 'failed'.
+ *
+ * 3. Transactions planifiées orphelines (sans virement associé)
+ *    → matérialisées pour rétro-compatibilité.
  *
  * Usage manuel : php database/process_scheduled.php
  */
 
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 
+use App\Models\Account;
+use App\Models\DirectDebit;
 use App\Models\Transaction;
 use App\Models\Transfer;
 
 $transferModel    = new Transfer();
 $transactionModel = new Transaction();
+$directDebitModel = new DirectDebit();
+$accountModel     = new Account();
 
 $now      = time();
 $executed = 0;
@@ -76,13 +83,91 @@ foreach ($transferModel->getDueScheduled() as $transfer) {
 }
 
 /* ─────────────────────────────────────────────────────────────────
-   2. Rétro-compatibilité : transactions planifiées sans virement
+   2. Traitement des prélèvements automatiques échus
    ───────────────────────────────────────────────────────────────── */
-// Collecter les IDs de transactions déjà traitées via les virements
+foreach ($directDebitModel->getDue() as $debit) {
+    $debitId      = (int) $debit['id'];
+    $toAccountId  = (int) $debit['to_account_id'];
+    $fromAccountId = $debit['from_account_id'] !== null ? (int) $debit['from_account_id'] : null;
+    $amount       = (float) $debit['amount'];
+    $mandate      = $debit['mandate_number'];
+    $motif        = $debit['motif'] ?? '';
+    $comment      = 'Prélèvement' . ($motif !== '' ? ' — ' . $motif : '') . ' (mandat ' . $mandate . ')';
+
+    $ok = true;
+
+    // Vérifier que le compte destinataire (débité) n'est pas gelé
+    if ($accountModel->isFrozen($toAccountId)) {
+        echo sprintf(
+            "[%s] ERREUR prélèvement #%d : compte #%d gelé, exécution impossible.\n",
+            date('Y-m-d H:i:s'), $debitId, $toAccountId
+        );
+        $directDebitModel->markFailed($debitId);
+        $errors++;
+        continue;
+    }
+
+    // Créer la transaction de débit sur le compte destinataire
+    $debitTxId = $transactionModel->addTransaction(
+        $toAccountId,
+        'expense',
+        $amount,
+        'Prélèvement',
+        $comment,
+        0  // user_id = 0 → affiché comme "Modération"
+    );
+
+    // Créer la transaction de crédit sur le compte émetteur (si défini)
+    $creditTxId = null;
+    if ($fromAccountId !== null) {
+        try {
+            $creditTxId = $transactionModel->addTransaction(
+                $fromAccountId,
+                'income',
+                $amount,
+                'Prélèvement',
+                $comment,
+                0
+            );
+        } catch (\Throwable $e) {
+            echo sprintf(
+                "[%s] AVERTISSEMENT prélèvement #%d : crédit compte #%d échoué (%s)\n",
+                date('Y-m-d H:i:s'), $debitId, $fromAccountId, $e->getMessage()
+            );
+            $ok = false;
+        }
+    }
+
+    if ($ok) {
+        $directDebitModel->markSuccess($debitId, $debitTxId, $creditTxId);
+        $executed++;
+        echo sprintf(
+            "[%s] Prélèvement #%d exécuté : débit compte #%d%s — %.2f — mandat %s\n",
+            date('Y-m-d H:i:s'),
+            $debitId,
+            $toAccountId,
+            $fromAccountId !== null ? ' / crédit compte #' . $fromAccountId : ' (banque)',
+            $amount,
+            $mandate
+        );
+    } else {
+        $directDebitModel->markFailed($debitId);
+        $errors++;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   3. Rétro-compatibilité : transactions planifiées sans virement
+   ───────────────────────────────────────────────────────────────── */
+// Collecter les IDs de transactions déjà traitées via les virements et prélèvements
 $processedTxIds = [];
 foreach ($transferModel->findAll() as $tr) {
     if (!empty($tr['debit_tx_id']))  $processedTxIds[(int) $tr['debit_tx_id']]  = true;
     if (!empty($tr['credit_tx_id'])) $processedTxIds[(int) $tr['credit_tx_id']] = true;
+}
+foreach ($directDebitModel->findAll() as $dd) {
+    if (!empty($dd['debit_tx_id']))  $processedTxIds[(int) $dd['debit_tx_id']]  = true;
+    if (!empty($dd['credit_tx_id'])) $processedTxIds[(int) $dd['credit_tx_id']] = true;
 }
 
 foreach ($transactionModel->findAll('scheduled_at', 'ASC') as $t) {
