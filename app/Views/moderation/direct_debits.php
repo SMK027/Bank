@@ -168,13 +168,24 @@ function renderTable() {
                 + '<i class="bi bi-x-circle"></i> Annuler</button>'
                 + '</form>';
         } else if (d.status === 'success') {
-            actionCell =
-                '<form method="POST" action="/moderation/direct-debits/' + esc(String(d.id)) + '/reject"'
-                + ' style="display:inline" onsubmit="return confirm(\'Rejeter le prélèvement #' + d.id + ' (mandat ' + esc(d.mandate_number) + ') ?\\nLe montant sera recrédité sur le compte débité.\');">'
-                + '<input type="hidden" name="csrf_token" value="' + esc(DD_CSRF) + '">'
-                + '<button type="submit" class="btn btn-warning btn-sm" style="padding:0.2rem 0.5rem;font-size:0.76rem;">'
-                + '<i class="bi bi-arrow-counterclockwise"></i> Rejeter</button>'
-                + '</form>';
+            var now        = Date.now();
+            var executedMs = d.executed_at ? new Date(d.executed_at.replace(' ', 'T')).getTime() : 0;
+            var ageMs      = now - executedMs;
+            var H48        = 48 * 3600 * 1000;
+            var W2         = 14 * 24 * 3600 * 1000;
+            if (executedMs && ageMs >= H48 && ageMs <= W2) {
+                actionCell =
+                    '<form method="POST" action="/moderation/direct-debits/' + esc(String(d.id)) + '/reject"'
+                    + ' style="display:inline" onsubmit="return confirm(\'Rejeter le prélèvement #' + d.id + ' (mandat ' + esc(d.mandate_number) + ') ?\\nLe montant sera recrédité sur le compte débité.\')">'
+                    + '<input type="hidden" name="csrf_token" value="' + esc(DD_CSRF) + '">'
+                    + '<button type="submit" class="btn btn-warning btn-sm" style="padding:0.2rem 0.5rem;font-size:0.76rem;">'
+                    + '<i class="bi bi-arrow-counterclockwise"></i> Rejeter</button>'
+                    + '</form>';
+            } else if (!executedMs || ageMs < H48) {
+                actionCell = '<span style="color:var(--text-muted);font-size:0.76rem;" title="Rejet disponible 48 h après exécution">⏳ Trop récent</span>';
+            } else {
+                actionCell = '<span style="color:var(--text-muted);font-size:0.76rem;" title="Délai de rejet dépassé (2 semaines)">⌛ Délai expiré</span>';
+            }
         } else {
             actionCell = '<span style="color:var(--text-muted);font-size:0.76rem;">—</span>';
         }

@@ -124,11 +124,19 @@ class DirectDebit extends Model
     }
 
     /**
-     * Vérifie si un prélèvement peut être rejeté (statut success uniquement).
+     * Vérifie si un prélèvement peut être rejeté.
+     * Conditions : statut success + exécuté depuis plus de 48 h et moins de 2 semaines.
      */
     public function canReject(array $directDebit): bool
     {
-        return ($directDebit['status'] ?? '') === self::STATUS_SUCCESS;
+        if (($directDebit['status'] ?? '') !== self::STATUS_SUCCESS) {
+            return false;
+        }
+        if (empty($directDebit['executed_at'])) {
+            return false;
+        }
+        $age = time() - strtotime($directDebit['executed_at']);
+        return $age >= 48 * 3600 && $age <= 14 * 24 * 3600;
     }
 
     /**
