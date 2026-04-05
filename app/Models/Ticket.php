@@ -62,7 +62,7 @@ class Ticket extends Model
      */
     public function getByUser(int $userId): array
     {
-        $pdo  = $this->getConnection();
+        $pdo  = $this->getPdo();
         $stmt = $pdo->prepare(
             'SELECT t.*, u.username
                FROM tickets t
@@ -79,7 +79,7 @@ class Ticket extends Model
      */
     public function getAll(string $statusFilter = ''): array
     {
-        $pdo  = $this->getConnection();
+        $pdo  = $this->getPdo();
         $sql  = 'SELECT t.*, u.username
                    FROM tickets t
                    JOIN users u ON u.id = t.user_id';
@@ -109,7 +109,7 @@ class Ticket extends Model
      */
     public function findWithUser(int $id): ?array
     {
-        $pdo  = $this->getConnection();
+        $pdo  = $this->getPdo();
         $stmt = $pdo->prepare(
             'SELECT t.*, u.username, u.email
                FROM tickets t
@@ -127,7 +127,7 @@ class Ticket extends Model
      */
     public function countOpen(): int
     {
-        $pdo  = $this->getConnection();
+        $pdo  = $this->getPdo();
         $stmt = $pdo->prepare(
             'SELECT COUNT(*) FROM tickets WHERE status IN (\'open\', \'in_progress\', \'pending_user\')'
         );

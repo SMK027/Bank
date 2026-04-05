@@ -17,7 +17,7 @@ class TicketMessage extends Model
      */
     public function getByTicket(int $ticketId): array
     {
-        $pdo  = $this->getConnection();
+        $pdo  = $this->getPdo();
         $stmt = $pdo->prepare(
             'SELECT m.*, u.username
                FROM ticket_messages m

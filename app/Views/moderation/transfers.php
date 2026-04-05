@@ -226,8 +226,7 @@
             if (!matches.length) { results.style.display = 'none'; return; }
             var html = '';
             matches.forEach(function (n) {
-                html += '<div class="tf-ac-item"
-                     style="padding:0.45rem 0.75rem;cursor:pointer;font-size:0.83rem;border-bottom:1px solid var(--border-color);"'
+                html += '<div class="tf-ac-item" style="padding:0.45rem 0.75rem;cursor:pointer;font-size:0.83rem;border-bottom:1px solid var(--border-color);"'
                      + ' data-name="' + n.replace(/"/g, '&quot;') + '">'
                      + n.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
             });
