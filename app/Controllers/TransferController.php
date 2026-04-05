@@ -93,7 +93,7 @@ class TransferController extends Controller
         $this->validateCSRF();
 
         $userId = $this->getCurrentUserId();
-        $data   = $this->getPostData(['from_account_id', 'to_account_id', 'amount', 'motif', 'mode']);
+        $data   = $this->getPostData(['from_account_id', 'to_account_id', 'amount', 'motif', 'mode', 'scheduled_at']);
 
         $fromId  = (int) $data['from_account_id'];
         $toId    = (int) $data['to_account_id'];
@@ -173,6 +173,14 @@ class TransferController extends Controller
         }
 
         $motif = trim($data['motif'] ?: '');
+
+        $scheduledAt = null;
+        if (!empty($data['scheduled_at'])) {
+            $ts = strtotime($data['scheduled_at']);
+            if ($ts !== false && $ts > time()) {
+                $scheduledAt = date('Y-m-d H:i:s', $ts);
+            }
+        }
         $label = 'Virement' . ($motif !== '' ? ' — ' . $motif : '');
 
         // Vérifier le plafond d'épargne du compte destinataire (ignoré si modérateur)
@@ -199,7 +207,8 @@ class TransferController extends Controller
             $amount,
             'Virement',
             $label,
-            $userId
+            $userId,
+            $scheduledAt
         );
 
         // Crédit sur le compte destinataire
@@ -209,7 +218,8 @@ class TransferController extends Controller
             $amount,
             'Virement',
             $label,
-            $userId
+            $userId,
+            $scheduledAt
         );
 
         // Enregistrement du virement en base
@@ -219,18 +229,29 @@ class TransferController extends Controller
             $userId,
             $amount,
             $motif,
-            null,
+            $scheduledAt,
             $debitTxId,
             $creditTxId
         );
 
-        $this->setFlash('success', sprintf(
-            'Virement de %s %s effectué de « %s » vers « %s ».',
-            number_format($amount, 2, ',', ' '),
-            $fromAccount['currency'],
-            $fromAccount['name'],
-            $toAccount['name']
-        ));
+        if ($scheduledAt !== null) {
+            $this->setFlash('success', sprintf(
+                'Virement de %s %s planifié pour le %s de « %s » vers « %s ».',
+                number_format($amount, 2, ',', ' '),
+                $fromAccount['currency'],
+                date('d/m/Y à H\hi', strtotime($scheduledAt)),
+                $fromAccount['name'],
+                $toAccount['name']
+            ));
+        } else {
+            $this->setFlash('success', sprintf(
+                'Virement de %s %s effectué de « %s » vers « %s ».',
+                number_format($amount, 2, ',', ' '),
+                $fromAccount['currency'],
+                $fromAccount['name'],
+                $toAccount['name']
+            ));
+        }
         $this->redirect('/accounts/' . $fromId);
     }
 }
