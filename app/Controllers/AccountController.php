@@ -79,11 +79,19 @@ class AccountController extends Controller
         $transactions = $this->transactionModel->getByAccount($accountId);
         // Enrichir chaque transaction avec le nom de l'auteur et le statut programmé
         foreach ($transactions as &$t) {
-            $author = isset($t['user_id']) && $t['user_id'] ? $this->userModel->find((int) $t['user_id']) : null;
-            if ($author && ($author['global_role'] ?? 'user') === 'moderator') {
+            $authorId = isset($t['user_id']) ? (int) $t['user_id'] : 0;
+            if ($authorId === 0) {
+                // user_id = 0 : action explicitement anonymisée (ex. annulation par modération)
                 $t['author_name'] = 'Modération';
             } else {
-                $t['author_name'] = $author ? $author['username'] : 'Inconnu';
+                $author = $this->userModel->find($authorId);
+                if ($author && ($author['global_role'] ?? 'user') === 'moderator'
+                    && !$this->accountModel->hasAccess($accountId, $authorId)) {
+                    // Modérateur sans accès légitime → action de modération anonymisée
+                    $t['author_name'] = 'Modération';
+                } else {
+                    $t['author_name'] = $author ? $author['username'] : 'Inconnu';
+                }
             }
             $t['is_pending'] = Transaction::isPending($t);
         }

@@ -243,13 +243,14 @@ class ModerationController extends Controller
         $motif       = 'Annulation virement #' . $transferId;
 
         // Remboursement sur le compte émetteur (income)
+        // user_id = 0 : action de modération → affiché comme "Modération" sur le compte
         $this->transactionModel->addTransaction(
             (int) $transfer['from_account_id'],
             'income',
             $amount,
             'Virement',
             $motif,
-            $moderatorId
+            0
         );
 
         // Récupération sur le compte destinataire (expense)
@@ -259,7 +260,7 @@ class ModerationController extends Controller
             $amount,
             'Virement',
             $motif,
-            $moderatorId
+            0
         );
 
         $this->transferModel->markCancelled($transferId);
