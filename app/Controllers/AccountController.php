@@ -193,10 +193,12 @@ class AccountController extends Controller
     {
         $this->requireAuth();
         $this->validateCSRF();
-        $accountId = (int) $id;
-        $userId = $this->getCurrentUserId();
+        $accountId   = (int) $id;
+        $userId      = $this->getCurrentUserId();
+        $isOwner     = $this->accountModel->isOwner($accountId, $userId);
+        $isModerator = $this->isModerator();
 
-        if (!$this->accountModel->isOwner($accountId, $userId)) {
+        if (!$isOwner && !$isModerator) {
             $this->setFlash('danger', 'Accès refusé.');
             $this->redirect('/dashboard');
             return;

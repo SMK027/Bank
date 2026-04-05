@@ -585,7 +585,7 @@
     </div>
 </div>
 
-<?php if ($isOwner): ?>
+<?php if ($isOwner || $isModerator): ?>
 <!-- Suppression du compte -->
 <div class="card mt-2" style="border: 1px solid var(--danger);">
     <div class="card-body">
