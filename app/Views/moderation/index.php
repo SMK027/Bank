@@ -10,6 +10,9 @@
         <a href="/moderation/direct-debits" class="btn btn-outline btn-sm">
             <i class="bi bi-file-earmark-arrow-down"></i> Prélèvements
         </a>
+        <a href="/moderation/guardianships" class="btn btn-outline btn-sm">
+            <i class="bi bi-person-lock"></i> Tutelles légales
+        </a>
         <a href="/moderation/users" class="btn btn-outline btn-sm">
             <i class="bi bi-people"></i> Gérer les utilisateurs
         </a>

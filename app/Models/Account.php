@@ -6,6 +6,8 @@ namespace App\Models;
 
 use App\Core\Model;
 use App\Models\DirectDebit;
+use App\Models\Guardianship;
+use App\Models\User;
 
 class Account extends Model
 {
@@ -23,20 +25,29 @@ class Account extends Model
         'minor'    => ['label' => 'Compte mineur',        'overdraft' => false, 'cap' => false],
     ];
 
-    /** Types accessibles aux mineurs uniquement. */
-    public const MINOR_ALLOWED_TYPES = ['minor', 'savings'];
+    /**
+     * Types créables par un mineur via le formulaire standard.
+     * Le type 'minor' est réservé à la modération uniquement.
+     */
+    public const MINOR_ALLOWED_TYPES = ['savings'];
 
     /**
-     * Retourne les types de comptes accessibles selon le statut mineur/majeur.
+     * Retourne les types de comptes créables via le formulaire standard.
+     * Le type 'minor' est réservé exclusivement à la modération.
      */
     public static function getAllowedTypes(bool $isMinor): array
     {
-        if (!$isMinor) {
-            return self::TYPES;
+        if ($isMinor) {
+            return array_filter(
+                self::TYPES,
+                fn(string $key) => in_array($key, self::MINOR_ALLOWED_TYPES, true),
+                ARRAY_FILTER_USE_KEY
+            );
         }
+        // Les adultes peuvent créer tous les types sauf 'minor' (modération uniquement)
         return array_filter(
             self::TYPES,
-            fn(string $key) => in_array($key, self::MINOR_ALLOWED_TYPES, true),
+            fn(string $key) => $key !== 'minor',
             ARRAY_FILTER_USE_KEY
         );
     }
@@ -129,7 +140,18 @@ class Account extends Model
             return true;
         }
         $accessModel = new AccountAccess();
-        return $accessModel->hasValidAccess($accountId, $userId);
+        if ($accessModel->hasValidAccess($accountId, $userId)) {
+            return true;
+        }
+        // Vérifier si l'utilisateur est responsable légal actif du propriétaire du compte
+        $account = $this->find($accountId);
+        if ($account) {
+            $guardianshipModel = new Guardianship();
+            if ($guardianshipModel->isActiveGuardianOf($userId, (int) $account['user_id'])) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public function isFrozen(int $accountId): bool
@@ -163,6 +185,35 @@ class Account extends Model
                 $account['_access_type'] = $access['type'];
                 $account['_access_expires'] = $access['expires_at'] ?? null;
                 $sharedAccounts[] = $account;
+            }
+        }
+
+        // Ajouter les comptes des mineurs dont l'utilisateur est responsable légal actif
+        $guardianshipModel = new Guardianship();
+        $minorLinks        = $guardianshipModel->getMinorsOf($userId);
+        $userModel         = new User();
+        foreach ($minorLinks as $link) {
+            $minorUser = $userModel->find((int) $link['minor_user_id']);
+            if (!$minorUser || !User::isMinorFromDate($minorUser['birth_date'] ?? null)) {
+                continue; // Le mineur est devenu majeur : procuration expirée
+            }
+            $minorAccounts = $this->getByUser((int) $link['minor_user_id']);
+            foreach ($minorAccounts as $account) {
+                // Éviter les doublons (ex. partagé ET tuteur)
+                $alreadyIncluded = false;
+                foreach ($sharedAccounts as $sa) {
+                    if ((int) $sa['id'] === (int) $account['id']) {
+                        $alreadyIncluded = true;
+                        break;
+                    }
+                }
+                if (!$alreadyIncluded) {
+                    $account['_shared']         = true;
+                    $account['_access_type']    = 'guardian';
+                    $account['_access_expires'] = null;
+                    $account['_minor_username'] = $minorUser['username'];
+                    $sharedAccounts[]           = $account;
+                }
             }
         }
 

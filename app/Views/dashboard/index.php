@@ -82,9 +82,9 @@
     </div>
 <?php endif; ?>
 
-<!-- Comptes partagés -->
+<!-- Comptes partagés et sous tutelle -->
 <?php if (!empty($sharedAccounts)): ?>
-    <h2 class="mt-3 mb-2"><i class="bi bi-people"></i> Comptes partagés avec moi</h2>
+    <h2 class="mt-3 mb-2"><i class="bi bi-people"></i> Comptes partagés & sous tutelle</h2>
     <div class="card-grid">
         <?php foreach ($sharedAccounts as $account): ?>
             <a href="/accounts/<?= (int) $account['id'] ?>" class="card-link">
@@ -92,10 +92,21 @@
                     <div class="card-body">
                         <div class="d-flex justify-between align-center mb-1">
                             <h3 style="margin:0"><?= e($account['name']) ?></h3>
-                            <span class="badge badge-info">
-                                <?= $account['_access_type'] === 'permanent' ? 'Permanent' : 'Temporaire' ?>
-                            </span>
+                            <?php if (($account['_access_type'] ?? '') === 'guardian'): ?>
+                                <span class="badge" style="background:#f59e0b;color:#fff;">
+                                    <i class="bi bi-person-lock"></i> Responsable légal
+                                </span>
+                            <?php else: ?>
+                                <span class="badge badge-info">
+                                    <?= $account['_access_type'] === 'permanent' ? 'Permanent' : 'Temporaire' ?>
+                                </span>
+                            <?php endif; ?>
                         </div>
+                        <?php if (($account['_access_type'] ?? '') === 'guardian' && !empty($account['_minor_username'])): ?>
+                        <div class="text-small text-muted mb-1">
+                            <i class="bi bi-person-badge"></i> Compte de <?= e($account['_minor_username']) ?>
+                        </div>
+                        <?php endif; ?>
                         <div class="account-balance <?= $account['balance'] >= 0 ? 'balance-positive' : 'balance-negative' ?>">
                             <?= number_format($account['balance'], 2, ',', ' ') ?> <?= e($account['currency']) ?>
                         </div>

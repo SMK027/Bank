@@ -7,7 +7,8 @@
                 <i class="bi bi-person-arms-up" style="font-size:1.2rem;"></i>
                 <span>
                     <strong>Profil mineur</strong> — Seuls les comptes
-                    <strong>Mineur</strong> et <strong>Épargne</strong> sont disponibles.
+                    <strong>Épargne</strong> sont disponibles.
+                    Les comptes mineurs sont ouverts uniquement par la modération.
                 </span>
             </div>
             <?php endif; ?>

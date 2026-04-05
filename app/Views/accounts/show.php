@@ -406,6 +406,51 @@
         </div>
     </div>
     <?php endif; ?>
+
+    <!-- Responsables légaux (compte mineur) -->
+    <?php if ($isMinorAccount): ?>
+    <div class="card mb-2" style="border-left:4px solid #f59e0b;">
+        <div class="card-header" style="display:flex;align-items:center;gap:0.6rem;">
+            <h3 style="margin:0;"><i class="bi bi-person-lock" style="color:#f59e0b;"></i> Responsables légaux</h3>
+            <span class="badge" style="background:#f59e0b;color:#fff;">Compte mineur</span>
+        </div>
+        <div class="card-body">
+            <?php if (empty($guardians)): ?>
+                <div class="alert alert-warning" style="margin:0;font-size:0.88rem;">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Aucun responsable légal désigné pour ce compte.
+                    <?php if ($isModerator): ?>
+                        <a href="/moderation/guardianships" style="margin-left:0.4rem;">
+                            <i class="bi bi-person-plus"></i> Ajouter un tuteur
+                        </a>
+                    <?php endif; ?>
+                </div>
+            <?php else: ?>
+                <div style="display:flex;flex-direction:column;gap:0.5rem;">
+                    <?php foreach ($guardians as $guardian): ?>
+                    <div style="display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0.75rem;
+                                background:rgba(245,158,11,0.06);border-radius:var(--border-radius,6px);">
+                        <i class="bi bi-person-check-fill" style="color:#f59e0b;font-size:1.1rem;"></i>
+                        <span class="font-bold"><?= e($guardian['username']) ?></span>
+                        <span class="badge badge-secondary text-small">Responsable légal</span>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+                <div style="margin-top:0.75rem;font-size:0.78rem;color:var(--text-muted);">
+                    <i class="bi bi-info-circle"></i>
+                    La procuration expire automatiquement à la majorité du titulaire.
+                </div>
+                <?php if ($isModerator): ?>
+                <div style="margin-top:0.6rem;">
+                    <a href="/moderation/guardianships" class="btn btn-outline btn-sm">
+                        <i class="bi bi-pencil"></i> Gérer les tutelles
+                    </a>
+                </div>
+                <?php endif; ?>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
 </div>
 
 <!-- ======================================================= -->

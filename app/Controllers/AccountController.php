@@ -10,6 +10,7 @@ use App\Models\Account;
 use App\Models\Transaction;
 use App\Models\AccountAccess;
 use App\Models\DirectDebit;
+use App\Models\Guardianship;
 use App\Models\User;
 
 class AccountController extends Controller
@@ -50,6 +51,13 @@ class AccountController extends Controller
 
         if (empty($data['name']) || empty($data['currency'])) {
             $this->setFlash('danger', 'Le nom et la devise sont requis.');
+            $this->redirect('/accounts/create');
+            return;
+        }
+
+        // Le type 'minor' est réservé à la modération, jamais au formulaire utilisateur
+        if (($data['account_type'] ?? '') === 'minor') {
+            $this->setFlash('danger', 'Les comptes mineurs sont créés uniquement par la modération.');
             $this->redirect('/accounts/create');
             return;
         }
@@ -140,6 +148,19 @@ class AccountController extends Controller
         // Récupérer le propriétaire
         $owner = $this->userModel->find((int) $account['user_id']);
 
+        // Responsables légaux si le propriétaire est mineur
+        $guardians       = [];
+        $isMinorAccount  = User::isMinorFromDate($owner['birth_date'] ?? null);
+        if ($isMinorAccount) {
+            $guardianshipModel = new Guardianship();
+            foreach ($guardianshipModel->getGuardiansOf((int) $account['user_id']) as $g) {
+                $guardianUser = $this->userModel->find((int) $g['guardian_user_id']);
+                if ($guardianUser) {
+                    $guardians[] = $guardianUser;
+                }
+            }
+        }
+
         // Séparer les transactions à venir des exécutées
         $pendingTransactions  = array_values(array_filter($transactions, fn($t) => $t['is_pending']));
         $executedTransactions = array_values(array_filter($transactions, fn($t) => !$t['is_pending']));
@@ -170,6 +191,8 @@ class AccountController extends Controller
             'isFrozen'           => $isFrozen,
             'accesses'           => $accesses,
             'owner'              => $owner,
+            'guardians'          => $guardians,
+            'isMinorAccount'     => $isMinorAccount,
             'categories'         => Transaction::CATEGORIES,
         ]);
     }
