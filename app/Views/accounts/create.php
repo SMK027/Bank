@@ -14,7 +14,8 @@
                     <select id="account_type" name="account_type" class="form-control" required>
                         <?php foreach ($accountTypes as $key => $info): ?>
                             <option value="<?= e($key) ?>"
-                                    data-no-overdraft="<?= $info['overdraft'] ? '0' : '1' ?>">
+                                    data-no-overdraft="<?= $info['overdraft'] ? '0' : '1' ?>"
+                                    data-has-cap="<?= !empty($info['cap']) ? '1' : '0' ?>">
                                 <?= e($info['label']) ?>
                                 <?= $info['overdraft'] ? '' : ' — découvert interdit' ?>
                             </option>
@@ -46,6 +47,12 @@
                     <i class="bi bi-slash-circle"></i>
                     Ce type de compte <strong>n'autorise pas le découvert</strong>.
                 </div>
+                <div class="form-group" id="cap-group" style="display:none;">
+                    <label for="cap" class="form-label">Plafond d'épargne</label>
+                    <input type="number" id="cap" name="cap" class="form-control"
+                           placeholder="Ex : 50000.00" min="0" step="0.01" value="">
+                    <span class="form-hint">Solde maximum autorisé (0 ou vide = pas de plafond)</span>
+                </div>
                 <div class="form-group">
                     <button type="submit" class="btn btn-primary btn-block">
                         <i class="bi bi-check-lg"></i> Créer le compte
@@ -64,12 +71,16 @@
     var group   = document.getElementById('overdraft-group');
     var notice  = document.getElementById('overdraft-blocked-notice');
     var input   = document.getElementById('overdraft');
+    var capGrp  = document.getElementById('cap-group');
     function toggle() {
-        var opt = typeEl.options[typeEl.selectedIndex];
-        var noOd = opt.dataset.noOverdraft === '1';
+        var opt    = typeEl.options[typeEl.selectedIndex];
+        var noOd   = opt.dataset.noOverdraft === '1';
+        var hasCap = opt.dataset.hasCap === '1';
         group.style.display  = noOd ? 'none' : '';
-        notice.style.display = noOd ? 'block' : 'none';
+        notice.style.display = noOd && !hasCap ? 'block' : 'none';
+        capGrp.style.display = hasCap ? '' : 'none';
         if (noOd) { input.value = '0'; }
+        if (!hasCap) { document.getElementById('cap').value = ''; }
     }
     typeEl.addEventListener('change', toggle);
     toggle();

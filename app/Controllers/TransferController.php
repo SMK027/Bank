@@ -175,7 +175,24 @@ class TransferController extends Controller
         $motif = trim($data['motif'] ?: '');
         $label = 'Virement' . ($motif !== '' ? ' — ' . $motif : '');
 
-        // Débit sur le compte émetteur
+        // Vérifier le plafond d'épargne du compte destinataire (ignoré si modérateur)
+        $toCap = (float) ($toAccount['cap'] ?? 0);
+        if (!$this->isModerator() && Account::typeHasCap($toAccount['type'] ?? '') && $toCap > 0) {
+            $toBalance = $this->accountModel->getFutureBalance($toId);
+            if ($toBalance + $amount > $toCap) {
+                $this->setFlash('danger', sprintf(
+                    'Virement impossible : le compte destinataire « %s » est un compte épargne plafonné à %s %s. Solde actuel : %s %s.',
+                    $toAccount['name'],
+                    number_format($toCap, 2, ',', ' '),
+                    $toAccount['currency'],
+                    number_format($toBalance, 2, ',', ' '),
+                    $toAccount['currency']
+                ));
+                $this->redirect('/transfers/create?tab=' . ($modMode ? 'moderation' : 'personal'));
+                return;
+            }
+        }
+
         $debitTxId = $this->transactionModel->addTransaction(
             $fromId,
             'expense',

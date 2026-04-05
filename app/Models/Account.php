@@ -14,12 +14,12 @@ class Account extends Model
      * Types de comptes : label + droit au découvert.
      */
     public const TYPES = [
-        'standard' => ['label' => 'Compte courant',       'overdraft' => true],
-        'pro'      => ['label' => 'Compte professionnel', 'overdraft' => true],
-        'joint'    => ['label' => 'Compte joint',         'overdraft' => true],
-        'savings'  => ['label' => 'Compte épargne',       'overdraft' => false],
-        'online'   => ['label' => 'Banque en ligne',      'overdraft' => false],
-        'minor'    => ['label' => 'Compte mineur',        'overdraft' => false],
+        'standard' => ['label' => 'Compte courant',       'overdraft' => true,  'cap' => false],
+        'pro'      => ['label' => 'Compte professionnel', 'overdraft' => true,  'cap' => false],
+        'joint'    => ['label' => 'Compte joint',         'overdraft' => true,  'cap' => false],
+        'savings'  => ['label' => 'Compte épargne',       'overdraft' => false, 'cap' => true],
+        'online'   => ['label' => 'Banque en ligne',      'overdraft' => false, 'cap' => false],
+        'minor'    => ['label' => 'Compte mineur',        'overdraft' => false, 'cap' => false],
     ];
 
     public static function typeAllowsOverdraft(string $type): bool
@@ -27,10 +27,18 @@ class Account extends Model
         return self::TYPES[$type]['overdraft'] ?? true;
     }
 
-    public function createAccount(int $userId, string $name, string $currency, float $overdraft = 0.0, string $type = 'standard'): int
+    public static function typeHasCap(string $type): bool
+    {
+        return (bool) (self::TYPES[$type]['cap'] ?? false);
+    }
+
+    public function createAccount(int $userId, string $name, string $currency, float $overdraft = 0.0, string $type = 'standard', ?float $cap = null): int
     {
         if (!self::typeAllowsOverdraft($type)) {
             $overdraft = 0.0;
+        }
+        if (!self::typeHasCap($type)) {
+            $cap = null;
         }
         return $this->create([
             'user_id'   => $userId,
@@ -38,6 +46,7 @@ class Account extends Model
             'currency'  => $currency,
             'overdraft' => $overdraft,
             'type'      => $type,
+            'cap'       => $cap,
         ]);
     }
 

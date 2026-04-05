@@ -40,7 +40,7 @@ class AccountController extends Controller
         $this->requireAuth();
         $this->validateCSRF();
 
-        $data = $this->getPostData(['name', 'currency', 'overdraft', 'account_type']);
+        $data = $this->getPostData(['name', 'currency', 'overdraft', 'account_type', 'cap']);
 
         if (empty($data['name']) || empty($data['currency'])) {
             $this->setFlash('danger', 'Le nom et la devise sont requis.');
@@ -50,13 +50,15 @@ class AccountController extends Controller
 
         $type      = array_key_exists($data['account_type'], Account::TYPES) ? $data['account_type'] : 'standard';
         $overdraft = Account::typeAllowsOverdraft($type) ? abs((float) ($data['overdraft'] ?: 0)) : 0.0;
+        $cap       = Account::typeHasCap($type) && $data['cap'] !== '' ? abs((float) $data['cap']) : null;
 
         $this->accountModel->createAccount(
             $this->getCurrentUserId(),
             $data['name'],
             $data['currency'],
             $overdraft,
-            $type
+            $type,
+            $cap
         );
 
         $this->setFlash('success', 'Compte bancaire créé avec succès !');
@@ -175,7 +177,7 @@ class AccountController extends Controller
             return;
         }
 
-        $data = $this->getPostData(['name', 'currency', 'overdraft', 'account_type']);
+        $data = $this->getPostData(['name', 'currency', 'overdraft', 'account_type', 'cap']);
 
         if (empty($data['name']) || empty($data['currency'])) {
             $this->setFlash('danger', 'Le nom et la devise sont requis.');
@@ -185,12 +187,14 @@ class AccountController extends Controller
 
         $type      = array_key_exists($data['account_type'], Account::TYPES) ? $data['account_type'] : 'standard';
         $overdraft = Account::typeAllowsOverdraft($type) ? abs((float) ($data['overdraft'] ?: 0)) : 0.0;
+        $cap       = Account::typeHasCap($type) && $data['cap'] !== '' ? abs((float) $data['cap']) : null;
 
         $this->accountModel->update($accountId, [
             'name'      => $data['name'],
             'currency'  => $data['currency'],
             'overdraft' => $overdraft,
             'type'      => $type,
+            'cap'       => $cap,
         ]);
 
         $this->setFlash('success', 'Compte modifié avec succès.');

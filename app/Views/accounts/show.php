@@ -99,6 +99,12 @@
             <div class="stat-label">Découvert autorisé (<?= e($account['currency']) ?>)</div>
         </div>
     <?php endif; ?>
+    <?php if (\App\Models\Account::typeHasCap($account['type'] ?? '') && (float) ($account['cap'] ?? 0) > 0): ?>
+        <div class="stat-card" style="border-left:3px solid var(--primary)">
+            <div class="stat-value"><?= number_format((float) $account['cap'], 2, ',', ' ') ?></div>
+            <div class="stat-label">Plafond d'épargne (<?= e($account['currency']) ?>)</div>
+        </div>
+    <?php endif; ?>
 </div>
 
 <?php
@@ -146,6 +152,13 @@
             <div class="alert alert-frozen" style="margin-bottom:1rem;">
                 <i class="bi bi-snow"></i>
                 <strong>Compte gelé.</strong> Seules les <strong>entrées</strong> sont autorisées sur ce compte.
+            </div>
+            <?php endif; ?>
+            <?php if (\App\Models\Account::typeHasCap($account['type'] ?? '') && (float) ($account['cap'] ?? 0) > 0 && !$isModerator): ?>
+            <div class="alert alert-info" style="margin-bottom:1rem;">
+                <i class="bi bi-piggy-bank"></i>
+                Plafond d'épargne : <strong><?= number_format((float) $account['cap'], 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>.
+                Les crédits dépassant ce plafond sont bloqués.
             </div>
             <?php endif; ?>
             <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/transactions"

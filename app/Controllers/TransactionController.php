@@ -107,6 +107,28 @@ class TransactionController extends Controller
             }
         }
 
+        // Vérifier le plafond d'épargne pour les entrées (ignoré pour les modérateurs)
+        if ($data['type'] === 'income' && !$this->isModerator()) {
+            $account = $account ?? $this->accountModel->find($accId);
+            if ($account && Account::typeHasCap($account['type'] ?? '')) {
+                $tCap = (float) ($account['cap'] ?? 0);
+                if ($tCap > 0) {
+                    $currentBalance = $this->accountModel->getFutureBalance($accId);
+                    if ($currentBalance + $amount > $tCap) {
+                        $this->setFlash('danger', sprintf(
+                            'Opération impossible : ce compte épargne a un plafond de %s %s. Solde actuel : %s %s.',
+                            number_format($tCap, 2, ',', ' '),
+                            $account['currency'],
+                            number_format($currentBalance, 2, ',', ' '),
+                            $account['currency']
+                        ));
+                        $this->redirect('/accounts/' . $accountId);
+                        return;
+                    }
+                }
+            }
+        }
+
         $this->transactionModel->addTransaction(
             $accId,
             $data['type'],
@@ -116,7 +138,6 @@ class TransactionController extends Controller
             $userId,
             $scheduledAt
         );
-
         $label = $data['type'] === 'income' ? 'Entrée' : 'Dépense';
         $msg   = $scheduledAt
             ? $label . ' programmée pour le ' . date('d/m/Y H:i', strtotime($scheduledAt)) . '.'
