@@ -90,6 +90,7 @@
                 <th style="white-space:nowrap">Statut</th>
                 <th style="white-space:nowrap">Planifié le</th>
                 <th style="white-space:nowrap">Exécuté le</th>
+                <th style="white-space:nowrap">Actions</th>
             </tr>
         </thead>
         <tbody id="transfers-history-body"></tbody>
@@ -108,6 +109,7 @@
 <script>
 (function () {
     var TRANSFERS = <?= $transfersJson ?? '[]' ?>;
+    var TF_CSRF   = <?= json_encode($csrfToken ?? '') ?>;
 
     var STATUS_LABELS = {
         'scheduled': 'Planifié',
@@ -143,6 +145,19 @@
             .replace(/"/g, '&quot;');
     }
 
+    var SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    function canCancel(t) {
+        var st = t.status || '';
+        if (st === 'cancelled' || st === 'failed') return false;
+        if (st === 'scheduled') return true;
+        if (st === 'success') {
+            var ref = t.executed_at || t.created_at;
+            if (!ref) return false;
+            return (Date.now() - new Date(ref.replace(' ', 'T')).getTime()) <= SEVEN_DAYS_MS;
+        }
+        return false;
+    }
+
     function renderTransfers(list) {
         var tbody = document.getElementById('transfers-history-body');
         var empty = document.getElementById('tf-empty');
@@ -163,8 +178,21 @@
             var motifCell = t.motif
                 ? '<span title="' + esc(t.motif) + '">' + esc(t.motif) + '</span>'
                 : '<span style="color:var(--text-muted)">—</span>';
+            var actionCell;
+            if (canCancel(t)) {
+                actionCell = '<form method="POST" action="/moderation/transfers/' + esc(String(t.id)) + '/cancel"'
+                    + ' style="display:inline">'
+                    + '<input type="hidden" name="csrf_token" value="' + esc(TF_CSRF) + '">'
+                    + '<button type="submit" class="btn btn-danger btn-sm"'
+                    + ' style="font-size:0.75rem;padding:0.2rem 0.55rem"'
+                    + ' onclick="return confirm(\'Annuler le virement #' + t.id + ' de ' + fmt(t.amount) + ' ?\u00a0\\nCette action est irr\u00e9versible.\')">'
+                    + '<i class="bi bi-x-circle"></i> Annuler</button>'
+                    + '</form>';
+            } else {
+                actionCell = '<span style="color:var(--text-muted);font-size:0.78rem">\u2014</span>';
+            }
             html += '<tr>'
-                + '<td style="color:var(--text-muted)">#' + esc(t.id) + '</td>'
+                + '<td style="color:var(--text-muted)">#' + esc(String(t.id)) + '</td>'
                 + '<td>' + esc(t.user_name) + '</td>'
                 + '<td>' + esc(t.from_account) + '</td>'
                 + '<td>' + esc(t.to_account) + '</td>'
@@ -173,6 +201,7 @@
                 + '<td><span class="badge ' + bCls + '">' + bLbl + '</span></td>'
                 + '<td style="white-space:nowrap;font-size:0.78rem">' + fmtDate(t.scheduled_at) + '</td>'
                 + '<td style="white-space:nowrap;font-size:0.78rem">' + fmtDate(t.executed_at) + '</td>'
+                + '<td style="white-space:nowrap">' + actionCell + '</td>'
                 + '</tr>';
         });
         tbody.innerHTML = html;

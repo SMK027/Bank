@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Models\Account;
 use App\Models\AccountAccess;
+use App\Models\Transaction;
 use App\Models\Transfer;
 use App\Models\User;
 
@@ -16,13 +17,15 @@ class ModerationController extends Controller
     private AccountAccess $accessModel;
     private User $userModel;
     private Transfer $transferModel;
+    private Transaction $transactionModel;
 
     public function __construct()
     {
-        $this->accountModel  = new Account();
-        $this->accessModel   = new AccountAccess();
-        $this->userModel     = new User();
-        $this->transferModel = new Transfer();
+        $this->accountModel     = new Account();
+        $this->accessModel      = new AccountAccess();
+        $this->userModel        = new User();
+        $this->transferModel    = new Transfer();
+        $this->transactionModel = new Transaction();
     }
 
     /**
@@ -207,6 +210,61 @@ class ModerationController extends Controller
             'transfersJson' => $transfersJson,
             'tfAuthors'     => $tfAuthors,
             'totalCount'    => count($enrichedTransfers),
+            'csrfToken'     => csrf_token(),
         ]);
+    }
+
+    /**
+     * Annuler un virement (POST) — modérateurs uniquement.
+     * Conditions : statut « scheduled » OU « success » exécuté il y a ≤ 7 jours.
+     */
+    public function cancelTransfer(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $transferId = (int) $id;
+        $transfer   = $this->transferModel->find($transferId);
+
+        if (!$transfer) {
+            $this->setFlash('danger', 'Virement introuvable.');
+            $this->redirect('/moderation/transfers');
+            return;
+        }
+
+        if (!$this->transferModel->canCancel($transfer)) {
+            $this->setFlash('danger', 'Ce virement ne peut pas être annulé : statut incompatible ou délai de 7 jours dépassé.');
+            $this->redirect('/moderation/transfers');
+            return;
+        }
+
+        $moderatorId = $this->getCurrentUserId();
+        $amount      = (float) $transfer['amount'];
+        $motif       = 'Annulation virement #' . $transferId;
+
+        // Remboursement sur le compte émetteur (income)
+        $this->transactionModel->addTransaction(
+            (int) $transfer['from_account_id'],
+            'income',
+            $amount,
+            'Virement',
+            $motif,
+            $moderatorId
+        );
+
+        // Récupération sur le compte destinataire (expense)
+        $this->transactionModel->addTransaction(
+            (int) $transfer['to_account_id'],
+            'expense',
+            $amount,
+            'Virement',
+            $motif,
+            $moderatorId
+        );
+
+        $this->transferModel->markCancelled($transferId);
+
+        $this->setFlash('success', 'Virement #' . $transferId . ' annulé avec succès. Les soldes ont été rétablis.');
+        $this->redirect('/moderation/transfers');
     }
 }

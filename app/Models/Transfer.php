@@ -102,6 +102,37 @@ class Transfer extends Model
     }
 
     /**
+     * Marque un virement comme annulé.
+     */
+    public function markCancelled(int $id): bool
+    {
+        return $this->update($id, ['status' => self::STATUS_CANCELLED]);
+    }
+
+    /**
+     * Indique si un virement peut être annulé par un modérateur.
+     * Conditions : statut « scheduled » OU « success » exécuté il y a moins de 7 jours.
+     */
+    public function canCancel(array $transfer): bool
+    {
+        $status = $transfer['status'] ?? '';
+        if ($status === self::STATUS_CANCELLED || $status === self::STATUS_FAILED) {
+            return false;
+        }
+        if ($status === self::STATUS_SCHEDULED) {
+            return true;
+        }
+        if ($status === self::STATUS_SUCCESS) {
+            $ref = $transfer['executed_at'] ?? $transfer['created_at'] ?? null;
+            if (!$ref) {
+                return false;
+            }
+            return (time() - (int) strtotime($ref)) <= 7 * 24 * 3600;
+        }
+        return false;
+    }
+
+    /**
      * Retourne les virements d'un compte (émetteur ou destinataire).
      */
     public function getByAccount(int $accountId): array
