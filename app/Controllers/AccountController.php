@@ -12,6 +12,7 @@ use App\Models\AccountAccess;
 use App\Models\DirectDebit;
 use App\Models\Guardianship;
 use App\Models\Mandate;
+use App\Models\RecurringTransfer;
 use App\Models\User;
 
 class AccountController extends Controller
@@ -21,14 +22,16 @@ class AccountController extends Controller
     private AccountAccess $accessModel;
     private DirectDebit $directDebitModel;
     private User $userModel;
+    private RecurringTransfer $recurringTransferModel;
 
     public function __construct()
     {
-        $this->accountModel    = new Account();
-        $this->transactionModel = new Transaction();
-        $this->accessModel      = new AccountAccess();
-        $this->directDebitModel = new DirectDebit();
-        $this->userModel        = new User();
+        $this->accountModel           = new Account();
+        $this->transactionModel       = new Transaction();
+        $this->accessModel            = new AccountAccess();
+        $this->directDebitModel       = new DirectDebit();
+        $this->userModel              = new User();
+        $this->recurringTransferModel = new RecurringTransfer();
     }
 
     public function createForm(): void
@@ -212,6 +215,16 @@ class AccountController extends Controller
         // Mandats à venir (prochaine exécution planifiée) — tous types de comptes
         $upcomingMandates = $mandateModel->getUpcomingByAccount($accountId);
 
+        // Virements récurrents liés à ce compte (émetteur ou destinataire)
+        $recurringTransfers = $this->recurringTransferModel->getByAccount($accountId);
+        foreach ($recurringTransfers as &$r) {
+            $fromAcc = $this->accountModel->find((int) $r['from_account_id']);
+            $toAcc   = $this->accountModel->find((int) $r['to_account_id']);
+            $r['from_account_name'] = $fromAcc['name'] ?? ('Compte #' . $r['from_account_id']);
+            $r['to_account_name']   = $toAcc['name']   ?? ('Compte #' . $r['to_account_id']);
+        }
+        unset($r);
+
         $this->render('accounts/show', [
             'title'                => $account['name'],
             'account'             => $account,
@@ -238,6 +251,7 @@ class AccountController extends Controller
             'mandates'           => $mandates,
             'upcomingMandates'   => $upcomingMandates,
             'linkedTxIds'        => $linkedTxIds,
+            'recurringTransfers' => $recurringTransfers,
         ]);
     }
 

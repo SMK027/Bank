@@ -28,6 +28,18 @@
         <a href="/accounts/<?= (int) $account['id'] ?>/statement" class="btn btn-outline btn-sm" title="Générer un relevé PDF">
             <i class="bi bi-file-earmark-pdf"></i> Relevé
         </a>
+        <?php
+            $activeRecurring = count(array_filter($recurringTransfers ?? [], fn($r) => ($r['status'] ?? '') === 'active'));
+        ?>
+        <a href="#recurring-transfers" class="btn btn-outline btn-sm" title="Virements permanents">
+            <i class="bi bi-arrow-repeat"></i> Permanents
+            <?php if ($activeRecurring > 0): ?>
+                <span style="display:inline-flex;align-items:center;justify-content:center;
+                             background:var(--primary);color:#fff;border-radius:999px;
+                             font-size:0.7em;min-width:1.35em;height:1.35em;padding:0 0.3em;
+                             line-height:1;margin-left:0.25rem;font-style:normal;"><?= $activeRecurring ?></span>
+            <?php endif; ?>
+        </a>
         <?php if ($isOwner): ?>
             <a href="/accounts/<?= (int) $account['id'] ?>/edit" class="btn btn-warning btn-sm"><i class="bi bi-pencil"></i> Modifier</a>
         <?php endif; ?>
@@ -921,6 +933,131 @@
     </div>
 </div>
 <?php endif; ?>
+
+<!-- ======================================================= -->
+<!-- Section : Virements permanents (récurrents)             -->
+<!-- ======================================================= -->
+<div class="card mt-2" id="recurring-transfers" style="border-left:3px solid var(--primary);">
+    <div class="card-header" style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;">
+        <h3 style="margin:0;"><i class="bi bi-arrow-repeat" style="color:var(--primary);"></i> Virements permanents</h3>
+        <?php $activeCount = count(array_filter($recurringTransfers ?? [], fn($r) => ($r['status'] ?? '') === 'active')); ?>
+        <?php if ($activeCount > 0): ?>
+            <span class="badge" style="background:var(--primary);color:#fff;"><?= $activeCount ?> actif<?= $activeCount > 1 ? 's' : '' ?></span>
+        <?php endif; ?>
+        <a href="/transfers/create" class="btn btn-primary btn-sm" style="margin-left:auto;">
+            <i class="bi bi-plus-lg"></i> Nouveau
+        </a>
+    </div>
+    <div class="card-body" style="<?= empty($recurringTransfers) ? 'padding:1.5rem;' : 'padding:0;' ?>">
+        <?php if (empty($recurringTransfers)): ?>
+            <div style="text-align:center;color:var(--text-muted);padding:1rem 0;">
+                <i class="bi bi-arrow-repeat" style="font-size:1.8rem;opacity:0.25;display:block;margin-bottom:0.5rem;"></i>
+                Aucun virement permanent lié à ce compte.
+                <div style="margin-top:0.75rem;">
+                    <a href="/transfers/create" class="btn btn-primary btn-sm">
+                        <i class="bi bi-plus-lg"></i> Créer un virement récurrent
+                    </a>
+                </div>
+            </div>
+        <?php else: ?>
+        <div style="overflow-x:auto;">
+            <table class="table" style="margin:0;">
+                <thead>
+                    <tr>
+                        <th>Sens</th>
+                        <th>De</th>
+                        <th>Vers</th>
+                        <th class="text-right">Montant</th>
+                        <th>Intervalle</th>
+                        <th>Prochain</th>
+                        <th>Motif</th>
+                        <th>Statut</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($recurringTransfers as $r): ?>
+                    <?php
+                        $isEmitter = (int) $r['from_account_id'] === (int) $account['id'];
+                    ?>
+                    <tr>
+                        <td>
+                            <?php if ($isEmitter): ?>
+                                <span class="badge badge-danger" title="Ce compte est émetteur">
+                                    <i class="bi bi-arrow-up-right"></i> Sortant
+                                </span>
+                            <?php else: ?>
+                                <span class="badge badge-success" title="Ce compte est destinataire">
+                                    <i class="bi bi-arrow-down-left"></i> Entrant
+                                </span>
+                            <?php endif; ?>
+                        </td>
+                        <td style="font-size:0.88rem;">
+                            <?php if ($isEmitter): ?>
+                                <strong><?= e($r['from_account_name']) ?></strong>
+                                <small class="text-muted">(ce compte)</small>
+                            <?php else: ?>
+                                <?= e($r['from_account_name']) ?>
+                            <?php endif; ?>
+                        </td>
+                        <td style="font-size:0.88rem;">
+                            <?php if (!$isEmitter): ?>
+                                <strong><?= e($r['to_account_name']) ?></strong>
+                                <small class="text-muted">(ce compte)</small>
+                            <?php else: ?>
+                                <?= e($r['to_account_name']) ?>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-right font-bold <?= $isEmitter ? 'text-danger' : 'text-success' ?>">
+                            <?= $isEmitter ? '−' : '+' ?>
+                            <?= number_format((float) $r['amount'], 2, ',', ' ') ?>
+                            <?= e($account['currency']) ?>
+                        </td>
+                        <td style="white-space:nowrap;font-size:0.88rem;">
+                            <i class="bi bi-arrow-clockwise" style="opacity:0.5;"></i>
+                            <?= (int) $r['interval_days'] ?> j
+                        </td>
+                        <td style="font-size:0.85rem;white-space:nowrap;">
+                            <?php if (($r['status'] ?? '') === 'active'): ?>
+                                <i class="bi bi-calendar-event" style="opacity:0.5;"></i>
+                                <?= e(format_date($r['next_execution_at'])) ?>
+                            <?php else: ?>
+                                —
+                            <?php endif; ?>
+                        </td>
+                        <td style="font-size:0.85rem;color:var(--text-muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                            <?= e($r['motif'] ?: '—') ?>
+                        </td>
+                        <td>
+                            <?php if (($r['status'] ?? '') === 'active'): ?>
+                                <span class="badge badge-success">Actif</span>
+                            <?php else: ?>
+                                <span class="badge badge-secondary">Annulé</span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if (($r['status'] ?? '') === 'active' && ($isOwner || $isModerator)): ?>
+                            <form method="POST" action="/transfers/recurring/<?= (int) $r['id'] ?>/cancel"
+                                  style="display:inline"
+                                  onsubmit="return confirm('Annuler ce virement récurrent #<?= (int) $r['id'] ?> ?')">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="redirect_to" value="/accounts/<?= (int) $account['id'] ?>#recurring-transfers">
+                                <button type="submit" class="btn btn-outline-danger btn-sm"
+                                        style="padding:0.2rem 0.5rem;font-size:0.78rem;"
+                                        title="Annuler ce virement récurrent">
+                                    <i class="bi bi-x-circle"></i>
+                                </button>
+                            </form>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
+    </div>
+</div>
 
 <?php if ($isOwner || $isModerator): ?>
 <!-- Suppression du compte -->

@@ -404,7 +404,13 @@ class TransferController extends Controller
 
         $this->recurringTransferModel->cancel($recId);
         $this->setFlash('success', 'Virement récurrent annulé.');
-        $this->redirect('/transfers/recurring');
+        $redirectTo = $_POST['redirect_to'] ?? '';
+        // Valide que la redirection est un chemin interne (pas une URL externe)
+        if ($redirectTo !== '' && preg_match('#^/[a-zA-Z0-9/_#-]*$#', $redirectTo)) {
+            $this->redirect($redirectTo);
+        } else {
+            $this->redirect('/transfers/recurring');
+        }
     }
 }
 
