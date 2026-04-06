@@ -196,12 +196,12 @@ class Account extends Model
 
     public function freezeAccount(int $accountId): bool
     {
-        return $this->update($accountId, ['frozen' => true]);
+        return $this->update($accountId, ['frozen' => 1]);
     }
 
     public function unfreezeAccount(int $accountId): bool
     {
-        return $this->update($accountId, ['frozen' => false]);
+        return $this->update($accountId, ['frozen' => 0]);
     }
 
     public function getAccessibleAccounts(int $userId): array
