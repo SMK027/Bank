@@ -40,14 +40,17 @@ class TestDatabase
             );
 
             CREATE TABLE IF NOT EXISTS users (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                username    TEXT    NOT NULL,
-                email       TEXT    NOT NULL UNIQUE,
-                password    TEXT    NOT NULL,
-                global_role TEXT    NOT NULL DEFAULT 'user',
-                birth_date  TEXT    DEFAULT NULL,
-                created_at  TEXT,
-                updated_at  TEXT
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                username        TEXT    NOT NULL,
+                email           TEXT    NOT NULL UNIQUE,
+                password        TEXT    NOT NULL,
+                global_role     TEXT    NOT NULL DEFAULT 'user',
+                birth_date      TEXT    DEFAULT NULL,
+                is_professional INTEGER NOT NULL DEFAULT 0,
+                company_name    TEXT    DEFAULT NULL,
+                siret           TEXT    DEFAULT NULL,
+                created_at      TEXT,
+                updated_at      TEXT
             );
 
             CREATE TABLE IF NOT EXISTS accounts (

@@ -64,6 +64,10 @@ $router->get('/profile', ProfileController::class, 'index');
 $router->post('/profile/password', ProfileController::class, 'updatePassword');
 $router->get('/profile/birth-date', ProfileController::class, 'birthDateForm');
 $router->post('/profile/birth-date', ProfileController::class, 'saveBirthDate');
+$router->get('/profile/professional', ProfileController::class, 'professionalForm');
+$router->post('/profile/professional', ProfileController::class, 'saveProfessional');
+$router->post('/profile/professional/remove', ProfileController::class, 'removeProfessional');
+$router->get('/profile/verify-siret', ProfileController::class, 'verifySiret');
 
 // --- Comptes bancaires ---
 $router->get('/accounts/create', AccountController::class, 'createForm');

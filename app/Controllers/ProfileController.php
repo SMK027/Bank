@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Core\Session;
+use App\Helpers\SiretValidator;
 use App\Models\User;
 
 class ProfileController extends Controller
@@ -134,5 +135,107 @@ class ProfileController extends Controller
 
         $this->setFlash('success', 'Date de naissance enregistrée.');
         $this->redirect('/dashboard');
+    }
+
+    // ---------------------------------------------------------------
+    // Profil professionnel
+    // ---------------------------------------------------------------
+
+    /**
+     * Formulaire d'activation du statut professionnel.
+     */
+    public function professionalForm(): void
+    {
+        $this->requireAuth();
+
+        $user = $this->userModel->find($this->getCurrentUserId());
+
+        $this->render('profile/professional', [
+            'title' => 'Profil professionnel',
+            'user'  => $user,
+        ]);
+    }
+
+    /**
+     * Traitement de l'activation du statut professionnel.
+     */
+    public function saveProfessional(): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+
+        $userId = $this->getCurrentUserId();
+        $data   = $this->getPostData(['company_name', 'siret']);
+
+        $companyName = trim($data['company_name'] ?? '');
+        $siret       = preg_replace('/\s+/', '', $data['siret'] ?? '');
+
+        if ($companyName === '' || $siret === '') {
+            $this->setFlash('danger', 'La raison sociale et le SIRET sont requis.');
+            $this->redirect('/profile/professional');
+            return;
+        }
+
+        if (mb_strlen($companyName) < 2 || mb_strlen($companyName) > 255) {
+            $this->setFlash('danger', 'La raison sociale doit contenir entre 2 et 255 caractères.');
+            $this->redirect('/profile/professional');
+            return;
+        }
+
+        // Vérifier le format du SIRET (Luhn)
+        if (!SiretValidator::isValidFormat($siret)) {
+            $this->setFlash('danger', 'Le numéro SIRET est invalide (14 chiffres requis, vérification Luhn).');
+            $this->redirect('/profile/professional');
+            return;
+        }
+
+        // Vérifier le SIRET auprès de l'API gouvernementale
+        $result = SiretValidator::verify($siret);
+        if (!$result['valid']) {
+            $this->setFlash('danger', $result['error'] ?? 'SIRET invalide.');
+            $this->redirect('/profile/professional');
+            return;
+        }
+
+        // Utiliser le nom officiel si disponible, sinon celui saisi
+        $officialName = $result['company_name'] ?? $companyName;
+
+        $this->userModel->setProfessional($userId, $officialName, $siret);
+
+        $this->setFlash('success', 'Statut professionnel activé — Raison sociale : ' . $officialName);
+        $this->redirect('/profile');
+    }
+
+    /**
+     * Suppression du statut professionnel.
+     */
+    public function removeProfessional(): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+
+        $userId = $this->getCurrentUserId();
+        $this->userModel->removeProfessional($userId);
+
+        $this->setFlash('success', 'Statut professionnel retiré.');
+        $this->redirect('/profile');
+    }
+
+    /**
+     * Vérification SIRET en AJAX.
+     */
+    public function verifySiret(): void
+    {
+        $this->requireAuth();
+
+        $siret = preg_replace('/\s+/', '', $_GET['siret'] ?? '');
+
+        if ($siret === '') {
+            $this->json(['valid' => false, 'error' => 'SIRET requis.']);
+            return;
+        }
+
+        $result = SiretValidator::verify($siret);
+        $this->json($result);
     }
 }

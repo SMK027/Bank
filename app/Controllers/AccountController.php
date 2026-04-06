@@ -40,10 +40,12 @@ class AccountController extends Controller
             $this->redirect('/dashboard');
             return;
         }
+        $isPro = User::isProfessional($user);
         $this->render('accounts/create', [
             'title'        => 'Créer un compte bancaire',
-            'accountTypes' => Account::getAllowedTypes($isMinor),
+            'accountTypes' => Account::getAllowedTypes($isMinor, $isPro),
             'isMinor'      => $isMinor,
+            'isPro'        => $isPro,
         ]);
     }
 
@@ -77,7 +79,14 @@ class AccountController extends Controller
             return;
         }
 
-        $allowedTypes = Account::getAllowedTypes($isMinor);
+        // Le type 'pro' est réservé aux utilisateurs professionnels
+        if (($data['account_type'] ?? '') === 'pro' && !User::isProfessional($user)) {
+            $this->setFlash('danger', 'Les comptes professionnels sont réservés aux utilisateurs ayant un statut professionnel vérifié.');
+            $this->redirect('/accounts/create');
+            return;
+        }
+
+        $allowedTypes = Account::getAllowedTypes($isMinor, User::isProfessional($user));
 
         if (!array_key_exists($data['account_type'], $allowedTypes)) {
             $this->setFlash('danger', 'Type de compte non autorisé pour votre profil.');

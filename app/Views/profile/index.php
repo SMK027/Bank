@@ -104,3 +104,29 @@
     </div>
 
 </div>
+
+<!-- Section profil professionnel -->
+<div class="card" style="margin-top:1.5rem;">
+    <div class="card-header">
+        <h3><i class="bi bi-briefcase"></i> Statut professionnel</h3>
+    </div>
+    <div class="card-body">
+        <?php if (!empty($user['is_professional'])): ?>
+            <div class="alert alert-success" style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem;">
+                <i class="bi bi-check-circle" style="font-size:1.2rem;"></i>
+                <span>
+                    <strong>Professionnel vérifié</strong><br>
+                    Raison sociale : <strong><?= e($user['company_name']) ?></strong> — SIRET : <code><?= e($user['siret']) ?></code>
+                </span>
+            </div>
+            <a href="/profile/professional" class="btn btn-secondary btn-block">
+                <i class="bi bi-pencil"></i> Gérer le statut professionnel
+            </a>
+        <?php else: ?>
+            <p class="text-muted">Vous n'avez pas de statut professionnel. Activez-le pour accéder aux comptes bancaires professionnels.</p>
+            <a href="/profile/professional" class="btn btn-primary btn-block">
+                <i class="bi bi-briefcase"></i> Activer le statut professionnel
+            </a>
+        <?php endif; ?>
+    </div>
+</div>

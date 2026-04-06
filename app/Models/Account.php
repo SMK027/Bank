@@ -34,8 +34,9 @@ class Account extends Model
     /**
      * Retourne les types de comptes créables via le formulaire standard.
      * Le type 'minor' est réservé exclusivement à la modération.
+     * Le type 'pro' est réservé exclusivement aux utilisateurs professionnels.
      */
-    public static function getAllowedTypes(bool $isMinor): array
+    public static function getAllowedTypes(bool $isMinor, bool $isProfessional = false): array
     {
         if ($isMinor) {
             return array_filter(
@@ -45,9 +46,10 @@ class Account extends Model
             );
         }
         // Les adultes peuvent créer tous les types sauf 'minor' (modération uniquement)
+        // et 'pro' (réservé aux professionnels vérifiés)
         return array_filter(
             self::TYPES,
-            fn(string $key) => $key !== 'minor',
+            fn(string $key) => $key !== 'minor' && ($key !== 'pro' || $isProfessional),
             ARRAY_FILTER_USE_KEY
         );
     }

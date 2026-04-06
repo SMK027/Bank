@@ -147,4 +147,30 @@ class AccountTest extends TestCase
         $id = $this->account->createAccount(1, 'Nouveau', 'EUR');
         $this->assertFalse($this->account->isFrozen($id));
     }
+
+    // --- Tests allowed types avec statut professionnel ---
+
+    public function testAllowedTypesAdultNonPro(): void
+    {
+        $types = Account::getAllowedTypes(false, false);
+        $this->assertArrayNotHasKey('pro', $types);
+        $this->assertArrayNotHasKey('minor', $types);
+        $this->assertArrayHasKey('standard', $types);
+        $this->assertArrayHasKey('savings', $types);
+    }
+
+    public function testAllowedTypesAdultPro(): void
+    {
+        $types = Account::getAllowedTypes(false, true);
+        $this->assertArrayHasKey('pro', $types);
+        $this->assertArrayNotHasKey('minor', $types);
+        $this->assertArrayHasKey('standard', $types);
+    }
+
+    public function testAllowedTypesMinorIgnoresPro(): void
+    {
+        $types = Account::getAllowedTypes(true, true);
+        $this->assertArrayNotHasKey('pro', $types);
+        $this->assertArrayHasKey('savings', $types);
+    }
 }

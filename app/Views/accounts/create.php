@@ -12,6 +12,15 @@
                 </span>
             </div>
             <?php endif; ?>
+            <?php if (empty($isPro)): ?>
+            <div class="alert alert-info" style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;">
+                <i class="bi bi-briefcase" style="font-size:1.2rem;"></i>
+                <span>
+                    Vous souhaitez un <strong>compte professionnel</strong> ?
+                    <a href="/profile/professional">Activez votre statut professionnel</a> en renseignant votre SIRET.
+                </span>
+            </div>
+            <?php endif; ?>
             <form method="POST" action="/accounts/create">
                 <?= csrf_field() ?>
                 <div class="form-group">

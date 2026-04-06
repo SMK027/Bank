@@ -134,4 +134,41 @@ class UserTest extends TestCase
         $found = $this->user->find($id);
         $this->assertSame('user', $found['global_role']);
     }
+
+    // --- Tests profil professionnel ---
+
+    public function testIsProfessionalDefaultFalse(): void
+    {
+        $id   = $this->user->register('pro1', 'pro1@test.com', 'password123', '1985-01-01');
+        $user = $this->user->find($id);
+        $this->assertFalse(User::isProfessional($user));
+    }
+
+    public function testSetProfessional(): void
+    {
+        $id = $this->user->register('pro2', 'pro2@test.com', 'password123', '1985-01-01');
+        $this->user->setProfessional($id, 'ACME SAS', '36252187900034');
+
+        $user = $this->user->find($id);
+        $this->assertTrue(User::isProfessional($user));
+        $this->assertSame('ACME SAS', $user['company_name']);
+        $this->assertSame('36252187900034', $user['siret']);
+    }
+
+    public function testRemoveProfessional(): void
+    {
+        $id = $this->user->register('pro3', 'pro3@test.com', 'password123', '1985-01-01');
+        $this->user->setProfessional($id, 'My Corp', '12345678901234');
+        $this->user->removeProfessional($id);
+
+        $user = $this->user->find($id);
+        $this->assertFalse(User::isProfessional($user));
+        $this->assertNull($user['company_name']);
+        $this->assertNull($user['siret']);
+    }
+
+    public function testIsProfessionalNullUser(): void
+    {
+        $this->assertFalse(User::isProfessional(null));
+    }
 }

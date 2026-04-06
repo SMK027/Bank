@@ -77,6 +77,38 @@ class User extends Model
         return (new \DateTime())->diff($dob)->y < 18;
     }
 
+    /**
+     * Retourne vrai si l'utilisateur a un profil professionnel validé.
+     */
+    public static function isProfessional(?array $user): bool
+    {
+        return $user !== null && !empty($user['is_professional']);
+    }
+
+    /**
+     * Met à jour le statut professionnel d'un utilisateur.
+     */
+    public function setProfessional(int $userId, string $companyName, string $siret): bool
+    {
+        return $this->update($userId, [
+            'is_professional' => 1,
+            'company_name'    => $companyName,
+            'siret'           => $siret,
+        ]);
+    }
+
+    /**
+     * Retire le statut professionnel d'un utilisateur.
+     */
+    public function removeProfessional(int $userId): bool
+    {
+        return $this->update($userId, [
+            'is_professional' => 0,
+            'company_name'    => null,
+            'siret'           => null,
+        ]);
+    }
+
     public function searchByQuery(string $q, int $limit = 15): array
     {
         $term = '%' . $q . '%';
