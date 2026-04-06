@@ -27,6 +27,16 @@
                     <?php if (is_moderator()): ?>
                     <a href="/moderation" class="navbar-link navbar-link-mod"><i class="bi bi-shield-check"></i> Modération</a>
                     <?php endif; ?>
+                    <?php
+                        $__notifModel   = new \App\Models\Notification();
+                        $__unreadNotifs = $__notifModel->countUnread((int) current_user_id());
+                    ?>
+                    <a href="/notifications" class="navbar-link navbar-notif-link" title="Notifications">
+                        <i class="bi bi-bell<?= $__unreadNotifs > 0 ? '-fill' : '' ?>"></i>
+                        <?php if ($__unreadNotifs > 0): ?>
+                            <span class="notif-badge"><?= $__unreadNotifs > 99 ? '99+' : $__unreadNotifs ?></span>
+                        <?php endif; ?>
+                    </a>
                     <div class="navbar-user">
                         <a href="/profile" class="navbar-link navbar-profile-link">
                             <span class="navbar-avatar navbar-avatar-placeholder"><?= strtoupper(substr(current_username(), 0, 1)) ?></span>

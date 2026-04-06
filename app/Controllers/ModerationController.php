@@ -10,6 +10,7 @@ use App\Models\AccountAccess;
 use App\Models\DirectDebit;
 use App\Models\Guardianship;
 use App\Models\Mandate;
+use App\Models\Notification;
 use App\Models\Ticket;
 use App\Models\TicketMessage;
 use App\Models\Transaction;
@@ -28,6 +29,7 @@ class ModerationController extends Controller
     private Ticket         $ticketModel;
     private TicketMessage  $ticketMessageModel;
     private Mandate        $mandateModel;
+    private Notification   $notifModel;
 
     public function __construct()
     {
@@ -41,6 +43,7 @@ class ModerationController extends Controller
         $this->ticketModel        = new Ticket();
         $this->ticketMessageModel = new TicketMessage();
         $this->mandateModel       = new Mandate();
+        $this->notifModel         = new Notification();
     }
 
     /**
@@ -94,6 +97,14 @@ class ModerationController extends Controller
         }
 
         $this->accountModel->freezeAccount($accountId);
+        // Notifier le propriétaire du compte
+        $this->notifModel->notify(
+            (int) $account['user_id'],
+            'account_frozen',
+            'Compte « ' . $account['name'] . ' » gelé',
+            'Votre compte a été gelé par la modération. Les opérations sortantes sont bloquées.',
+            '/accounts/' . $accountId
+        );
         $this->setFlash('success', 'Compte « ' . $account['name'] . ' » gelé avec succès.');
         $this->redirect(isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '/moderation');
     }
@@ -116,6 +127,14 @@ class ModerationController extends Controller
         }
 
         $this->accountModel->unfreezeAccount($accountId);
+        // Notifier le propriétaire du compte
+        $this->notifModel->notify(
+            (int) $account['user_id'],
+            'account_unfrozen',
+            'Compte « ' . $account['name'] . ' » dégelé',
+            'Les restrictions sur votre compte ont été levées. Vous pouvez effectuer à nouveau des opérations sortantes.',
+            '/accounts/' . $accountId
+        );
         $this->setFlash('success', 'Compte « ' . $account['name'] . ' » dégelé avec succès.');
         $this->redirect(isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '/moderation');
     }
@@ -228,6 +247,17 @@ class ModerationController extends Controller
         $msg .= $until
             ? ' jusqu\'au ' . (new \DateTime($until))->format('d/m/Y') . '.'
             : ' indéfiniment.';
+        // Notifier l'utilisateur suspendu
+        $notifBody = 'Votre compte a été suspendu' . ($until
+            ? ' jusqu\'au ' . (new \DateTime($until))->format('d/m/Y') . '.'
+            : ' indéfiniment.');
+        $this->notifModel->notify(
+            $targetId,
+            'account_suspended',
+            'Votre compte a été suspendu',
+            $notifBody,
+            null
+        );
         $this->setFlash('success', $msg);
         $this->redirect('/moderation/users');
     }
@@ -262,6 +292,14 @@ class ModerationController extends Controller
         }
 
         $this->userModel->ban($targetId);
+        // Notifier l'utilisateur banni
+        $this->notifModel->notify(
+            $targetId,
+            'account_banned',
+            'Votre compte a été banni',
+            'Votre compte a été définitivement banni de la plateforme par la modération.',
+            null
+        );
         $this->setFlash('success', '« ' . $target['username'] . ' » a été banni de la plateforme.');
         $this->redirect('/moderation/users');
     }
@@ -284,6 +322,14 @@ class ModerationController extends Controller
         }
 
         $this->userModel->activate($targetId);
+        // Notifier l'utilisateur réactivé
+        $this->notifModel->notify(
+            $targetId,
+            'account_activated',
+            'Votre compte a été réactivé',
+            'Votre compte a été réactivé par la modération. Vous pouvez de nouveau vous connecter et utiliser la plateforme.',
+            null
+        );
         $this->setFlash('success', 'Le compte de « ' . $target['username'] . ' » a été réactivé.');
         $this->redirect('/moderation/users');
     }
@@ -392,6 +438,28 @@ class ModerationController extends Controller
         );
 
         $this->transferModel->markCancelled($transferId);
+
+        // Notifier les propriétaires des comptes concernés
+        $fromAccount = $this->accountModel->find((int) $transfer['from_account_id']);
+        $toAccount   = $this->accountModel->find((int) $transfer['to_account_id']);
+        if ($fromAccount) {
+            $this->notifModel->notify(
+                (int) $fromAccount['user_id'],
+                'transfer_cancelled',
+                'Virement #' . $transferId . ' annulé',
+                'Le virement de ' . number_format($amount, 2, ',', ' ') . ' € depuis votre compte « ' . $fromAccount['name'] . ' » a été annulé par la modération. Le montant a été recrédité.',
+                '/transfers'
+            );
+        }
+        if ($toAccount && $toAccount['user_id'] !== ($fromAccount['user_id'] ?? null)) {
+            $this->notifModel->notify(
+                (int) $toAccount['user_id'],
+                'transfer_cancelled',
+                'Virement #' . $transferId . ' annulé',
+                'Un virement de ' . number_format($amount, 2, ',', ' ') . ' € vers votre compte « ' . $toAccount['name'] . ' » a été annulé par la modération.',
+                '/transfers'
+            );
+        }
 
         $this->setFlash('success', 'Virement #' . $transferId . ' annulé avec succès. Les soldes ont été rétablis.');
         $this->redirect('/moderation/transfers');
@@ -625,6 +693,19 @@ class ModerationController extends Controller
         }
 
         $this->directDebitModel->markRejected($debitId);
+
+        // Notifier le propriétaire du compte débité
+        $toAccount = $this->accountModel->find($toAccountId);
+        if ($toAccount) {
+            $this->notifModel->notify(
+                (int) $toAccount['user_id'],
+                'direct_debit_rejected',
+                'Prélèvement rejeté — ' . number_format($amount, 2, ',', ' ') . ' €',
+                'Le prélèvement (mandat ' . $directDebit['mandate_number'] . ') de ' . number_format($amount, 2, ',', ' ') . ' € sur votre compte « ' . $toAccount['name'] . ' » a été rejeté par la modération. Le montant a été recrédité.',
+                '/direct-debits'
+            );
+        }
+
         $this->setFlash('success', sprintf(
             'Prélèvement #%d (mandat %s) rejeté — montant de %s € recrédité sur le compte.',
             $debitId,
@@ -1057,6 +1138,17 @@ class ModerationController extends Controller
         // Passer en "pending_user" une fois que le modérateur a répondu
         if (!Ticket::isClosed($ticket['status'])) {
             $this->ticketModel->update($ticketId, ['status' => 'pending_user']);
+        }
+
+        // Notifier le créateur du ticket (si différent du modérateur)
+        if ((int) $ticket['user_id'] !== $moderatorId) {
+            $this->notifModel->notify(
+                (int) $ticket['user_id'],
+                'ticket_replied',
+                'Réponse à votre ticket #' . $ticketId,
+                'La modération a répondu à votre ticket « ' . $ticket['subject'] . ' ».',
+                '/tickets/' . $ticketId
+            );
         }
 
         $this->setFlash('success', 'Réponse envoyée.');

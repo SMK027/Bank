@@ -7,19 +7,22 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Models\Account;
 use App\Models\AccountAccess;
+use App\Models\Notification;
 use App\Models\User;
 
 class AccessController extends Controller
 {
     private Account $accountModel;
     private AccountAccess $accessModel;
+    private Notification $notifModel;
     private User $userModel;
 
     public function __construct()
     {
         $this->accountModel = new Account();
-        $this->accessModel = new AccountAccess();
-        $this->userModel = new User();
+        $this->accessModel  = new AccountAccess();
+        $this->notifModel   = new Notification();
+        $this->userModel    = new User();
     }
 
     public function grant(string $accountId): void
@@ -106,6 +109,14 @@ class AccessController extends Controller
         }
 
         $this->accessModel->grantAccess($accId, (int) $targetUser['id'], $type, $expiresAt);
+        // Notifier l'utilisateur
+        $this->notifModel->notify(
+            (int) $targetUser['id'],
+            'access_granted',
+            'Accès accordé au compte « ' . ($account['name'] ?? '?') . ' »',
+            'Vous avez reçu un accès ' . ($type === 'temporary' ? 'temporaire' : 'permanent') . ' au compte bancaire « ' . ($account['name'] ?? '?') . ' ».',
+            '/accounts/' . $accId
+        );
         $this->setFlash('success', 'Accès accordé à ' . $targetUser['username'] . '.');
         $this->redirect('/accounts/' . $accountId);
     }
@@ -139,7 +150,20 @@ class AccessController extends Controller
             }
         }
 
+        $revokedUser    = $this->userModel->find((int) $userId);
+        $revokedAccount = $this->accountModel->find($accId);
+
         $this->accessModel->revokeAccess($accId, (int) $userId);
+        // Notifier l'utilisateur révoqué
+        if ($revokedUser) {
+            $this->notifModel->notify(
+                (int) $revokedUser['id'],
+                'access_revoked',
+                'Accès révoqué — compte « ' . ($revokedAccount['name'] ?? '?') . ' »',
+                'Votre accès au compte bancaire « ' . ($revokedAccount['name'] ?? '?') . ' » a été révoqué.',
+                null
+            );
+        }
         $this->setFlash('success', 'Accès révoqué.');
         $this->redirect('/accounts/' . $accountId);
     }

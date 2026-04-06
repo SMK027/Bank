@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Models\Account;
+use App\Models\Notification;
 use App\Models\Transaction;
 use App\Models\Transfer;
 use App\Models\User;
@@ -16,6 +17,7 @@ class TransferController extends Controller
     private Transaction $transactionModel;
     private Transfer $transferModel;
     private User $userModel;
+    private Notification $notifModel;
 
     public function __construct()
     {
@@ -23,6 +25,7 @@ class TransferController extends Controller
         $this->transactionModel = new Transaction();
         $this->transferModel    = new Transfer();
         $this->userModel        = new User();
+        $this->notifModel       = new Notification();
     }
 
     public function createForm(): void
@@ -243,6 +246,20 @@ class TransferController extends Controller
                 $fromAccount['name'],
                 $toAccount['name']
             ));
+            // Alerte modérateurs : virement planifié
+            $this->notifModel->notifyModerators(
+                'mod_transfer_pending',
+                'Virement planifié en attente',
+                sprintf(
+                    'Virement de %s %s de « %s » vers « %s » prévu le %s.',
+                    number_format($amount, 2, ',', ' '),
+                    $fromAccount['currency'],
+                    $fromAccount['name'],
+                    $toAccount['name'],
+                    date('d/m/Y', strtotime($scheduledAt))
+                ),
+                '/moderation/transfers'
+            );
         } else {
             $this->setFlash('success', sprintf(
                 'Virement de %s %s effectué de « %s » vers « %s ».',
@@ -251,6 +268,17 @@ class TransferController extends Controller
                 $fromAccount['name'],
                 $toAccount['name']
             ));
+            // Notifier le propriétaire du compte destinataire s'il est différent de l'émetteur
+            $toOwner = $this->userModel->find((int) $toAccount['user_id']);
+            if ($toOwner && (int) $toOwner['id'] !== $userId) {
+                $this->notifModel->notify(
+                    (int) $toOwner['id'],
+                    'transfer_received',
+                    sprintf('Virement reçu : %s %s', number_format($amount, 2, ',', ' '), $fromAccount['currency']),
+                    sprintf('De « %s »%s.', $fromAccount['name'], $motif !== '' ? ' — ' . $motif : ''),
+                    '/accounts/' . $toId
+                );
+            }
         }
         $this->redirect('/accounts/' . $fromId);
     }

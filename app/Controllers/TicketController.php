@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Models\Account;
+use App\Models\Notification;
 use App\Models\Ticket;
 use App\Models\TicketMessage;
 
@@ -14,12 +15,14 @@ class TicketController extends Controller
     private Ticket        $ticketModel;
     private TicketMessage $messageModel;
     private Account       $accountModel;
+    private Notification  $notifModel;
 
     public function __construct()
     {
         $this->ticketModel  = new Ticket();
         $this->messageModel = new TicketMessage();
         $this->accountModel = new Account();
+        $this->notifModel   = new Notification();
     }
 
     // --------------------------------------------------------
@@ -137,6 +140,14 @@ class TicketController extends Controller
 
         // Poster le premier message
         $this->messageModel->post($ticketId, $userId, $body, false);
+
+        // Notifier les modérateurs
+        $this->notifModel->notifyModerators(
+            'mod_new_ticket',
+            'Nouveau ticket : ' . $subject,
+            Ticket::typeLabel($data['type']) . ' — ' . $subject,
+            '/moderation/tickets/' . $ticketId
+        );
 
         $this->setFlash('success', 'Votre demande a été soumise. L\'équipe de modération vous répondra dans les meilleurs délais.');
         $this->redirect('/tickets/' . $ticketId);

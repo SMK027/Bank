@@ -25,6 +25,7 @@ use App\Controllers\TransferController;
 use App\Controllers\ModerationController;
 use App\Controllers\ProfileController;
 use App\Controllers\TicketController;
+use App\Controllers\NotificationController;
 
 // Démarrer la session
 Session::start();
@@ -134,6 +135,14 @@ $router->get('/moderation/tickets', ModerationController::class, 'ticketIndex');
 $router->get('/moderation/tickets/{id}', ModerationController::class, 'ticketShow');
 $router->post('/moderation/tickets/{id}/reply', ModerationController::class, 'ticketReply');
 $router->post('/moderation/tickets/{id}/status', ModerationController::class, 'ticketUpdateStatus');
+
+// --- Notifications ---
+$router->get('/notifications', NotificationController::class, 'index');
+$router->get('/notifications/count', NotificationController::class, 'unreadCount');
+$router->post('/notifications/read-all', NotificationController::class, 'markAllRead');
+$router->post('/notifications/delete-read', NotificationController::class, 'deleteRead');
+$router->post('/notifications/{id}/read', NotificationController::class, 'markRead');
+$router->post('/notifications/{id}/delete', NotificationController::class, 'delete');
 
 // Dispatcher la requête
 $router->dispatch();
