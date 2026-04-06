@@ -110,10 +110,10 @@
                     data.forEach(function (acc) {
                         var div = document.createElement('div');
                         div.style.cssText = 'padding:0.5rem 0.8rem;cursor:pointer;border-bottom:1px solid var(--border-color);font-size:0.92rem;';
-                        div.textContent = acc.name + ' (' + acc.currency + ') — ' + (acc.owner_name || 'ID ' + acc.user_id);
+                        div.textContent = acc.name + ' (' + acc.currency + ') — ' + (acc.owner || '');
                         div.addEventListener('click', function () {
                             hidden.value = acc.id;
-                            input.value = acc.name + ' — ' + (acc.owner_name || '');
+                            input.value = acc.name + ' — ' + (acc.owner || '');
                             suggest.style.display = 'none';
                         });
                         div.addEventListener('mouseenter', function () { div.style.background = 'var(--hover-bg, #f0f0f0)'; });
