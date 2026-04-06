@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Core;
 
+use App\Models\User;
+
 /**
  * Contrôleur abstrait de base.
  * Fournit les méthodes communes à tous les contrôleurs.
@@ -82,7 +84,8 @@ abstract class Controller
 
     /**
      * Exige que l'utilisateur soit connecté.
-     * Si la date de naissance est manquante, redirige vers le formulaire dédié.
+     * Vérifie aussi le statut du compte en BDD (au plus toutes les 60 s) pour
+     * appliquer les suspensions et bannissements en temps réel.
      */
     protected function requireAuth(): void
     {
@@ -94,9 +97,51 @@ abstract class Controller
             $this->redirect('/login');
         }
 
+        // Vérification du statut en BDD (TTL 60 s pour limiter les requêtes)
+        $now         = time();
+        $lastCheck   = (int) Session::get('status_checked_at', 0);
+        $path        = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+
+        if ($now - $lastCheck >= 60) {
+            $userModel = new User();
+            $user      = $userModel->find((int) Session::get('user_id'));
+
+            Session::set('status_checked_at', $now);
+
+            if ($user) {
+                $status = $user['status'] ?? 'active';
+
+                // Lever automatiquement une suspension expirée
+                if ($status === 'suspended' && !empty($user['suspended_until'])) {
+                    if (strtotime($user['suspended_until']) < $now) {
+                        $userModel->activate((int) $user['id']);
+                        $status = 'active';
+                    }
+                }
+
+                if ($status === 'suspended') {
+                    Session::destroy();
+                    Session::start();
+                    $msg = 'Votre compte a été suspendu';
+                    if (!empty($user['suspended_until'])) {
+                        $dt   = \DateTime::createFromFormat('Y-m-d H:i:s', $user['suspended_until']);
+                        $msg .= ' jusqu\'au ' . ($dt ? $dt->format('d/m/Y') : $user['suspended_until']);
+                    }
+                    Session::set('flash', ['type' => 'danger', 'message' => $msg . '.']);
+                    $this->redirect('/login');
+                }
+
+                if ($status === 'banned') {
+                    Session::destroy();
+                    Session::start();
+                    Session::set('flash', ['type' => 'danger', 'message' => 'Votre compte a été banni de la plateforme.']);
+                    $this->redirect('/login');
+                }
+            }
+        }
+
         // Forcer la saisie de la date de naissance pour les utilisateurs existants
         if (Session::get('birth_date_missing')) {
-            $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
             if ($path !== '/profile/birth-date' && $path !== '/logout') {
                 $this->redirect('/profile/birth-date');
             }
