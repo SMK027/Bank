@@ -76,4 +76,34 @@ class Transaction extends Model
         }
         return $total;
     }
+
+    /**
+     * Retourne le sous-ensemble des IDs donnés qui sont référencés comme debit_tx_id
+     * ou credit_tx_id dans les tables transfers ou direct_debits.
+     * Ces transactions ne doivent pas être supprimables individuellement.
+     *
+     * @param  int[] $txIds
+     * @return int[]
+     */
+    public function getProtectedIds(array $txIds): array
+    {
+        if (empty($txIds)) {
+            return [];
+        }
+        $ids = array_values(array_map('intval', $txIds));
+        $ph  = implode(',', array_fill(0, count($ids), '?'));
+        $sql = "SELECT DISTINCT linked_id FROM (
+                    SELECT debit_tx_id  AS linked_id FROM transfers     WHERE debit_tx_id  > 0 AND debit_tx_id  IN ($ph)
+                    UNION ALL
+                    SELECT credit_tx_id AS linked_id FROM transfers     WHERE credit_tx_id > 0 AND credit_tx_id IN ($ph)
+                    UNION ALL
+                    SELECT debit_tx_id  AS linked_id FROM direct_debits WHERE debit_tx_id  IS NOT NULL AND debit_tx_id  IN ($ph)
+                    UNION ALL
+                    SELECT credit_tx_id AS linked_id FROM direct_debits WHERE credit_tx_id IS NOT NULL AND credit_tx_id IN ($ph)
+                ) AS linked_sub
+                WHERE linked_id IS NOT NULL";
+        $stmt = $this->getPdo()->prepare($sql);
+        $stmt->execute(array_merge($ids, $ids, $ids, $ids));
+        return array_map('intval', array_column($stmt->fetchAll(\PDO::FETCH_ASSOC), 'linked_id'));
+    }
 }

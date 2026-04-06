@@ -191,6 +191,10 @@ class AccountController extends Controller
         $pendingTransactions  = array_values(array_filter($transactions, fn($t) => $t['is_pending']));
         $executedTransactions = array_values(array_filter($transactions, fn($t) => !$t['is_pending']));
 
+        // IDs de transactions liées à un virement ou prélèvement (non supprimables individuellement)
+        $allTxIds    = array_column($transactions, 'id');
+        $linkedTxIds = $allTxIds ? $this->transactionModel->getProtectedIds($allTxIds) : [];
+
         // Prélèvements planifiés sur ce compte (to_account) non encore exécutés
         $upcomingDebits = $this->directDebitModel->findBy(
             ['to_account_id' => $accountId, 'status' => DirectDebit::STATUS_SCHEDULED],
@@ -233,6 +237,7 @@ class AccountController extends Controller
             'categories'         => Transaction::CATEGORIES,
             'mandates'           => $mandates,
             'upcomingMandates'   => $upcomingMandates,
+            'linkedTxIds'        => $linkedTxIds,
         ]);
     }
 

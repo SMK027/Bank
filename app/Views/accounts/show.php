@@ -546,7 +546,7 @@
                                     <?= $t['type'] === 'income' ? '+' : '-' ?><?= number_format((float) $t['amount'], 2, ',', ' ') ?>
                                 </td>
                                 <td>
-                                    <?php if ($isModerator): ?>
+                                    <?php if ($isModerator && !in_array((int) $t['id'], $linkedTxIds ?? [])): ?>
                                     <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/transactions/<?= (int) $t['id'] ?>/delete"
                                           style="display:inline">
                                         <?= csrf_field() ?>
@@ -555,6 +555,10 @@
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
+                                    <?php elseif ($isModerator): ?>
+                                    <span class="badge badge-secondary" style="font-size:0.7rem;opacity:0.7" title="Liée à un virement ou prélèvement — annuler l'opération parente">
+                                        <i class="bi bi-lock"></i>
+                                    </span>
                                     <?php endif; ?>
                                 </td>
                             </tr>
@@ -770,7 +774,7 @@
                                     <?= $t['type'] === 'income' ? '+' : '-' ?><?= number_format((float) $t['amount'], 2, ',', ' ') ?>
                                 </td>
                                 <td>
-                                    <?php if ($isModerator): ?>
+                                    <?php if ($isModerator && !in_array((int) $t['id'], $linkedTxIds ?? [])): ?>
                                     <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/transactions/<?= (int) $t['id'] ?>/delete"
                                           style="display:inline">
                                         <?= csrf_field() ?>
@@ -779,6 +783,10 @@
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
+                                    <?php elseif ($isModerator): ?>
+                                    <span class="badge badge-secondary" style="font-size:0.7rem;opacity:0.7" title="Liée à un virement ou prélèvement — annuler l'opération parente">
+                                        <i class="bi bi-lock"></i>
+                                    </span>
                                     <?php endif; ?>
                                 </td>
                             </tr>

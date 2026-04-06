@@ -167,6 +167,12 @@ class TransactionController extends Controller
             return;
         }
 
+        if ($this->transactionModel->getProtectedIds([(int) $transactionId]) !== []) {
+            $this->setFlash('danger', 'Cette transaction est liée à un virement ou un prélèvement automatique. Pour l\'annuler, utilisez la gestion dédiée (annulation du virement ou rejet du prélèvement).');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
         $this->transactionModel->delete((int) $transactionId);
         $this->setFlash('success', 'Transaction supprimée.');
         $this->redirect('/accounts/' . $accountId);

@@ -103,4 +103,63 @@ class TransactionTest extends TestCase
         $found = $this->transaction->find($id);
         $this->assertSame(42, (int) $found['user_id']);
     }
+
+    /* ------------------------------------------------------------------
+     *  getProtectedIds
+     * ----------------------------------------------------------------*/
+
+    public function testGetProtectedIdsEmptyInputReturnsEmpty(): void
+    {
+        $this->assertSame([], $this->transaction->getProtectedIds([]));
+    }
+
+    public function testGetProtectedIdsUnlinkedTransactionNotProtected(): void
+    {
+        $id = $this->transaction->addTransaction(1, 'income', 100.0, 'Salaire');
+        $this->assertSame([], $this->transaction->getProtectedIds([$id]));
+    }
+
+    public function testGetProtectedIdsTransactionLinkedToTransferIsProtected(): void
+    {
+        $debitId  = $this->transaction->addTransaction(1, 'expense', 200.0, 'Virement');
+        $creditId = $this->transaction->addTransaction(2, 'income',  200.0, 'Virement');
+
+        $pdo = \App\Core\Database::getInstance();
+        $pdo->exec("INSERT INTO transfers (from_account_id, to_account_id, user_id, amount, motif, status, debit_tx_id, credit_tx_id)
+                    VALUES (1, 2, 1, 200.0, 'Test', 'success', $debitId, $creditId)");
+
+        $protected = $this->transaction->getProtectedIds([$debitId, $creditId]);
+        $this->assertContains($debitId,  $protected);
+        $this->assertContains($creditId, $protected);
+    }
+
+    public function testGetProtectedIdsTransactionLinkedToDirectDebitIsProtected(): void
+    {
+        $debitId  = $this->transaction->addTransaction(3, 'expense', 50.0, 'Prélèvement');
+        $creditId = $this->transaction->addTransaction(4, 'income',  50.0, 'Prélèvement');
+
+        $pdo = \App\Core\Database::getInstance();
+        $pdo->exec("INSERT INTO direct_debits (mandate_number, scheduled_at, amount, to_account_id, from_account_id, status, debit_tx_id, credit_tx_id, created_by)
+                    VALUES ('MND-X', '2026-01-01 00:00:00', 50.0, 4, 3, 'success', $debitId, $creditId, 1)");
+
+        $protected = $this->transaction->getProtectedIds([$debitId, $creditId]);
+        $this->assertContains($debitId,  $protected);
+        $this->assertContains($creditId, $protected);
+    }
+
+    public function testGetProtectedIdsOnlyReturnsLinkedSubset(): void
+    {
+        $free1 = $this->transaction->addTransaction(1, 'income',  100.0, 'Salaire');
+        $free2 = $this->transaction->addTransaction(1, 'expense', 30.0,  'Transport');
+        $linked = $this->transaction->addTransaction(1, 'expense', 500.0, 'Virement');
+
+        $pdo = \App\Core\Database::getInstance();
+        $pdo->exec("INSERT INTO transfers (from_account_id, to_account_id, user_id, amount, motif, status, debit_tx_id, credit_tx_id)
+                    VALUES (1, 2, 1, 500.0, 'Test', 'success', $linked, 0)");
+
+        $protected = $this->transaction->getProtectedIds([$free1, $free2, $linked]);
+        $this->assertNotContains($free1, $protected);
+        $this->assertNotContains($free2, $protected);
+        $this->assertContains($linked, $protected);
+    }
 }
