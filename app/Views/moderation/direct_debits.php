@@ -8,10 +8,13 @@
             <i class="bi bi-plus-circle"></i> Nouveau prélèvement
         </a>
         <a href="/moderation" class="btn btn-outline btn-sm">
-            <i class="bi bi-bank"></i> Comptes
+            <i class="bi bi-shield-check"></i> Comptes
         </a>
         <a href="/moderation/transfers" class="btn btn-outline btn-sm">
             <i class="bi bi-arrow-left-right"></i> Virements
+        </a>
+        <a href="/moderation/mandates" class="btn btn-outline btn-sm">
+            <i class="bi bi-file-earmark-text"></i> Mandats
         </a>
         <a href="/moderation/users" class="btn btn-outline btn-sm">
             <i class="bi bi-people"></i> Utilisateurs
@@ -28,6 +31,34 @@
         </a>
     </div>
 <?php else: ?>
+
+<!-- Stat cards -->
+<div class="stats-grid" id="dd-stats" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:0.75rem;margin-bottom:1rem;">
+    <div class="stat-card" style="padding:0.9rem 0.7rem;cursor:pointer" onclick="filterByStatus('')" title="Afficher tous">
+        <div class="stat-value" style="font-size:1.4rem" id="stat-total">0</div>
+        <div class="stat-label" style="font-size:0.78rem">Total</div>
+    </div>
+    <div class="stat-card" style="padding:0.9rem 0.7rem;cursor:pointer" onclick="filterByStatus('scheduled')" title="Filtrer : Planifiés">
+        <div class="stat-value" style="font-size:1.4rem;color:var(--warning,#f59e0b)" id="stat-scheduled">0</div>
+        <div class="stat-label" style="font-size:0.78rem"><i class="bi bi-clock"></i> Planifiés</div>
+    </div>
+    <div class="stat-card" style="padding:0.9rem 0.7rem;cursor:pointer" onclick="filterByStatus('success')" title="Filtrer : Exécutés">
+        <div class="stat-value" style="font-size:1.4rem;color:var(--success,#10b981)" id="stat-success">0</div>
+        <div class="stat-label" style="font-size:0.78rem"><i class="bi bi-check-circle"></i> Exécutés</div>
+    </div>
+    <div class="stat-card" style="padding:0.9rem 0.7rem;cursor:pointer" onclick="filterByStatus('rejected')" title="Filtrer : Rejetés">
+        <div class="stat-value" style="font-size:1.4rem;color:var(--danger,#ef4444)" id="stat-rejected">0</div>
+        <div class="stat-label" style="font-size:0.78rem"><i class="bi bi-x-octagon"></i> Rejetés</div>
+    </div>
+    <div class="stat-card" style="padding:0.9rem 0.7rem;cursor:pointer" onclick="filterByStatus('failed')" title="Filtrer : Échoués">
+        <div class="stat-value" style="font-size:1.4rem;color:var(--danger,#ef4444);opacity:0.7" id="stat-failed">0</div>
+        <div class="stat-label" style="font-size:0.78rem"><i class="bi bi-exclamation-triangle"></i> Échoués</div>
+    </div>
+    <div class="stat-card" style="padding:0.9rem 0.7rem;cursor:pointer" onclick="filterByStatus('cancelled')" title="Filtrer : Annulés">
+        <div class="stat-value" style="font-size:1.4rem;color:var(--gray,#6b7280)" id="stat-cancelled">0</div>
+        <div class="stat-label" style="font-size:0.78rem"><i class="bi bi-slash-circle"></i> Annulés</div>
+    </div>
+</div>
 
 <h4 style="margin-bottom:0.9rem;font-size:1rem;font-weight:600">
     <span id="dd-count-badge" style="font-size:0.82rem;font-weight:400;color:var(--text-muted)"></span>
@@ -115,6 +146,10 @@
 
 <?php endif; ?>
 
+<p class="text-center text-muted text-small mt-2">
+    <a href="/moderation"><i class="bi bi-arrow-left"></i> Retour à la modération</a>
+</p>
+
 <script>
 var DD_DATA   = <?= $debitsJson ?>;
 var DD_CSRF   = <?= json_encode($csrfToken) ?>;
@@ -148,10 +183,11 @@ function renderTable() {
     if (!tbody) return;
 
     document.getElementById('dd-count-badge').textContent =
-        ddVisible.length + ' prélèvement' + (ddVisible.length !== 1 ? 's' : '') + ' affiché' + (ddVisible.length !== 1 ? 's' : '');
+        ddVisible.length + ' prélèvement' + (ddVisible.length !== 1 ? 's' : '') + ' affiché' + (ddVisible.length !== 1 ? 's' : '')
+        + ' sur ' + DD_DATA.length;
 
     if (ddVisible.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--text-muted);padding:1.5rem">Aucun résultat</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--text-muted);padding:1.5rem"><i class="bi bi-search"></i> Aucun résultat</td></tr>';
         return;
     }
 
@@ -248,11 +284,29 @@ function resetDdFilters() {
     renderTable();
 }
 
+function updateStats() {
+    var counts = { scheduled: 0, success: 0, failed: 0, cancelled: 0, rejected: 0 };
+    DD_DATA.forEach(function(d) { if (counts.hasOwnProperty(d.status)) counts[d.status]++; });
+    document.getElementById('stat-total').textContent     = DD_DATA.length;
+    document.getElementById('stat-scheduled').textContent = counts.scheduled;
+    document.getElementById('stat-success').textContent   = counts.success;
+    document.getElementById('stat-rejected').textContent  = counts.rejected;
+    document.getElementById('stat-failed').textContent    = counts.failed;
+    document.getElementById('stat-cancelled').textContent = counts.cancelled;
+}
+
+function filterByStatus(status) {
+    var sel = document.getElementById('dd-status');
+    if (sel) sel.value = status;
+    applyDdFilters();
+}
+
 ['dd-status','dd-mandate','dd-amount-min','dd-amount-max','dd-date-from','dd-date-to','dd-search']
     .forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.addEventListener('input', applyDdFilters);
     });
 
+updateStats();
 renderTable();
 </script>
