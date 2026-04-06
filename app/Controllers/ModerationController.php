@@ -448,7 +448,7 @@ class ModerationController extends Controller
                 'transfer_cancelled',
                 'Virement #' . $transferId . ' annulé',
                 'Le virement de ' . number_format($amount, 2, ',', ' ') . ' € depuis votre compte « ' . $fromAccount['name'] . ' » a été annulé par la modération. Le montant a été recrédité.',
-                '/transfers'
+                '/accounts/' . (int) $fromAccount['id']
             );
         }
         if ($toAccount && $toAccount['user_id'] !== ($fromAccount['user_id'] ?? null)) {
@@ -457,7 +457,7 @@ class ModerationController extends Controller
                 'transfer_cancelled',
                 'Virement #' . $transferId . ' annulé',
                 'Un virement de ' . number_format($amount, 2, ',', ' ') . ' € vers votre compte « ' . $toAccount['name'] . ' » a été annulé par la modération.',
-                '/transfers'
+                '/accounts/' . (int) $toAccount['id']
             );
         }
 
@@ -702,7 +702,7 @@ class ModerationController extends Controller
                 'direct_debit_rejected',
                 'Prélèvement rejeté — ' . number_format($amount, 2, ',', ' ') . ' €',
                 'Le prélèvement (mandat ' . $directDebit['mandate_number'] . ') de ' . number_format($amount, 2, ',', ' ') . ' € sur votre compte « ' . $toAccount['name'] . ' » a été rejeté par la modération. Le montant a été recrédité.',
-                '/direct-debits'
+                '/accounts/' . $toAccountId
             );
         }
 
