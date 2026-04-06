@@ -32,9 +32,16 @@ class Account extends Model
     public const MINOR_ALLOWED_TYPES = ['savings'];
 
     /**
+     * Types créables par un professionnel vérifié.
+     * Les professionnels ne peuvent créer que des comptes pro ou épargne.
+     */
+    public const PRO_ALLOWED_TYPES = ['pro', 'savings'];
+
+    /**
      * Retourne les types de comptes créables via le formulaire standard.
-     * Le type 'minor' est réservé exclusivement à la modération.
-     * Le type 'pro' est réservé exclusivement aux utilisateurs professionnels.
+     * - Mineur : épargne uniquement.
+     * - Professionnel : pro + épargne uniquement.
+     * - Adulte standard : tout sauf 'minor' et 'pro'.
      */
     public static function getAllowedTypes(bool $isMinor, bool $isProfessional = false): array
     {
@@ -45,11 +52,17 @@ class Account extends Model
                 ARRAY_FILTER_USE_KEY
             );
         }
-        // Les adultes peuvent créer tous les types sauf 'minor' (modération uniquement)
-        // et 'pro' (réservé aux professionnels vérifiés)
+        if ($isProfessional) {
+            return array_filter(
+                self::TYPES,
+                fn(string $key) => in_array($key, self::PRO_ALLOWED_TYPES, true),
+                ARRAY_FILTER_USE_KEY
+            );
+        }
+        // Adultes non-pros : tous les types sauf 'minor' et 'pro'
         return array_filter(
             self::TYPES,
-            fn(string $key) => $key !== 'minor' && ($key !== 'pro' || $isProfessional),
+            fn(string $key) => $key !== 'minor' && $key !== 'pro',
             ARRAY_FILTER_USE_KEY
         );
     }

@@ -11,8 +11,15 @@
                     Les comptes mineurs sont ouverts uniquement par la modération.
                 </span>
             </div>
-            <?php endif; ?>
-            <?php if (empty($isPro)): ?>
+            <?php elseif (!empty($isPro)): ?>
+            <div class="alert alert-info" style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;">
+                <i class="bi bi-briefcase" style="font-size:1.2rem;"></i>
+                <span>
+                    <strong>Profil professionnel</strong> — Seuls les comptes
+                    <strong>Professionnel</strong> et <strong>Épargne</strong> sont disponibles.
+                </span>
+            </div>
+            <?php else: ?>
             <div class="alert alert-info" style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;">
                 <i class="bi bi-briefcase" style="font-size:1.2rem;"></i>
                 <span>

@@ -156,15 +156,21 @@ class AccountTest extends TestCase
         $this->assertArrayNotHasKey('pro', $types);
         $this->assertArrayNotHasKey('minor', $types);
         $this->assertArrayHasKey('standard', $types);
+        $this->assertArrayHasKey('joint', $types);
         $this->assertArrayHasKey('savings', $types);
+        $this->assertArrayHasKey('online', $types);
     }
 
     public function testAllowedTypesAdultPro(): void
     {
         $types = Account::getAllowedTypes(false, true);
-        $this->assertArrayHasKey('pro', $types);
+        $keys = array_keys($types);
+        // Pro ne peut créer que pro + épargne
+        $this->assertSame(['pro', 'savings'], $keys);
+        $this->assertArrayNotHasKey('standard', $types);
+        $this->assertArrayNotHasKey('joint', $types);
+        $this->assertArrayNotHasKey('online', $types);
         $this->assertArrayNotHasKey('minor', $types);
-        $this->assertArrayHasKey('standard', $types);
     }
 
     public function testAllowedTypesMinorIgnoresPro(): void
