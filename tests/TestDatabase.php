@@ -134,6 +134,21 @@ class TestDatabase
                 body        TEXT    NOT NULL,
                 created_at  TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS mandates (
+                id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+                number                TEXT    NOT NULL UNIQUE,
+                emitter_account_id    INTEGER NOT NULL DEFAULT 0,
+                recipient_account_id  INTEGER NOT NULL DEFAULT 0,
+                description           TEXT    NOT NULL DEFAULT '',
+                amount                REAL    NOT NULL,
+                type                  TEXT    NOT NULL DEFAULT 'one_time',
+                interval_days         INTEGER DEFAULT NULL,
+                status                TEXT    NOT NULL DEFAULT 'active',
+                created_by            INTEGER NOT NULL DEFAULT 0,
+                created_at            TEXT,
+                updated_at            TEXT
+            );
         SQL;
     }
 }

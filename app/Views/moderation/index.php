@@ -16,6 +16,9 @@
         <a href="/moderation/tickets" class="btn btn-outline btn-sm">
             <i class="bi bi-ticket-perforated"></i> Tickets
         </a>
+        <a href="/moderation/mandates" class="btn btn-outline btn-sm">
+            <i class="bi bi-file-earmark-text"></i> Mandats
+        </a>
         <a href="/moderation/users" class="btn btn-outline btn-sm">
             <i class="bi bi-people"></i> Gérer les utilisateurs
         </a>

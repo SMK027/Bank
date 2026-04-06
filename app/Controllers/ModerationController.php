@@ -9,6 +9,7 @@ use App\Models\Account;
 use App\Models\AccountAccess;
 use App\Models\DirectDebit;
 use App\Models\Guardianship;
+use App\Models\Mandate;
 use App\Models\Ticket;
 use App\Models\TicketMessage;
 use App\Models\Transaction;
@@ -26,6 +27,7 @@ class ModerationController extends Controller
     private Guardianship   $guardianshipModel;
     private Ticket         $ticketModel;
     private TicketMessage  $ticketMessageModel;
+    private Mandate        $mandateModel;
 
     public function __construct()
     {
@@ -38,6 +40,7 @@ class ModerationController extends Controller
         $this->guardianshipModel  = new Guardianship();
         $this->ticketModel        = new Ticket();
         $this->ticketMessageModel = new TicketMessage();
+        $this->mandateModel       = new Mandate();
     }
 
     /**
@@ -532,7 +535,9 @@ class ModerationController extends Controller
             return;
         }
 
-        $rows    = $this->accountModel->searchByQuery($q, 15);
+        $type = isset($_GET['type']) && $_GET['type'] !== '' ? $_GET['type'] : null;
+
+        $rows    = $this->accountModel->searchByQuery($q, 15, $type);
         $results = [];
         foreach ($rows as $row) {
             $results[] = [
@@ -932,5 +937,168 @@ class ModerationController extends Controller
         $this->ticketModel->update($ticketId, ['status' => $newStatus]);
         $this->setFlash('success', 'Statut mis à jour : ' . Ticket::statusLabel($newStatus) . '.');
         $this->redirect('/moderation/tickets/' . $ticketId);
+    }
+
+    // ================================================================
+    // Mandats professionnels
+    // ================================================================
+
+    /**
+     * Liste des mandats.
+     */
+    public function mandates(): void
+    {
+        $this->requireModerator();
+
+        $mandates = $this->mandateModel->getAllWithAccounts();
+
+        $this->render('moderation/mandates', [
+            'title'    => 'Modération — Mandats',
+            'mandates' => $mandates,
+        ]);
+    }
+
+    /**
+     * Formulaire de création de mandat.
+     */
+    public function createMandateForm(): void
+    {
+        $this->requireModerator();
+
+        $this->render('moderation/mandate_create', [
+            'title' => 'Créer un mandat',
+            'types' => Mandate::TYPES,
+        ]);
+    }
+
+    /**
+     * Traitement de la création de mandat (POST).
+     */
+    public function createMandate(): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $data = $this->getPostData([
+            'number', 'emitter_account_id', 'recipient_account_id',
+            'description', 'amount', 'type', 'interval_days',
+        ]);
+
+        $number = trim($data['number'] ?? '');
+        if ($number === '') {
+            $this->setFlash('danger', 'Le numéro de mandat est obligatoire.');
+            $this->redirect('/moderation/mandates/create');
+            return;
+        }
+
+        if ($this->mandateModel->numberExists($number)) {
+            $this->setFlash('danger', 'Ce numéro de mandat existe déjà.');
+            $this->redirect('/moderation/mandates/create');
+            return;
+        }
+
+        // Compte émetteur (pro à créditer)
+        $emitterAccountId = (int) ($data['emitter_account_id'] ?? 0);
+        $emitterAccount = $emitterAccountId > 0 ? $this->accountModel->find($emitterAccountId) : null;
+        if (!$emitterAccount) {
+            $this->setFlash('danger', 'Compte émetteur (professionnel) invalide.');
+            $this->redirect('/moderation/mandates/create');
+            return;
+        }
+        if (($emitterAccount['type'] ?? '') !== 'pro') {
+            $this->setFlash('danger', 'Le compte émetteur doit être un compte professionnel.');
+            $this->redirect('/moderation/mandates/create');
+            return;
+        }
+
+        // Compte destinataire (à débiter)
+        $recipientAccountId = (int) ($data['recipient_account_id'] ?? 0);
+        $recipientAccount = $recipientAccountId > 0 ? $this->accountModel->find($recipientAccountId) : null;
+        if (!$recipientAccount) {
+            $this->setFlash('danger', 'Compte destinataire invalide.');
+            $this->redirect('/moderation/mandates/create');
+            return;
+        }
+
+        if ($emitterAccountId === $recipientAccountId) {
+            $this->setFlash('danger', 'Le compte émetteur et le compte destinataire doivent être différents.');
+            $this->redirect('/moderation/mandates/create');
+            return;
+        }
+
+        $description = trim($data['description'] ?? '');
+
+        $amount = (float) ($data['amount'] ?? 0);
+        if ($amount <= 0) {
+            $this->setFlash('danger', 'Le montant doit être strictement positif.');
+            $this->redirect('/moderation/mandates/create');
+            return;
+        }
+
+        $type = $data['type'] ?? '';
+        if (!array_key_exists($type, Mandate::TYPES)) {
+            $this->setFlash('danger', 'Type de mandat invalide.');
+            $this->redirect('/moderation/mandates/create');
+            return;
+        }
+
+        $intervalDays = null;
+        if ($type === Mandate::TYPE_RECURRING) {
+            $intervalDays = (int) ($data['interval_days'] ?? 0);
+            if ($intervalDays < 1) {
+                $this->setFlash('danger', 'L\'intervalle de prélèvement doit être d\'au moins 1 jour.');
+                $this->redirect('/moderation/mandates/create');
+                return;
+            }
+        }
+
+        $this->mandateModel->createMandate(
+            $number,
+            $emitterAccountId,
+            $recipientAccountId,
+            $description,
+            $amount,
+            $type,
+            $intervalDays,
+            $this->getCurrentUserId()
+        );
+
+        $this->setFlash('success', sprintf(
+            'Mandat %s créé — %s € %s, émetteur « %s », destinataire « %s ».',
+            $number,
+            number_format($amount, 2, ',', ' '),
+            Mandate::TYPES[$type],
+            $emitterAccount['name'],
+            $recipientAccount['name']
+        ));
+        $this->redirect('/moderation/mandates');
+    }
+
+    /**
+     * Révoquer un mandat (POST).
+     */
+    public function revokeMandate(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $mandateId = (int) $id;
+        $mandate   = $this->mandateModel->find($mandateId);
+
+        if (!$mandate) {
+            $this->setFlash('danger', 'Mandat introuvable.');
+            $this->redirect('/moderation/mandates');
+            return;
+        }
+
+        if ($mandate['status'] === Mandate::STATUS_REVOKED) {
+            $this->setFlash('warning', 'Ce mandat est déjà révoqué.');
+            $this->redirect('/moderation/mandates');
+            return;
+        }
+
+        $this->mandateModel->revoke($mandateId);
+        $this->setFlash('success', 'Mandat ' . $mandate['number'] . ' révoqué.');
+        $this->redirect('/moderation/mandates');
     }
 }

@@ -780,6 +780,61 @@
     </div>
 </div>
 
+<?php if ($account['type'] === 'pro' && !empty($mandates)): ?>
+<!-- Mandats professionnels -->
+<div class="card mt-2">
+    <div class="card-body">
+        <h3><i class="bi bi-file-earmark-text"></i> Mandats</h3>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>N° Mandat</th>
+                        <th>Rôle</th>
+                        <th>Contrepartie</th>
+                        <th>Montant</th>
+                        <th>Type</th>
+                        <th>Intervalle</th>
+                        <th>Statut</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($mandates as $mandate): ?>
+                        <tr>
+                            <td><strong><?= e($mandate['number']) ?></strong></td>
+                            <td>
+                                <?php if ((int) $mandate['emitter_account_id'] === (int) $account['id']): ?>
+                                    <span class="badge" style="background:#16a34a;color:#fff;">Émetteur</span>
+                                <?php else: ?>
+                                    <span class="badge" style="background:#2563eb;color:#fff;">Destinataire</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if ((int) $mandate['emitter_account_id'] === (int) $account['id']): ?>
+                                    <?= e($mandate['recipient_name']) ?> (<?= e($mandate['recipient_owner']) ?>)
+                                <?php else: ?>
+                                    <?= e($mandate['emitter_name']) ?> (<?= e($mandate['emitter_owner']) ?>)
+                                <?php endif; ?>
+                            </td>
+                            <td><?= number_format((float) $mandate['amount'], 2, ',', ' ') ?> €</td>
+                            <td><?= $mandate['type'] === 'recurring' ? 'Récurrent' : 'Ponctuel' ?></td>
+                            <td><?= $mandate['type'] === 'recurring' && $mandate['interval_days'] ? $mandate['interval_days'] . ' j' : '—' ?></td>
+                            <td>
+                                <?php if ($mandate['status'] === 'active'): ?>
+                                    <span class="badge badge-success">Actif</span>
+                                <?php else: ?>
+                                    <span class="badge badge-danger">Révoqué</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <?php if ($isOwner || $isModerator): ?>
 <!-- Suppression du compte -->
 <div class="card mt-2" style="border: 1px solid var(--danger);">

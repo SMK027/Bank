@@ -11,6 +11,7 @@ use App\Models\Transaction;
 use App\Models\AccountAccess;
 use App\Models\DirectDebit;
 use App\Models\Guardianship;
+use App\Models\Mandate;
 use App\Models\User;
 
 class AccountController extends Controller
@@ -197,6 +198,13 @@ class AccountController extends Controller
             'ASC'
         );
 
+        // Mandats rattachés au compte (émetteur ou destinataire) — comptes pro uniquement
+        $mandates = [];
+        if ($account['type'] === 'pro') {
+            $mandateModel = new Mandate();
+            $mandates = $mandateModel->getByAccount($accountId);
+        }
+
         $this->render('accounts/show', [
             'title'                => $account['name'],
             'account'             => $account,
@@ -220,6 +228,7 @@ class AccountController extends Controller
             'isMinorAccount'     => $isMinorAccount,
             'isGuardian'         => $isGuardian,
             'categories'         => Transaction::CATEGORIES,
+            'mandates'           => $mandates,
         ]);
     }
 

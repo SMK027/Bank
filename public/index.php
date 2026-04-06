@@ -101,6 +101,11 @@ $router->post('/moderation/direct-debits/{id}/cancel', ModerationController::cla
 $router->post('/moderation/direct-debits/{id}/reject', ModerationController::class, 'rejectDirectDebit');
 $router->get('/moderation/direct-debits/accounts/search', ModerationController::class, 'searchAccounts');
 $router->get('/moderation/users/search', ModerationController::class, 'searchUsers');
+// Mandats professionnels
+$router->get('/moderation/mandates', ModerationController::class, 'mandates');
+$router->get('/moderation/mandates/create', ModerationController::class, 'createMandateForm');
+$router->post('/moderation/mandates', ModerationController::class, 'createMandate');
+$router->post('/moderation/mandates/{id}/revoke', ModerationController::class, 'revokeMandate');
 // Comptes mineurs & tutelles légales
 $router->get('/moderation/minor-accounts/create', ModerationController::class, 'createMinorAccountForm');
 $router->post('/moderation/minor-accounts', ModerationController::class, 'createMinorAccount');
