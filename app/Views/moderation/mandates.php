@@ -17,6 +17,7 @@
             <select id="filter-status" class="form-control" style="width:auto;min-width:140px;">
                 <option value="">Tous les statuts</option>
                 <option value="active">Actif</option>
+                <option value="executed">Exécuté</option>
                 <option value="revoked">Révoqué</option>
             </select>
             <select id="filter-type" class="form-control" style="width:auto;min-width:140px;">
@@ -44,6 +45,8 @@
                 <th>Montant</th>
                 <th>Type</th>
                 <th>Intervalle</th>
+                <th>Prochaine exéc.</th>
+                <th>Dernière exéc.</th>
                 <th>Statut</th>
                 <th>Actions</th>
             </tr>
@@ -83,9 +86,25 @@
                         —
                     <?php endif; ?>
                 </td>
+                <td style="white-space:nowrap;font-size:0.88rem;">
+                    <?php if ($m['next_execution_at']): ?>
+                        <?= e(date('d/m/Y H:i', strtotime($m['next_execution_at']))) ?>
+                    <?php else: ?>
+                        —
+                    <?php endif; ?>
+                </td>
+                <td style="white-space:nowrap;font-size:0.88rem;">
+                    <?php if ($m['last_executed_at']): ?>
+                        <?= e(date('d/m/Y H:i', strtotime($m['last_executed_at']))) ?>
+                    <?php else: ?>
+                        <span class="text-muted">Jamais</span>
+                    <?php endif; ?>
+                </td>
                 <td>
                     <?php if ($m['status'] === 'active'): ?>
                         <span class="badge badge-success">Actif</span>
+                    <?php elseif ($m['status'] === 'executed'): ?>
+                        <span class="badge badge-info">Exécuté</span>
                     <?php else: ?>
                         <span class="badge badge-danger">Révoqué</span>
                     <?php endif; ?>

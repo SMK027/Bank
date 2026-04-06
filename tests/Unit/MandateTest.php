@@ -234,11 +234,13 @@ class MandateTest extends TestCase
         $this->assertSame('one_time', Mandate::TYPE_ONE_TIME);
         $this->assertSame('recurring', Mandate::TYPE_RECURRING);
         $this->assertSame('active', Mandate::STATUS_ACTIVE);
+        $this->assertSame('executed', Mandate::STATUS_EXECUTED);
         $this->assertSame('revoked', Mandate::STATUS_REVOKED);
 
         $this->assertArrayHasKey(Mandate::TYPE_ONE_TIME, Mandate::TYPES);
         $this->assertArrayHasKey(Mandate::TYPE_RECURRING, Mandate::TYPES);
         $this->assertArrayHasKey(Mandate::STATUS_ACTIVE, Mandate::STATUSES);
+        $this->assertArrayHasKey(Mandate::STATUS_EXECUTED, Mandate::STATUSES);
         $this->assertArrayHasKey(Mandate::STATUS_REVOKED, Mandate::STATUSES);
     }
 
@@ -256,5 +258,130 @@ class MandateTest extends TestCase
         // Filtre sur type inexistant
         $results = $this->account->searchByQuery('Compte', 15, 'minor');
         $this->assertCount(0, $results);
+    }
+
+    public function testCreateMandateSetsNextExecutionAt(): void
+    {
+        $before = date('Y-m-d H:i:s');
+        $id = $this->mandate->createMandate(
+            'MAND-EXEC',
+            $this->proAccountId,
+            $this->standardAccountId,
+            'Test',
+            10.00,
+            Mandate::TYPE_ONE_TIME,
+            null,
+            1
+        );
+
+        $m = $this->mandate->find($id);
+        $this->assertNotNull($m['next_execution_at']);
+        $this->assertGreaterThanOrEqual($before, $m['next_execution_at']);
+    }
+
+    public function testGetDueReturnsActiveWithPastNextExecution(): void
+    {
+        $id = $this->mandate->createMandate(
+            'MAND-DUE',
+            $this->proAccountId,
+            $this->standardAccountId,
+            'Echue',
+            10.00,
+            Mandate::TYPE_ONE_TIME,
+            null,
+            1
+        );
+
+        // next_execution_at est à maintenant, donc getDue() doit le retourner
+        $due = $this->mandate->getDue();
+        $this->assertCount(1, $due);
+        $this->assertEquals($id, $due[0]['id']);
+    }
+
+    public function testGetDueExcludesRevokedMandates(): void
+    {
+        $id = $this->mandate->createMandate(
+            'MAND-REV2',
+            $this->proAccountId,
+            $this->standardAccountId,
+            'Révoqué',
+            10.00,
+            Mandate::TYPE_ONE_TIME,
+            null,
+            1
+        );
+        $this->mandate->revoke($id);
+
+        $due = $this->mandate->getDue();
+        $this->assertCount(0, $due);
+    }
+
+    public function testGetDueExcludesFutureExecution(): void
+    {
+        $id = $this->mandate->createMandate(
+            'MAND-FUT',
+            $this->proAccountId,
+            $this->standardAccountId,
+            'Future',
+            10.00,
+            Mandate::TYPE_RECURRING,
+            30,
+            1
+        );
+
+        // Placer next_execution_at dans le futur
+        $this->mandate->update($id, [
+            'next_execution_at' => date('Y-m-d H:i:s', strtotime('+1 day')),
+        ]);
+
+        $due = $this->mandate->getDue();
+        $this->assertCount(0, $due);
+    }
+
+    public function testMarkExecutedOneTimeSetStatusExecuted(): void
+    {
+        $id = $this->mandate->createMandate(
+            'MAND-OT',
+            $this->proAccountId,
+            $this->standardAccountId,
+            'Ponctuel',
+            50.00,
+            Mandate::TYPE_ONE_TIME,
+            null,
+            1
+        );
+
+        $this->mandate->markExecuted($id);
+
+        $m = $this->mandate->find($id);
+        $this->assertSame(Mandate::STATUS_EXECUTED, $m['status']);
+        $this->assertNotNull($m['last_executed_at']);
+        $this->assertNull($m['next_execution_at']);
+    }
+
+    public function testMarkExecutedRecurringSetsNextExecution(): void
+    {
+        $id = $this->mandate->createMandate(
+            'MAND-REC',
+            $this->proAccountId,
+            $this->standardAccountId,
+            'Récurrent',
+            25.00,
+            Mandate::TYPE_RECURRING,
+            7,
+            1
+        );
+
+        $before = date('Y-m-d H:i:s');
+        $this->mandate->markExecuted($id);
+
+        $m = $this->mandate->find($id);
+        $this->assertSame(Mandate::STATUS_ACTIVE, $m['status']);
+        $this->assertNotNull($m['last_executed_at']);
+        $this->assertNotNull($m['next_execution_at']);
+        // Prochaine exécution doit être dans ~7 jours
+        $nextTs = strtotime($m['next_execution_at']);
+        $this->assertGreaterThan(strtotime('+6 days'), $nextTs);
+        $this->assertLessThanOrEqual(strtotime('+8 days'), $nextTs);
     }
 }

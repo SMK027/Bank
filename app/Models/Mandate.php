@@ -19,12 +19,14 @@ class Mandate extends Model
         self::TYPE_RECURRING => 'Récurrent',
     ];
 
-    public const STATUS_ACTIVE  = 'active';
-    public const STATUS_REVOKED = 'revoked';
+    public const STATUS_ACTIVE   = 'active';
+    public const STATUS_EXECUTED = 'executed';
+    public const STATUS_REVOKED  = 'revoked';
 
     public const STATUSES = [
-        self::STATUS_ACTIVE  => 'Actif',
-        self::STATUS_REVOKED => 'Révoqué',
+        self::STATUS_ACTIVE   => 'Actif',
+        self::STATUS_EXECUTED => 'Exécuté',
+        self::STATUS_REVOKED  => 'Révoqué',
     ];
 
     /**
@@ -50,6 +52,7 @@ class Mandate extends Model
             'interval_days'        => $type === self::TYPE_RECURRING ? $intervalDays : null,
             'status'               => self::STATUS_ACTIVE,
             'created_by'           => $createdBy,
+            'next_execution_at'    => date('Y-m-d H:i:s'),
         ]);
     }
 
@@ -101,6 +104,49 @@ class Mandate extends Model
     public function revoke(int $id): bool
     {
         return $this->update($id, ['status' => self::STATUS_REVOKED]);
+    }
+
+    /**
+     * Retourne les mandats actifs dont la prochaine exécution est échue.
+     */
+    public function getDue(): array
+    {
+        $now     = time();
+        $records = $this->findBy(['status' => self::STATUS_ACTIVE], 'next_execution_at', 'ASC');
+
+        return array_values(array_filter($records, function (array $m) use ($now): bool {
+            return !empty($m['next_execution_at']) && strtotime($m['next_execution_at']) <= $now;
+        }));
+    }
+
+    /**
+     * Marque un mandat comme exécuté et planifie la prochaine exécution si récurrent.
+     */
+    public function markExecuted(int $id): bool
+    {
+        $mandate = $this->find($id);
+        if (!$mandate) {
+            return false;
+        }
+
+        $now = date('Y-m-d H:i:s');
+
+        if ($mandate['type'] === self::TYPE_ONE_TIME) {
+            return $this->update($id, [
+                'last_executed_at'  => $now,
+                'next_execution_at' => null,
+                'status'            => self::STATUS_EXECUTED,
+            ]);
+        }
+
+        // Récurrent : planifier la prochaine exécution
+        $intervalDays   = (int) ($mandate['interval_days'] ?? 30);
+        $nextExecution  = date('Y-m-d H:i:s', strtotime("+{$intervalDays} days"));
+
+        return $this->update($id, [
+            'last_executed_at'  => $now,
+            'next_execution_at' => $nextExecution,
+        ]);
     }
 
     /**

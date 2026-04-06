@@ -27,6 +27,7 @@ date_default_timezone_set('Europe/Paris');
 
 use App\Models\Account;
 use App\Models\DirectDebit;
+use App\Models\Mandate;
 use App\Models\Transaction;
 use App\Models\Transfer;
 
@@ -34,6 +35,7 @@ $transferModel    = new Transfer();
 $transactionModel = new Transaction();
 $directDebitModel = new DirectDebit();
 $accountModel     = new Account();
+$mandateModel     = new Mandate();
 
 $now      = time();
 $executed = 0;
@@ -200,7 +202,101 @@ foreach ($directDebitModel->getDue() as $debit) {
 }
 
 /* ─────────────────────────────────────────────────────────────────
-   3. Rétro-compatibilité : transactions planifiées sans virement
+   3. Traitement des mandats professionnels échus
+   ───────────────────────────────────────────────────────────────── */
+foreach ($mandateModel->getDue() as $mandate) {
+    $mandateId          = (int) $mandate['id'];
+    $emitterAccountId   = (int) $mandate['emitter_account_id'];
+    $recipientAccountId = (int) $mandate['recipient_account_id'];
+    $amount             = (float) $mandate['amount'];
+    $number             = $mandate['number'];
+    $description        = $mandate['description'] ?? '';
+
+    $ok = true;
+
+    // Vérifier que le compte destinataire (débité) n'est pas gelé
+    if ($accountModel->isFrozen($recipientAccountId)) {
+        echo sprintf(
+            "[%s] ERREUR mandat #%d (%s) : compte destinataire #%d gelé, exécution reportée.\n",
+            date('Y-m-d H:i:s'), $mandateId, $number, $recipientAccountId
+        );
+        $errors++;
+        continue;
+    }
+
+    // Rejeter si le type de compte ne permet pas le découvert et solde insuffisant
+    $recipientAccount = $accountModel->find($recipientAccountId);
+    $recipientType    = $recipientAccount['type'] ?? 'standard';
+    if (!Account::typeAllowsOverdraft($recipientType)) {
+        $currentBalance = $accountModel->getBalance($recipientAccountId);
+        if ($currentBalance - $amount < 0) {
+            echo sprintf(
+                "[%s] ERREUR mandat #%d (%s) : compte #%d (type '%s') solde insuffisant (%.2f < %.2f), exécution reportée.\n",
+                date('Y-m-d H:i:s'), $mandateId, $number, $recipientAccountId, $recipientType, $currentBalance, $amount
+            );
+            $errors++;
+            continue;
+        }
+    }
+
+    // Construire les commentaires
+    $emitterAccount = $accountModel->find($emitterAccountId);
+    $emitterName    = $emitterAccount['name'] ?? ('Compte #' . $emitterAccountId);
+    $recipientName  = $recipientAccount['name'] ?? ('Compte #' . $recipientAccountId);
+    $descStr        = $description !== '' ? ' — ' . $description : '';
+
+    $debitComment  = 'Mandat ' . $number . ' : prélèvement par ' . $emitterName . ' (#' . $emitterAccountId . ')' . $descStr;
+    $creditComment = 'Mandat ' . $number . ' : prélèvement sur ' . $recipientName . ' (#' . $recipientAccountId . ')' . $descStr;
+
+    // Créer transaction de DÉBIT sur le compte destinataire
+    $debitTxId = $transactionModel->addTransaction(
+        $recipientAccountId,
+        'expense',
+        $amount,
+        'Mandat',
+        $debitComment,
+        0
+    );
+
+    // Créer transaction de CRÉDIT sur le compte émetteur (pro)
+    $creditTxId = null;
+    try {
+        $creditTxId = $transactionModel->addTransaction(
+            $emitterAccountId,
+            'income',
+            $amount,
+            'Mandat',
+            $creditComment,
+            0
+        );
+    } catch (\Throwable $e) {
+        echo sprintf(
+            "[%s] AVERTISSEMENT mandat #%d (%s) : crédit compte #%d échoué (%s)\n",
+            date('Y-m-d H:i:s'), $mandateId, $number, $emitterAccountId, $e->getMessage()
+        );
+        $ok = false;
+    }
+
+    if ($ok) {
+        $mandateModel->markExecuted($mandateId);
+        $executed++;
+        echo sprintf(
+            "[%s] Mandat #%d (%s) exécuté : débit #%d / crédit #%d — %.2f€ — type %s\n",
+            date('Y-m-d H:i:s'),
+            $mandateId,
+            $number,
+            $recipientAccountId,
+            $emitterAccountId,
+            $amount,
+            $mandate['type']
+        );
+    } else {
+        $errors++;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   4. Rétro-compatibilité : transactions planifiées sans virement
    ───────────────────────────────────────────────────────────────── */
 // Collecter les IDs de transactions déjà traitées via les virements et prélèvements
 $processedTxIds = [];

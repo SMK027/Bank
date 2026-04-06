@@ -146,6 +146,8 @@ class TestDatabase
                 interval_days         INTEGER DEFAULT NULL,
                 status                TEXT    NOT NULL DEFAULT 'active',
                 created_by            INTEGER NOT NULL DEFAULT 0,
+                last_executed_at      TEXT    DEFAULT NULL,
+                next_execution_at     TEXT    DEFAULT NULL,
                 created_at            TEXT,
                 updated_at            TEXT
             );

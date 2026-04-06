@@ -795,6 +795,7 @@
                         <th>Montant</th>
                         <th>Type</th>
                         <th>Intervalle</th>
+                        <th>Prochaine exéc.</th>
                         <th>Statut</th>
                     </tr>
                 </thead>
@@ -819,9 +820,18 @@
                             <td><?= number_format((float) $mandate['amount'], 2, ',', ' ') ?> €</td>
                             <td><?= $mandate['type'] === 'recurring' ? 'Récurrent' : 'Ponctuel' ?></td>
                             <td><?= $mandate['type'] === 'recurring' && $mandate['interval_days'] ? $mandate['interval_days'] . ' j' : '—' ?></td>
+                            <td style="font-size:0.88rem;">
+                                <?php if (!empty($mandate['next_execution_at'])): ?>
+                                    <?= e(date('d/m/Y H:i', strtotime($mandate['next_execution_at']))) ?>
+                                <?php else: ?>
+                                    —
+                                <?php endif; ?>
+                            </td>
                             <td>
                                 <?php if ($mandate['status'] === 'active'): ?>
                                     <span class="badge badge-success">Actif</span>
+                                <?php elseif ($mandate['status'] === 'executed'): ?>
+                                    <span class="badge badge-info">Exécuté</span>
                                 <?php else: ?>
                                     <span class="badge badge-danger">Révoqué</span>
                                 <?php endif; ?>
