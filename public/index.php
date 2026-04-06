@@ -26,6 +26,7 @@ use App\Controllers\ModerationController;
 use App\Controllers\ProfileController;
 use App\Controllers\TicketController;
 use App\Controllers\NotificationController;
+use App\Controllers\AuditLogController;
 
 // Démarrer la session
 Session::start();
@@ -115,6 +116,8 @@ $router->get('/moderation/mandates', ModerationController::class, 'mandates');
 $router->get('/moderation/mandates/create', ModerationController::class, 'createMandateForm');
 $router->post('/moderation/mandates', ModerationController::class, 'createMandate');
 $router->post('/moderation/mandates/{id}/revoke', ModerationController::class, 'revokeMandate');
+// Journal d'audit
+$router->get('/moderation/audit-log', AuditLogController::class, 'index');
 // Comptes mineurs & tutelles légales
 $router->get('/moderation/minor-accounts/create', ModerationController::class, 'createMinorAccountForm');
 $router->post('/moderation/minor-accounts', ModerationController::class, 'createMinorAccount');

@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Models\Account;
 use App\Models\AccountAccess;
+use App\Models\AuditLog;
 use App\Models\Notification;
 use App\Models\User;
 
@@ -118,6 +119,7 @@ class AccessController extends Controller
             '/accounts/' . $accId
         );
         $this->setFlash('success', 'Accès accordé à ' . $targetUser['username'] . '.');
+        AuditLog::log($userId, AuditLog::ACTION_ACCESS_GRANT, ['shared_with' => $targetUser['username'], 'name' => $account['name'] ?? '?', 'type' => $type], targetUserId: (int) $targetUser['id'], targetAccountId: $accId);
         $this->redirect('/accounts/' . $accountId);
     }
 
@@ -165,6 +167,7 @@ class AccessController extends Controller
             );
         }
         $this->setFlash('success', 'Accès révoqué.');
+        AuditLog::log($currentUserId, AuditLog::ACTION_ACCESS_REVOKE, ['target_username' => $revokedUser['username'] ?? '?', 'name' => $revokedAccount['name'] ?? '?'], targetUserId: (int) $userId, targetAccountId: $accId);
         $this->redirect('/accounts/' . $accountId);
     }
 }

@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Models\Account;
+use App\Models\AuditLog;
 use App\Models\Notification;
 use App\Models\RecurringTransfer;
 use App\Models\Transaction;
@@ -210,6 +211,13 @@ class TransferController extends Controller
                 $firstExecutionAt
             );
 
+            AuditLog::log($userId, AuditLog::ACTION_TRANSFER_RECURRING_CREATE, [
+                'amount'        => $amount,
+                'interval_days' => $intervalDays,
+                'from_account'  => $fromAccount['name'],
+                'to_account'    => $toAccount['name'],
+            ], targetAccountId: $fromId);
+
             $this->notifModel->notify(
                 $userId,
                 'recurring_transfer_created',
@@ -289,7 +297,7 @@ class TransferController extends Controller
         );
 
         // Enregistrement du virement en base
-        $this->transferModel->createTransfer(
+        $transferId = $this->transferModel->createTransfer(
             $fromId,
             $toId,
             $userId,
@@ -343,6 +351,12 @@ class TransferController extends Controller
                 );
             }
         }
+        AuditLog::log($userId, AuditLog::ACTION_TRANSFER_CREATE, [
+            'transfer_id'  => $transferId,
+            'amount'       => $amount,
+            'from_account' => $fromAccount['name'],
+            'to_account'   => $toAccount['name'],
+        ], targetAccountId: $fromId);
         $this->redirect('/accounts/' . $fromId);
     }
 
@@ -403,6 +417,10 @@ class TransferController extends Controller
         }
 
         $this->recurringTransferModel->cancel($recId);
+        AuditLog::log($userId, AuditLog::ACTION_TRANSFER_RECURRING_CANCEL, [
+            'amount'        => $record['amount'],
+            'interval_days' => $record['interval_days'],
+        ], targetAccountId: (int) $record['from_account_id']);
         $this->setFlash('success', 'Virement récurrent annulé.');
         $redirectTo = $_POST['redirect_to'] ?? '';
         // Valide que la redirection est un chemin interne (pas une URL externe)

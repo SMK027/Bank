@@ -26,6 +26,7 @@ require_once dirname(__DIR__) . '/vendor/autoload.php';
 date_default_timezone_set('Europe/Paris');
 
 use App\Models\Account;
+use App\Models\AuditLog;
 use App\Models\DirectDebit;
 use App\Models\Guardianship;
 use App\Models\Mandate;
@@ -134,6 +135,7 @@ foreach ($recurringTransferModel->getDue() as $recurring) {
         );
         // On reprogramme quand même pour ne pas bloquer les futures occurrences
         $recurringTransferModel->markExecuted($recId);
+        AuditLog::log(null, AuditLog::ACTION_TRANSFER_RECURRING_FAIL, ['amount' => $amount, 'reason' => 'frozen'], targetAccountId: $fromAccountId);
         $frozenAccount = $accountModel->find($fromAccountId);
         if ($frozenAccount) {
             $notifyWithGuardians(
@@ -159,6 +161,7 @@ foreach ($recurringTransferModel->getDue() as $recurring) {
             date('Y-m-d H:i:s'), $recId, $fromAccountId, $balance, $amount
         );
         $recurringTransferModel->markExecuted($recId);
+        AuditLog::log(null, AuditLog::ACTION_TRANSFER_RECURRING_FAIL, ['amount' => $amount, 'reason' => 'insufficient_balance'], targetAccountId: $fromAccountId);
         $notifyWithGuardians(
             (int) $fromAccount['user_id'],
             $fromAccountId,
@@ -184,6 +187,7 @@ foreach ($recurringTransferModel->getDue() as $recurring) {
             $fromAccountId, $toAccountId, $userId, $amount, $motif, null, $debitTxId, $creditTxId
         );
         $recurringTransferModel->markExecuted($recId);
+        AuditLog::log(null, AuditLog::ACTION_TRANSFER_RECURRING_EXEC, ['amount' => $amount, 'from_account' => $fromAccountId, 'to_account' => $toAccountId], targetAccountId: $fromAccountId);
         $executed++;
         echo sprintf(
             "[%s] Virement récurrent #%d exécuté : compte #%d → #%d — %.2f\n",
@@ -257,6 +261,7 @@ foreach ($directDebitModel->getDue() as $debit) {
             date('Y-m-d H:i:s'), $debitId, $toAccountId
         );
         $directDebitModel->markFailed($debitId);
+        AuditLog::log(null, AuditLog::ACTION_DIRECT_DEBIT_FAIL, ['mandate' => $mandate, 'amount' => $amount, 'reason' => 'frozen'], targetAccountId: $toAccountId);
         $frozenAccount = $accountModel->find($toAccountId);
         if ($frozenAccount) {
             $notifyWithGuardians(
@@ -284,6 +289,7 @@ foreach ($directDebitModel->getDue() as $debit) {
                 date('Y-m-d H:i:s'), $debitId, $toAccountId, $toType, $currentBalance, $amount
             );
             $directDebitModel->markAutoRejected($debitId);
+            AuditLog::log(null, AuditLog::ACTION_DIRECT_DEBIT_REJECT, ['mandate' => $mandate, 'amount' => $amount, 'reason' => 'insufficient_balance'], targetAccountId: $toAccountId);
             $notifyWithGuardians(
                 (int) $toAccount['user_id'],
                 $toAccountId,
@@ -352,6 +358,7 @@ foreach ($directDebitModel->getDue() as $debit) {
 
     if ($ok) {
         $directDebitModel->markSuccess($debitId, $debitTxId, $creditTxId);
+        AuditLog::log(null, AuditLog::ACTION_DIRECT_DEBIT_EXEC, ['mandate' => $mandate, 'amount' => $amount], targetAccountId: $toAccountId);
         $notifyWithGuardians(
             (int) $toAccount['user_id'],
             $toAccountId,
@@ -371,6 +378,7 @@ foreach ($directDebitModel->getDue() as $debit) {
         );
     } else {
         $directDebitModel->markFailed($debitId);
+        AuditLog::log(null, AuditLog::ACTION_DIRECT_DEBIT_FAIL, ['mandate' => $mandate, 'amount' => $amount, 'reason' => 'credit_error'], targetAccountId: $toAccountId);
         $notifyWithGuardians(
             (int) $toAccount['user_id'],
             $toAccountId,

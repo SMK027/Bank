@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Core\Session;
 use App\Models\Account;
+use App\Models\AuditLog;
 use App\Models\Transaction;
 use App\Models\AccountAccess;
 use App\Models\DirectDebit;
@@ -102,7 +103,7 @@ class AccountController extends Controller
         $overdraft = Account::typeAllowsOverdraft($type) ? abs((float) ($data['overdraft'] ?: 0)) : 0.0;
         $cap       = Account::typeHasCap($type) && $data['cap'] !== '' ? abs((float) $data['cap']) : null;
 
-        $this->accountModel->createAccount(
+        $accountId = $this->accountModel->createAccount(
             $this->getCurrentUserId(),
             $data['name'],
             $data['currency'],
@@ -111,6 +112,7 @@ class AccountController extends Controller
             $cap
         );
 
+        AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_ACCOUNT_CREATE, ['name' => $data['name'], 'type' => $type], targetAccountId: $accountId);
         $this->setFlash('success', 'Compte bancaire créé avec succès !');
         $this->redirect('/dashboard');
     }
@@ -338,6 +340,8 @@ class AccountController extends Controller
             return;
         }
 
+        $account = $this->accountModel->find($accountId);
+
         // Supprimer les transactions associées
         $transactions = $this->transactionModel->getByAccount($accountId);
         foreach ($transactions as $t) {
@@ -351,6 +355,7 @@ class AccountController extends Controller
         }
 
         $this->accountModel->delete($accountId);
+        AuditLog::log($userId, AuditLog::ACTION_ACCOUNT_DELETE, ['name' => $account['name'] ?? '?'], targetAccountId: $accountId);
         $this->setFlash('success', 'Compte supprimé.');
         $this->redirect('/dashboard');
     }

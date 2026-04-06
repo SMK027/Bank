@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Core\Session;
 use App\Models\Account;
+use App\Models\AuditLog;
 use App\Models\User;
 
 /**
@@ -48,6 +49,7 @@ class AuthController extends Controller
         $user = $this->userModel->authenticate($data['email'], $data['password']);
 
         if (!$user) {
+            AuditLog::log(null, AuditLog::ACTION_AUTH_LOGIN_FAILED, ['email' => $data['email']]);
             $this->setFlash('danger', 'Identifiants incorrects.');
             $this->redirect('/login');
             return;
@@ -61,11 +63,13 @@ class AuthController extends Controller
                 $dt   = \DateTime::createFromFormat('Y-m-d H:i:s', $user['suspended_until']);
                 $msg .= ' jusqu\'au ' . ($dt ? $dt->format('d/m/Y') : $user['suspended_until']);
             }
+            AuditLog::log($user['id'], AuditLog::ACTION_AUTH_LOGIN_FAILED, ['email' => $data['email'], 'reason' => 'suspended']);
             $this->setFlash('danger', $msg . '.');
             $this->redirect('/login');
             return;
         }
         if ($status === 'banned') {
+            AuditLog::log($user['id'], AuditLog::ACTION_AUTH_LOGIN_FAILED, ['email' => $data['email'], 'reason' => 'banned']);
             $this->setFlash('danger', 'Votre compte a été banni de la plateforme.');
             $this->redirect('/login');
             return;
@@ -80,6 +84,7 @@ class AuthController extends Controller
         Session::set('birth_date_missing', empty($user['birth_date']));
 
         $this->setFlash('success', 'Bienvenue, ' . $user['username'] . ' !');
+        AuditLog::log($user['id'], AuditLog::ACTION_AUTH_LOGIN, ['username' => $user['username']], targetUserId: $user['id']);
         $this->redirect('/dashboard');
     }
 
@@ -150,6 +155,7 @@ class AuthController extends Controller
         Session::set('birth_date_missing', false);
 
         $isMinor = User::isMinorFromDate($data['birth_date']);
+        AuditLog::log($userId, AuditLog::ACTION_AUTH_REGISTER, ['username' => $data['username'], 'email' => $data['email']], targetUserId: $userId);
         $this->setFlash('success', 'Compte créé avec succès !' . ($isMinor ? ' (profil mineur : types de comptes limités)' : ''));
         $this->redirect('/dashboard');
     }
@@ -159,8 +165,10 @@ class AuthController extends Controller
      */
     public function logout(): void
     {
+        $uid = $this->getCurrentUserId();
         Session::destroy();
         Session::start();
+        AuditLog::log($uid, AuditLog::ACTION_AUTH_LOGOUT, []);
         $this->setFlash('success', 'Vous avez été déconnecté.');
         $this->redirect('/login');
     }

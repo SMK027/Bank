@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Models\Account;
 use App\Models\AccountAccess;
+use App\Models\AuditLog;
 use App\Models\DirectDebit;
 use App\Models\Guardianship;
 use App\Models\Mandate;
@@ -97,6 +98,7 @@ class ModerationController extends Controller
         }
 
         $this->accountModel->freezeAccount($accountId);
+        AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_ACCOUNT_FREEZE, ['name' => $account['name']], targetUserId: (int) $account['user_id'], targetAccountId: $accountId);
         // Notifier le propriétaire du compte (et ses tuteurs si compte mineur)
         $this->notifyAccountOwner(
             (int) $account['user_id'],
@@ -127,6 +129,7 @@ class ModerationController extends Controller
         }
 
         $this->accountModel->unfreezeAccount($accountId);
+        AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_ACCOUNT_UNFREEZE, ['name' => $account['name']], targetUserId: (int) $account['user_id'], targetAccountId: $accountId);
         // Notifier le propriétaire du compte (et ses tuteurs si compte mineur)
         $this->notifyAccountOwner(
             (int) $account['user_id'],
@@ -190,6 +193,7 @@ class ModerationController extends Controller
         }
 
         $labels = ['user' => 'Utilisateur', 'moderator' => 'Modérateur'];
+        AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_USER_ROLE_CHANGE, ['username' => $target['username'], 'new_role' => $role], targetUserId: $targetId);
         $this->setFlash('success', 'Rôle de « ' . $target['username'] . ' » mis à jour : ' . ($labels[$role] ?? $role) . '.');
         $this->redirect('/moderation/users');
     }
@@ -247,6 +251,7 @@ class ModerationController extends Controller
         $msg .= $until
             ? ' jusqu\'au ' . (new \DateTime($until))->format('d/m/Y') . '.'
             : ' indéfiniment.';
+        AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_USER_SUSPEND, ['username' => $target['username'], 'until' => $until], targetUserId: $targetId);
         // Notifier l'utilisateur suspendu
         $notifBody = 'Votre compte a été suspendu' . ($until
             ? ' jusqu\'au ' . (new \DateTime($until))->format('d/m/Y') . '.'
@@ -292,6 +297,7 @@ class ModerationController extends Controller
         }
 
         $this->userModel->ban($targetId);
+        AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_USER_BAN, ['username' => $target['username']], targetUserId: $targetId);
         // Notifier l'utilisateur banni
         $this->notifModel->notify(
             $targetId,
@@ -322,6 +328,7 @@ class ModerationController extends Controller
         }
 
         $this->userModel->activate($targetId);
+        AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_USER_ACTIVATE, ['username' => $target['username']], targetUserId: $targetId);
         // Notifier l'utilisateur réactivé
         $this->notifModel->notify(
             $targetId,
@@ -439,6 +446,7 @@ class ModerationController extends Controller
 
         $this->transferModel->markCancelled($transferId);
 
+        AuditLog::log($moderatorId, AuditLog::ACTION_TRANSFER_CANCEL, ['transfer_id' => $transferId, 'amount' => $amount], targetAccountId: (int) $transfer['from_account_id']);
         // Notifier les propriétaires des comptes concernés (et leurs tuteurs si mineurs)
         $fromAccount = $this->accountModel->find((int) $transfer['from_account_id']);
         $toAccount   = $this->accountModel->find((int) $transfer['to_account_id']);
@@ -603,6 +611,7 @@ class ModerationController extends Controller
             $this->getCurrentUserId()
         );
 
+        AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_DIRECT_DEBIT_CREATE, ['mandate' => $mandateNumber, 'amount' => $amount], targetAccountId: $toAccountId);
         $this->setFlash('success', sprintf(
             'Prélèvement de %s € planifié pour le %s sur « %s » (mandat %s).',
             number_format($amount, 2, ',', ' '),
@@ -637,6 +646,7 @@ class ModerationController extends Controller
         }
 
         $this->directDebitModel->markCancelled($debitId);
+        AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_DIRECT_DEBIT_CANCEL, ['mandate_number' => $directDebit['mandate_number'], 'amount' => (float) $directDebit['amount']], targetAccountId: (int) $directDebit['to_account_id']);
         // Notifier le propriétaire du compte débité (et ses tuteurs si compte mineur)
         $toAccount = $this->accountModel->find((int) $directDebit['to_account_id']);
         if ($toAccount) {
@@ -705,6 +715,7 @@ class ModerationController extends Controller
 
         $this->directDebitModel->markRejected($debitId);
 
+        AuditLog::log($moderatorId, AuditLog::ACTION_DIRECT_DEBIT_REJECT, ['mandate_number' => $directDebit['mandate_number'], 'amount' => $amount], targetAccountId: $toAccountId);
         // Notifier le propriétaire du compte débité (et ses tuteurs si compte mineur)
         $toAccount = $this->accountModel->find($toAccountId);
         if ($toAccount) {
@@ -936,13 +947,19 @@ class ModerationController extends Controller
         $moderatorId = $this->getCurrentUserId();
 
         // Créer le compte mineur
-        $this->accountModel->createAccount($minorUserId, $name, $currency, 0.0, 'minor', null);
+        $minorAccountId = $this->accountModel->createAccount($minorUserId, $name, $currency, 0.0, 'minor', null);
 
         // Créer les tutelles
         $this->guardianshipModel->addGuardian($minorUserId, $guardian1Id, $moderatorId);
         if ($guardian2Id > 0) {
             $this->guardianshipModel->addGuardian($minorUserId, $guardian2Id, $moderatorId);
         }
+
+        AuditLog::log($moderatorId, AuditLog::ACTION_MINOR_ACCOUNT_CREATE, [
+            'name'     => $name,
+            'minor'    => $minor['username'],
+            'guardian' => $guardian1['username'] . ($guardian2 ? ', ' . $guardian2['username'] : ''),
+        ], targetUserId: $minorUserId, targetAccountId: $minorAccountId);
 
         $this->setFlash('success', sprintf(
             'Compte mineur « %s » créé pour %s. Responsable(s) légal(aux) : %s%s.',
@@ -1045,6 +1062,7 @@ class ModerationController extends Controller
         }
 
         $this->guardianshipModel->addGuardian($minorUserId, $guardianUserId, $this->getCurrentUserId());
+        AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_GUARDIANSHIP_ADD, ['minor' => $minor['username'], 'guardian' => $guardian['username']], targetUserId: $minorUserId);
         $this->setFlash('success', sprintf(
             '%s est désormais responsable légal de %s.',
             $guardian['username'],
@@ -1070,6 +1088,7 @@ class ModerationController extends Controller
         }
 
         $this->guardianshipModel->removeGuardianship($guardianshipId);
+        AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_GUARDIANSHIP_REMOVE, ['minor_user_id' => (int) $guardianship['minor_user_id'], 'guardian_user_id' => (int) $guardianship['guardian_user_id']], targetUserId: (int) $guardianship['minor_user_id']);
         $this->setFlash('success', 'Tutelle légale supprimée.');
         $this->redirect('/moderation/guardianships');
     }
@@ -1351,6 +1370,7 @@ class ModerationController extends Controller
             $firstExecutionAt
         );
 
+        AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_MANDATE_CREATE, ['number' => $number, 'amount' => $amount, 'type' => $type], targetAccountId: $emitterAccountId);
         $this->setFlash('success', sprintf(
             'Mandat %s créé — %s € %s, émetteur « %s », destinataire « %s ».',
             $number,
@@ -1386,6 +1406,7 @@ class ModerationController extends Controller
         }
 
         $this->mandateModel->revoke($mandateId);
+        AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_MANDATE_REVOKE, ['number' => $mandate['number'], 'amount' => $mandate['amount']], targetAccountId: (int) $mandate['emitter_account_id']);
         // Notifier les propriétaires des comptes concernés (et leurs tuteurs si mineurs)
         $emitterAccount   = $this->accountModel->find((int) $mandate['emitter_account_id']);
         $recipientAccount = $this->accountModel->find((int) $mandate['recipient_account_id']);
