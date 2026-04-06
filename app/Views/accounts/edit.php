@@ -61,6 +61,13 @@
                     <span class="form-hint">Solde maximum autorisé (0 ou vide = pas de plafond)</span>
                 </div>
                 <div class="form-group">
+                    <label for="balance_alert_threshold" class="form-label">Seuil d'alerte de solde</label>
+                    <input type="number" id="balance_alert_threshold" name="balance_alert_threshold" class="form-control"
+                           value="<?= e((string) ($account['balance_alert_threshold'] ?? '')) ?>"
+                           min="0" step="0.01" placeholder="Ex : 500.00">
+                    <span class="form-hint">Notification envoyée lorsque le solde passe sous ce seuil. Laisser vide pour désactiver.</span>
+                </div>
+                <div class="form-group">
                     <button type="submit" class="btn btn-primary btn-block">
                         <i class="bi bi-check-lg"></i> Enregistrer les modifications
                     </button>

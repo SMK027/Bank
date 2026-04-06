@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Models\Account;
 use App\Models\AuditLog;
+use App\Models\Guardianship;
 use App\Models\Notification;
 use App\Models\RecurringTransfer;
 use App\Models\Transaction;
@@ -21,6 +22,7 @@ class TransferController extends Controller
     private RecurringTransfer $recurringTransferModel;
     private User $userModel;
     private Notification $notifModel;
+    private Guardianship $guardianshipModel;
 
     public function __construct()
     {
@@ -30,6 +32,7 @@ class TransferController extends Controller
         $this->recurringTransferModel = new RecurringTransfer();
         $this->userModel              = new User();
         $this->notifModel             = new Notification();
+        $this->guardianshipModel      = new Guardianship();
     }
 
     public function createForm(): void
@@ -307,6 +310,16 @@ class TransferController extends Controller
             $debitTxId,
             $creditTxId
         );
+
+        // Vérification du franchissement du seuil d'alerte (virement immédiat uniquement)
+        if ($scheduledAt === null && Account::crossedAlertThreshold($fromAccount, $balance, $balance - $amount)) {
+            $this->notifModel->sendBalanceAlert(
+                (int) $fromAccount['user_id'],
+                $fromAccount,
+                $balance - $amount,
+                $this->guardianshipModel
+            );
+        }
 
         if ($scheduledAt !== null) {
             $this->setFlash('success', sprintf(

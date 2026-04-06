@@ -188,6 +188,21 @@ foreach ($recurringTransferModel->getDue() as $recurring) {
         );
         $recurringTransferModel->markExecuted($recId);
         AuditLog::log(null, AuditLog::ACTION_TRANSFER_RECURRING_EXEC, ['amount' => $amount, 'from_account' => $fromAccountId, 'to_account' => $toAccountId], targetAccountId: $fromAccountId);
+        // Seuil d'alerte
+        if (\App\Models\Account::crossedAlertThreshold($fromAccount, $balance, $balance - $amount)) {
+            $notifyWithGuardians(
+                (int) $fromAccount['user_id'], $fromAccountId, 'balance_alert',
+                'Seuil d\'alerte atteint \u2014 ' . ($fromAccount['name'] ?? ''),
+                sprintf(
+                    'Le solde de votre compte \u00ab %s \u00bb est pass\u00e9 sous le seuil d\'alerte de %s %s. Solde actuel : %s %s.',
+                    $fromAccount['name'] ?? '',
+                    number_format((float) $fromAccount['balance_alert_threshold'], 2, ',', ' '),
+                    $fromAccount['currency'] ?? '',
+                    number_format($balance - $amount, 2, ',', ' '),
+                    $fromAccount['currency'] ?? ''
+                )
+            );
+        }
         $executed++;
         echo sprintf(
             "[%s] Virement récurrent #%d exécuté : compte #%d → #%d — %.2f\n",
@@ -326,6 +341,7 @@ foreach ($directDebitModel->getDue() as $debit) {
     }
 
     // Créer la transaction de débit sur le compte destinataire
+    $toBalanceBefore = $accountModel->getBalance($toAccountId);
     $debitTxId = $transactionModel->addTransaction(
         $toAccountId,
         'expense',
@@ -359,6 +375,21 @@ foreach ($directDebitModel->getDue() as $debit) {
     if ($ok) {
         $directDebitModel->markSuccess($debitId, $debitTxId, $creditTxId);
         AuditLog::log(null, AuditLog::ACTION_DIRECT_DEBIT_EXEC, ['mandate' => $mandate, 'amount' => $amount], targetAccountId: $toAccountId);
+        // Seuil d'alerte
+        if (\App\Models\Account::crossedAlertThreshold($toAccount, $toBalanceBefore, $toBalanceBefore - $amount)) {
+            $notifyWithGuardians(
+                (int) $toAccount['user_id'], $toAccountId, 'balance_alert',
+                'Seuil d\'alerte atteint \u2014 ' . ($toAccount['name'] ?? ''),
+                sprintf(
+                    'Le solde de votre compte \u00ab %s \u00bb est pass\u00e9 sous le seuil d\'alerte de %s %s. Solde actuel : %s %s.',
+                    $toAccount['name'] ?? '',
+                    number_format((float) $toAccount['balance_alert_threshold'], 2, ',', ' '),
+                    $toAccount['currency'] ?? '',
+                    number_format($toBalanceBefore - $amount, 2, ',', ' '),
+                    $toAccount['currency'] ?? ''
+                )
+            );
+        }
         $notifyWithGuardians(
             (int) $toAccount['user_id'],
             $toAccountId,

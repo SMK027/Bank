@@ -6,6 +6,8 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Models\Account;
+use App\Models\Guardianship;
+use App\Models\Notification;
 use App\Models\Transaction;
 use App\Models\User;
 
@@ -14,12 +16,16 @@ class TransactionController extends Controller
     private Account $accountModel;
     private Transaction $transactionModel;
     private User $userModel;
+    private Notification $notifModel;
+    private Guardianship $guardianshipModel;
 
     public function __construct()
     {
         $this->accountModel = new Account();
         $this->transactionModel = new Transaction();
         $this->userModel = new User();
+        $this->notifModel = new Notification();
+        $this->guardianshipModel = new Guardianship();
     }
 
     public function create(string $accountId): void
@@ -129,6 +135,11 @@ class TransactionController extends Controller
             }
         }
 
+        // Seuil d'alerte : capturer le solde actuel avant l'opération (dépense immédiate uniquement)
+        $balanceBefore = ($data['type'] === 'expense' && $scheduledAt === null)
+            ? $this->accountModel->getBalance($accId)
+            : 0.0;
+
         $this->transactionModel->addTransaction(
             $accId,
             $data['type'],
@@ -138,6 +149,20 @@ class TransactionController extends Controller
             $userId,
             $scheduledAt
         );
+
+        // Vérification du franchissement du seuil d'alerte (dépense immédiate uniquement)
+        if ($data['type'] === 'expense' && $scheduledAt === null) {
+            $alertAccount = $account ?? $this->accountModel->find($accId);
+            if (Account::crossedAlertThreshold($alertAccount, $balanceBefore, $balanceBefore - $amount)) {
+                $this->notifModel->sendBalanceAlert(
+                    (int) $alertAccount['user_id'],
+                    $alertAccount,
+                    $balanceBefore - $amount,
+                    $this->guardianshipModel
+                );
+            }
+        }
+
         $label = $data['type'] === 'income' ? 'Entrée' : 'Dépense';
         $msg   = $scheduledAt
             ? $label . ' programmée pour le ' . date('d/m/Y H:i', strtotime($scheduledAt)) . '.'

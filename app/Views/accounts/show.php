@@ -126,6 +126,12 @@
             <div class="stat-label">Plafond d'épargne (<?= e($account['currency']) ?>)</div>
         </div>
     <?php endif; ?>
+    <?php if (!empty($account['balance_alert_threshold'])): ?>
+        <div class="stat-card" style="border-left:3px solid var(--warning, #f59e0b)">
+            <div class="stat-value" style="font-size:1.1rem;"><?= number_format((float) $account['balance_alert_threshold'], 2, ',', ' ') ?></div>
+            <div class="stat-label"><i class="bi bi-bell-fill"></i> Seuil d'alerte (<?= e($account['currency']) ?>)</div>
+        </div>
+    <?php endif; ?>
 </div>
 
 <?php
@@ -158,6 +164,18 @@
             </div>
             <?php endif; ?>
         </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if (!empty($account['balance_alert_threshold']) && $balance < (float) $account['balance_alert_threshold']): ?>
+<div class="alert" style="border-left:4px solid var(--warning);display:flex;align-items:center;gap:0.75rem;">
+    <i class="bi bi-bell-fill text-warning" style="font-size:1.3rem;"></i>
+    <div>
+        <strong>Solde sous le seuil d'alerte.</strong>
+        Le solde actuel (<?= number_format($balance, 2, ',', ' ') ?> <?= e($account['currency']) ?>)
+        est inférieur au seuil configuré
+        (<?= number_format((float) $account['balance_alert_threshold'], 2, ',', ' ') ?> <?= e($account['currency']) ?>).
     </div>
 </div>
 <?php endif; ?>

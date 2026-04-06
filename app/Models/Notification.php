@@ -55,6 +55,7 @@ class Notification extends Model
         'direct_debit_cancelled'     => 'bi-slash-circle text-warning',
         'recurring_transfer_failed'  => 'bi-arrow-repeat text-danger',
         'mandate_revoked'            => 'bi-file-earmark-x text-danger',
+        'balance_alert'              => 'bi-bell-fill text-warning',
         'mod_new_ticket'             => 'bi-ticket-perforated-fill text-warning',
         'mod_transfer_pending'  => 'bi-arrow-left-right text-primary',
         'mod_direct_debit_due'  => 'bi-file-earmark-arrow-down text-warning',
@@ -87,6 +88,29 @@ class Notification extends Model
         $mods = $stmt->fetchAll(\PDO::FETCH_COLUMN);
         foreach ($mods as $modId) {
             $this->notify((int) $modId, $type, $title, $body, $link);
+        }
+    }
+
+    /**
+     * Envoie une alerte de franchissement de seuil au propriétaire du compte
+     * ainsi qu'à ses éventuels tuteurs légaux (comptes mineurs).
+     */
+    public function sendBalanceAlert(int $userId, array $account, float $newBalance, Guardianship $guardianModel): void
+    {
+        $threshold = (float) $account['balance_alert_threshold'];
+        $title     = 'Seuil d\'alerte atteint — ' . $account['name'];
+        $body      = sprintf(
+            'Le solde de votre compte « %s » est passé sous le seuil d\'alerte de %s %s. Solde actuel : %s %s.',
+            $account['name'],
+            number_format($threshold, 2, ',', ' '),
+            $account['currency'],
+            number_format($newBalance, 2, ',', ' '),
+            $account['currency']
+        );
+        $link = '/accounts/' . $account['id'];
+        $this->notify($userId, 'balance_alert', $title, $body, $link);
+        foreach ($guardianModel->getGuardiansOf($userId) as $g) {
+            $this->notify((int) $g['guardian_user_id'], 'balance_alert', $title, $body, $link);
         }
     }
 

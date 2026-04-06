@@ -96,6 +96,19 @@ class Account extends Model
         return (bool) (self::TYPES[$type]['cap'] ?? false);
     }
 
+    /**
+     * Indique si une opération vient de faire franchir le seuil d'alerte à la baisse.
+     * Retourne true uniquement si le solde était >= seuil avant et < seuil après l'opération.
+     */
+    public static function crossedAlertThreshold(array $account, float $balanceBefore, float $balanceAfter): bool
+    {
+        if (($account['balance_alert_threshold'] ?? null) === null) {
+            return false;
+        }
+        $threshold = (float) $account['balance_alert_threshold'];
+        return $balanceBefore >= $threshold && $balanceAfter < $threshold;
+    }
+
     public function createAccount(int $userId, string $name, string $currency, float $overdraft = 0.0, string $type = 'standard', ?float $cap = null): int
     {
         if (!self::typeAllowsOverdraft($type)) {

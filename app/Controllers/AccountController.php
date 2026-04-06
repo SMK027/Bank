@@ -294,7 +294,7 @@ class AccountController extends Controller
             return;
         }
 
-        $data = $this->getPostData(['name', 'currency', 'overdraft', 'account_type', 'cap']);
+        $data = $this->getPostData(['name', 'currency', 'overdraft', 'account_type', 'cap', 'balance_alert_threshold']);
 
         if (empty($data['name']) || empty($data['currency'])) {
             $this->setFlash('danger', 'Le nom et la devise sont requis.');
@@ -309,16 +309,20 @@ class AccountController extends Controller
             $data['account_type'] = $account['type'] ?? 'savings';
         }
 
-        $type      = array_key_exists($data['account_type'], Account::TYPES) ? $data['account_type'] : 'standard';
-        $overdraft = Account::typeAllowsOverdraft($type) ? abs((float) ($data['overdraft'] ?: 0)) : 0.0;
-        $cap       = Account::typeHasCap($type) && $data['cap'] !== '' ? abs((float) $data['cap']) : null;
+        $type           = array_key_exists($data['account_type'], Account::TYPES) ? $data['account_type'] : 'standard';
+        $overdraft      = Account::typeAllowsOverdraft($type) ? abs((float) ($data['overdraft'] ?: 0)) : 0.0;
+        $cap            = Account::typeHasCap($type) && $data['cap'] !== '' ? abs((float) $data['cap']) : null;
+        $alertThreshold = ($data['balance_alert_threshold'] ?? '') !== ''
+            ? max(0.0, (float) $data['balance_alert_threshold'])
+            : null;
 
         $this->accountModel->update($accountId, [
-            'name'      => $data['name'],
-            'currency'  => $data['currency'],
-            'overdraft' => $overdraft,
-            'type'      => $type,
-            'cap'       => $cap,
+            'name'                    => $data['name'],
+            'currency'                => $data['currency'],
+            'overdraft'               => $overdraft,
+            'type'                    => $type,
+            'cap'                     => $cap,
+            'balance_alert_threshold' => $alertThreshold,
         ]);
 
         $this->setFlash('success', 'Compte modifié avec succès.');
