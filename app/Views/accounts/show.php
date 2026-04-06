@@ -483,13 +483,13 @@
 <!-- ======================================================= -->
 <!-- Section : Opérations à venir                          -->
 <!-- ======================================================= -->
-<?php $hasUpcoming = !empty($pendingTransactions) || !empty($upcomingDebits); ?>
+<?php $hasUpcoming = !empty($pendingTransactions) || !empty($upcomingDebits) || !empty($upcomingMandates); ?>
 <div class="card mt-2" style="border-left: 3px solid var(--warning, #f59e0b);">
     <div class="card-header" style="display:flex;align-items:center;gap:0.6rem;">
         <h3 style="margin:0;"><i class="bi bi-clock" style="color:var(--warning,#f59e0b);"></i> Opérations à venir</h3>
         <?php if ($hasUpcoming): ?>
             <span class="badge" style="background:var(--warning,#f59e0b);color:#fff;">
-                <?= count($pendingTransactions) + count($upcomingDebits) ?>
+                <?= count($pendingTransactions) + count($upcomingDebits) + count($upcomingMandates) ?>
             </span>
         <?php endif; ?>
     </div>
@@ -600,6 +600,72 @@
                                 <td><?= e($d['motif'] ?? '—') ?></td>
                                 <td class="text-right font-bold text-danger">
                                     -<?= number_format((float) $d['amount'], 2, ',', ' ') ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+
+            <?php if (!empty($upcomingMandates)): ?>
+            <!-- Mandats à venir -->
+            <h4 style="margin-bottom:0.6rem;font-size:0.95rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">
+                <i class="bi bi-file-earmark-text"></i> Mandats à venir
+                <span class="badge badge-secondary"><?= count($upcomingMandates) ?></span>
+            </h4>
+            <div class="table-responsive">
+                <table class="table" id="upcoming-mandates-table">
+                    <thead>
+                        <tr>
+                            <th>Prochaine exéc.</th>
+                            <th>N° Mandat</th>
+                            <th>Opération</th>
+                            <th>Contrepartie</th>
+                            <th>Descriptif</th>
+                            <th class="text-right">Montant</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($upcomingMandates as $um): ?>
+                            <?php
+                                $isDue    = strtotime($um['next_execution_at']) <= time();
+                                $isEmitter = (int) $um['emitter_account_id'] === (int) $account['id'];
+                            ?>
+                            <tr style="opacity:0.85;font-style:italic;">
+                                <td>
+                                    <?php if ($isDue): ?>
+                                        <i class="bi bi-hourglass-split" style="color:var(--danger);"></i>
+                                        <strong style="color:var(--danger);"><?= date('d/m/Y H:i', strtotime($um['next_execution_at'])) ?></strong>
+                                        <br><small class="text-danger" style="font-style:normal;">En attente d'exécution</small>
+                                    <?php else: ?>
+                                        <i class="bi bi-clock" style="color:var(--warning,#f59e0b);"></i>
+                                        <?= date('d/m/Y H:i', strtotime($um['next_execution_at'])) ?>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <span class="badge badge-secondary"><?= e($um['number']) ?></span>
+                                    <?php if ($um['type'] === 'recurring'): ?>
+                                        <br><small class="text-muted" style="font-style:normal;"><i class="bi bi-arrow-repeat"></i> tous les <?= (int) $um['interval_days'] ?> j</small>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ($isEmitter): ?>
+                                        <span class="badge badge-success">Crédit</span>
+                                    <?php else: ?>
+                                        <span class="badge badge-danger">Débit</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ($isEmitter): ?>
+                                        <?= e($um['recipient_name']) ?> <small class="text-muted">(<?= e($um['recipient_owner']) ?>)</small>
+                                    <?php else: ?>
+                                        <?= e($um['emitter_name']) ?> <small class="text-muted">(<?= e($um['emitter_owner']) ?>)</small>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?= e($um['description'] ?: '—') ?></td>
+                                <td class="text-right font-bold <?= $isEmitter ? 'text-success' : 'text-danger' ?>">
+                                    <?= $isEmitter ? '+' : '-' ?><?= number_format((float) $um['amount'], 2, ',', ' ') ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

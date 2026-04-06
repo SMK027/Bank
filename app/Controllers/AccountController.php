@@ -199,11 +199,14 @@ class AccountController extends Controller
         );
 
         // Mandats rattachés au compte (émetteur ou destinataire) — comptes pro uniquement
+        $mandateModel = new Mandate();
         $mandates = [];
         if ($account['type'] === 'pro') {
-            $mandateModel = new Mandate();
             $mandates = $mandateModel->getByAccount($accountId);
         }
+
+        // Mandats à venir (prochaine exécution planifiée) — tous types de comptes
+        $upcomingMandates = $mandateModel->getUpcomingByAccount($accountId);
 
         $this->render('accounts/show', [
             'title'                => $account['name'],
@@ -229,6 +232,7 @@ class AccountController extends Controller
             'isGuardian'         => $isGuardian,
             'categories'         => Transaction::CATEGORIES,
             'mandates'           => $mandates,
+            'upcomingMandates'   => $upcomingMandates,
         ]);
     }
 

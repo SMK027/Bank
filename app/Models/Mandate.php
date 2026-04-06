@@ -150,6 +150,34 @@ class Mandate extends Model
     }
 
     /**
+     * Retourne les mandats actifs avec prochaine exécution, rattachés à un compte.
+     */
+    public function getUpcomingByAccount(int $accountId): array
+    {
+        $sql = 'SELECT m.*,
+                       ea.name AS emitter_name,
+                       eu.username AS emitter_owner,
+                       ra.name AS recipient_name,
+                       ru.username AS recipient_owner
+                  FROM mandates m
+                  JOIN accounts ea ON ea.id = m.emitter_account_id
+                  JOIN users    eu ON eu.id = ea.user_id
+                  JOIN accounts ra ON ra.id = m.recipient_account_id
+                  JOIN users    ru ON ru.id = ra.user_id
+                 WHERE m.status = :status
+                   AND m.next_execution_at IS NOT NULL
+                   AND (m.emitter_account_id = :id1 OR m.recipient_account_id = :id2)
+                 ORDER BY m.next_execution_at ASC';
+        $stmt = $this->getPdo()->prepare($sql);
+        $stmt->execute([
+            ':status' => self::STATUS_ACTIVE,
+            ':id1'    => $accountId,
+            ':id2'    => $accountId,
+        ]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
      * Vérifie si un numéro de mandat existe déjà.
      */
     public function numberExists(string $number): bool

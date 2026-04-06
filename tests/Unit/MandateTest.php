@@ -384,4 +384,80 @@ class MandateTest extends TestCase
         $this->assertGreaterThan(strtotime('+6 days'), $nextTs);
         $this->assertLessThanOrEqual(strtotime('+8 days'), $nextTs);
     }
+
+    public function testGetUpcomingByAccountEmitter(): void
+    {
+        $id = $this->mandate->createMandate(
+            'MAND-UP1',
+            $this->proAccountId,
+            $this->standardAccountId,
+            'Upcoming',
+            30.00,
+            Mandate::TYPE_RECURRING,
+            10,
+            1
+        );
+
+        // Le mandat actif avec next_execution_at apparaît pour l'émetteur
+        $upcoming = $this->mandate->getUpcomingByAccount($this->proAccountId);
+        $this->assertCount(1, $upcoming);
+        $this->assertSame('MAND-UP1', $upcoming[0]['number']);
+        $this->assertArrayHasKey('emitter_name', $upcoming[0]);
+        $this->assertArrayHasKey('recipient_name', $upcoming[0]);
+    }
+
+    public function testGetUpcomingByAccountRecipient(): void
+    {
+        $this->mandate->createMandate(
+            'MAND-UP2',
+            $this->proAccountId,
+            $this->standardAccountId,
+            'Upcoming recipient',
+            15.00,
+            Mandate::TYPE_ONE_TIME,
+            null,
+            1
+        );
+
+        // Le mandat apparaît aussi côté destinataire
+        $upcoming = $this->mandate->getUpcomingByAccount($this->standardAccountId);
+        $this->assertCount(1, $upcoming);
+        $this->assertSame('MAND-UP2', $upcoming[0]['number']);
+    }
+
+    public function testGetUpcomingByAccountExcludesRevoked(): void
+    {
+        $id = $this->mandate->createMandate(
+            'MAND-UP3',
+            $this->proAccountId,
+            $this->standardAccountId,
+            'Revoked',
+            10.00,
+            Mandate::TYPE_ONE_TIME,
+            null,
+            1
+        );
+        $this->mandate->revoke($id);
+
+        $upcoming = $this->mandate->getUpcomingByAccount($this->proAccountId);
+        $this->assertCount(0, $upcoming);
+    }
+
+    public function testGetUpcomingByAccountExcludesExecuted(): void
+    {
+        $id = $this->mandate->createMandate(
+            'MAND-UP4',
+            $this->proAccountId,
+            $this->standardAccountId,
+            'Executed',
+            10.00,
+            Mandate::TYPE_ONE_TIME,
+            null,
+            1
+        );
+        $this->mandate->markExecuted($id);
+
+        $upcoming = $this->mandate->getUpcomingByAccount($this->proAccountId);
+        $this->assertCount(0, $upcoming);
+    }
 }
