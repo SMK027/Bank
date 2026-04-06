@@ -151,6 +151,23 @@ class TestDatabase
                 created_at            TEXT,
                 updated_at            TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS direct_debits (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                mandate_number  TEXT    NOT NULL,
+                scheduled_at    TEXT    NOT NULL,
+                executed_at     TEXT    DEFAULT NULL,
+                amount          REAL    NOT NULL,
+                motif           TEXT    DEFAULT NULL,
+                from_account_id INTEGER DEFAULT NULL,
+                to_account_id   INTEGER NOT NULL DEFAULT 0,
+                debit_tx_id     INTEGER DEFAULT NULL,
+                credit_tx_id    INTEGER DEFAULT NULL,
+                status          TEXT    NOT NULL DEFAULT 'scheduled',
+                created_by      INTEGER NOT NULL DEFAULT 0,
+                created_at      TEXT,
+                updated_at      TEXT
+            );
         SQL;
     }
 }

@@ -186,6 +186,14 @@ function renderTable() {
             } else {
                 actionCell = '<span style="color:var(--text-muted);font-size:0.76rem;" title="Délai de rejet dépassé (2 semaines)">⌛ Délai expiré</span>';
             }
+        } else if (d.status === 'rejected' || d.status === 'failed') {
+            actionCell =
+                '<form method="POST" action="/moderation/direct-debits/' + esc(String(d.id)) + '/retry"'
+                + ' style="display:inline" onsubmit="return confirm(\'Réexécuter le prélèvement #' + d.id + ' (mandat ' + esc(d.mandate_number) + ') ?\\nUn nouveau prélèvement planifié sera créé.\')">'
+                + '<input type="hidden" name="csrf_token" value="' + esc(DD_CSRF) + '">'
+                + '<button type="submit" class="btn btn-info btn-sm" style="padding:0.2rem 0.5rem;font-size:0.76rem;">'
+                + '<i class="bi bi-arrow-repeat"></i> Réexécuter</button>'
+                + '</form>';
         } else {
             actionCell = '<span style="color:var(--text-muted);font-size:0.76rem;">—</span>';
         }

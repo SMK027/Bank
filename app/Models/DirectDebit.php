@@ -159,4 +159,33 @@ class DirectDebit extends Model
             'executed_at' => date('Y-m-d H:i:s'),
         ]);
     }
+
+    /**
+     * Vérifie si un prélèvement rejeté ou échoué peut être réexécuté.
+     */
+    public function canRetry(array $directDebit): bool
+    {
+        return in_array($directDebit['status'] ?? '', [self::STATUS_REJECTED, self::STATUS_FAILED], true);
+    }
+
+    /**
+     * Crée un nouveau prélèvement planifié à partir d'un prélèvement rejeté/échoué.
+     */
+    public function retry(int $id): ?int
+    {
+        $original = $this->find($id);
+        if (!$original || !$this->canRetry($original)) {
+            return null;
+        }
+
+        return $this->createDirectDebit(
+            $original['mandate_number'],
+            date('Y-m-d H:i:s'),
+            (float) $original['amount'],
+            (int) $original['to_account_id'],
+            $original['from_account_id'] !== null ? (int) $original['from_account_id'] : null,
+            $original['motif'],
+            (int) $original['created_by']
+        );
+    }
 }

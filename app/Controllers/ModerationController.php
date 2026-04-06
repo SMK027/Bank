@@ -522,6 +522,46 @@ class ModerationController extends Controller
     }
 
     /**
+     * Réexécute un prélèvement rejeté ou échoué (POST).
+     */
+    public function retryDirectDebit(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $debitId     = (int) $id;
+        $directDebit = $this->directDebitModel->find($debitId);
+
+        if (!$directDebit) {
+            $this->setFlash('danger', 'Prélèvement introuvable.');
+            $this->redirect('/moderation/direct-debits');
+            return;
+        }
+
+        if (!$this->directDebitModel->canRetry($directDebit)) {
+            $this->setFlash('danger', 'Ce prélèvement ne peut pas être réexécuté (statut incompatible).');
+            $this->redirect('/moderation/direct-debits');
+            return;
+        }
+
+        $newId = $this->directDebitModel->retry($debitId);
+
+        if ($newId === null) {
+            $this->setFlash('danger', 'Erreur lors de la réexécution du prélèvement.');
+            $this->redirect('/moderation/direct-debits');
+            return;
+        }
+
+        $this->setFlash('success', sprintf(
+            'Prélèvement #%d (mandat %s) reprogrammé → nouveau prélèvement #%d planifié.',
+            $debitId,
+            $directDebit['mandate_number'],
+            $newId
+        ));
+        $this->redirect('/moderation/direct-debits');
+    }
+
+    /**
      * Recherche de comptes pour l'autocomplete (GET, JSON).
      * Paramètre : ?q=terme_de_recherche
      */
