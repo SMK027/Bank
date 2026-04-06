@@ -162,4 +162,73 @@ class TransactionTest extends TestCase
         $this->assertNotContains($free2, $protected);
         $this->assertContains($linked, $protected);
     }
+
+    /* ------------------------------------------------------------------
+     *  getByAccountBetween / getBalanceBeforeDate
+     * ----------------------------------------------------------------*/
+
+    public function testGetByAccountBetweenReturnsTransactionsInRange(): void
+    {
+        $pdo = \App\Core\Database::getInstance();
+
+        // Insère des transactions avec des dates contrôlées
+        $pdo->exec("INSERT INTO transactions (account_id, type, amount, category, comment, created_at)
+                    VALUES (5, 'income', 100.0, 'Salaire', 'Jan', '2025-01-15 10:00:00')");
+        $pdo->exec("INSERT INTO transactions (account_id, type, amount, category, comment, created_at)
+                    VALUES (5, 'expense', 30.0, 'Alimentation', 'Jan', '2025-01-20 12:00:00')");
+        $pdo->exec("INSERT INTO transactions (account_id, type, amount, category, comment, created_at)
+                    VALUES (5, 'income', 200.0, 'Freelance', 'Fev', '2025-02-05 09:00:00')");
+
+        $results = $this->transaction->getByAccountBetween(5, '2025-01-01', '2025-01-31');
+        $this->assertCount(2, $results);
+        foreach ($results as $r) {
+            $this->assertSame('5', (string) $r['account_id']);
+        }
+    }
+
+    public function testGetByAccountBetweenExcludesOtherAccounts(): void
+    {
+        $pdo = \App\Core\Database::getInstance();
+        $pdo->exec("INSERT INTO transactions (account_id, type, amount, category, created_at)
+                    VALUES (6, 'income', 50.0, 'Salaire', '2025-03-10 08:00:00')");
+        $pdo->exec("INSERT INTO transactions (account_id, type, amount, category, created_at)
+                    VALUES (7, 'income', 75.0, 'Salaire', '2025-03-10 08:00:00')");
+
+        $results = $this->transaction->getByAccountBetween(6, '2025-03-01', '2025-03-31');
+        $this->assertCount(1, $results);
+        $this->assertSame('6', (string) $results[0]['account_id']);
+    }
+
+    public function testGetByAccountBetweenReturnsEmptyWhenNoneInRange(): void
+    {
+        $pdo = \App\Core\Database::getInstance();
+        $pdo->exec("INSERT INTO transactions (account_id, type, amount, category, created_at)
+                    VALUES (8, 'income', 100.0, 'Salaire', '2025-01-15 10:00:00')");
+
+        $results = $this->transaction->getByAccountBetween(8, '2025-06-01', '2025-06-30');
+        $this->assertSame([], $results);
+    }
+
+    public function testGetBalanceBeforeDateReturnsZeroWithNoTransactions(): void
+    {
+        $bal = $this->transaction->getBalanceBeforeDate(99, '2025-01-01');
+        $this->assertSame(0.0, $bal);
+    }
+
+    public function testGetBalanceBeforeDateComputesCorrectly(): void
+    {
+        $pdo = \App\Core\Database::getInstance();
+        $pdo->exec("INSERT INTO transactions (account_id, type, amount, category, created_at)
+                    VALUES (10, 'income', 1000.0, 'Salaire', '2025-01-01 09:00:00')");
+        $pdo->exec("INSERT INTO transactions (account_id, type, amount, category, created_at)
+                    VALUES (10, 'expense', 200.0, 'Alimentation', '2025-01-15 10:00:00')");
+        // Cette transaction est après la coupure → ne doit pas être comptée
+        $pdo->exec("INSERT INTO transactions (account_id, type, amount, category, created_at)
+                    VALUES (10, 'income', 500.0, 'Freelance', '2025-02-01 09:00:00')");
+
+        // Solde avant le 1er février : 1000 - 200 = 800
+        $bal = $this->transaction->getBalanceBeforeDate(10, '2025-02-01');
+        $this->assertSame(800.0, $bal);
+    }
 }
+

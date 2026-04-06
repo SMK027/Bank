@@ -25,6 +25,9 @@
     </div>
     <div class="btn-group">
         <a href="<?= $isModerator && !$isOwner ? '/moderation' : '/dashboard' ?>" class="btn btn-outline btn-sm"><i class="bi bi-arrow-left"></i> Retour</a>
+        <a href="/accounts/<?= (int) $account['id'] ?>/statement" class="btn btn-outline btn-sm" title="Générer un relevé PDF">
+            <i class="bi bi-file-earmark-pdf"></i> Relevé
+        </a>
         <?php if ($isOwner): ?>
             <a href="/accounts/<?= (int) $account['id'] ?>/edit" class="btn btn-warning btn-sm"><i class="bi bi-pencil"></i> Modifier</a>
         <?php endif; ?>

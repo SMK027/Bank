@@ -106,4 +106,45 @@ class Transaction extends Model
         $stmt->execute(array_merge($ids, $ids, $ids, $ids));
         return array_map('intval', array_column($stmt->fetchAll(\PDO::FETCH_ASSOC), 'linked_id'));
     }
+
+    /**
+     * Retourne les transactions exécutées d'un compte dans un intervalle de dates (bornes incluses).
+     * Les transactions programmées futures sont exclues.
+     */
+    public function getByAccountBetween(int $accountId, string $dateFrom, string $dateTo): array
+    {
+        $sql = "SELECT * FROM transactions
+                WHERE account_id = :account_id
+                  AND (scheduled_at IS NULL OR scheduled_at <= CURRENT_TIMESTAMP)
+                  AND created_at >= :date_from
+                  AND created_at <= :date_to
+                ORDER BY created_at ASC";
+        $stmt = $this->getPdo()->prepare($sql);
+        $stmt->execute([
+            ':account_id' => $accountId,
+            ':date_from'  => $dateFrom . ' 00:00:00',
+            ':date_to'    => $dateTo   . ' 23:59:59',
+        ]);
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Calcule le solde du compte juste avant minuit d'une date donnée (solde d'ouverture).
+     */
+    public function getBalanceBeforeDate(int $accountId, string $date): float
+    {
+        $sql = "SELECT
+                    COALESCE(SUM(CASE WHEN type = 'income'  THEN amount ELSE 0 END), 0)
+                  - COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0)
+                FROM transactions
+                WHERE account_id = :account_id
+                  AND (scheduled_at IS NULL OR scheduled_at <= CURRENT_TIMESTAMP)
+                  AND created_at < :date";
+        $stmt = $this->getPdo()->prepare($sql);
+        $stmt->execute([
+            ':account_id' => $accountId,
+            ':date'       => $date . ' 00:00:00',
+        ]);
+        return (float) $stmt->fetchColumn();
+    }
 }

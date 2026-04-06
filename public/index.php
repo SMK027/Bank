@@ -74,6 +74,8 @@ $router->get('/profile/verify-siret', ProfileController::class, 'verifySiret');
 $router->get('/accounts/create', AccountController::class, 'createForm');
 $router->post('/accounts/create', AccountController::class, 'create');
 $router->get('/accounts/{id}', AccountController::class, 'show');
+$router->get('/accounts/{id}/statement', AccountController::class, 'statementForm');
+$router->get('/accounts/{id}/statement/pdf', AccountController::class, 'generateStatement');
 $router->get('/accounts/{id}/edit', AccountController::class, 'editForm');
 $router->post('/accounts/{id}/edit', AccountController::class, 'edit');
 $router->post('/accounts/{id}/delete', AccountController::class, 'deleteAccount');

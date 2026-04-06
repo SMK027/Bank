@@ -340,4 +340,315 @@ class AccountController extends Controller
         $this->setFlash('success', 'Compte supprimé.');
         $this->redirect('/dashboard');
     }
+
+    // -----------------------------------------------------------------------
+    // Relevé de compte (PDF)
+    // -----------------------------------------------------------------------
+
+    public function statementForm(string $id): void
+    {
+        $this->requireAuth();
+        $accountId   = (int) $id;
+        $userId      = $this->getCurrentUserId();
+        $isModerator = $this->isModerator();
+
+        $account = $this->accountModel->find($accountId);
+        if (!$account) {
+            $this->setFlash('danger', 'Compte introuvable.');
+            $this->redirect('/dashboard');
+            return;
+        }
+
+        $hasAccess = $this->accountModel->isOwner($accountId, $userId)
+            || $this->accountModel->hasAccess($accountId, $userId)
+            || $isModerator;
+
+        if (!$hasAccess) {
+            $this->setFlash('danger', 'Accès refusé.');
+            $this->redirect('/dashboard');
+            return;
+        }
+
+        $this->render('accounts/statement_form', [
+            'title'   => 'Relevé de compte — ' . $account['name'],
+            'account' => $account,
+        ]);
+    }
+
+    public function generateStatement(string $id): void
+    {
+        $this->requireAuth();
+        $accountId   = (int) $id;
+        $userId      = $this->getCurrentUserId();
+        $isModerator = $this->isModerator();
+
+        $account = $this->accountModel->find($accountId);
+        if (!$account) {
+            $this->setFlash('danger', 'Compte introuvable.');
+            $this->redirect('/dashboard');
+            return;
+        }
+
+        $hasAccess = $this->accountModel->isOwner($accountId, $userId)
+            || $this->accountModel->hasAccess($accountId, $userId)
+            || $isModerator;
+
+        if (!$hasAccess) {
+            $this->setFlash('danger', 'Accès refusé.');
+            $this->redirect('/dashboard');
+            return;
+        }
+
+        // Validation des dates (GET params)
+        $dateFrom = $_GET['date_from'] ?? '';
+        $dateTo   = $_GET['date_to']   ?? '';
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom)
+            || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo)) {
+            $this->setFlash('danger', 'Dates invalides.');
+            $this->redirect("/accounts/{$accountId}/statement");
+            return;
+        }
+
+        if ($dateFrom > $dateTo) {
+            $this->setFlash('danger', 'La date de début doit être antérieure à la date de fin.');
+            $this->redirect("/accounts/{$accountId}/statement");
+            return;
+        }
+
+        $owner        = $this->userModel->find((int) $account['user_id']);
+        $transactions = $this->transactionModel->getByAccountBetween($accountId, $dateFrom, $dateTo);
+        $openingBal   = $this->transactionModel->getBalanceBeforeDate($accountId, $dateFrom);
+
+        // Calcul du solde courant et des totaux
+        $totalIncome  = 0.0;
+        $totalExpense = 0.0;
+        $runningBal   = $openingBal;
+
+        foreach ($transactions as &$t) {
+            if ($t['type'] === 'income') {
+                $totalIncome += (float) $t['amount'];
+                $runningBal  += (float) $t['amount'];
+            } else {
+                $totalExpense += (float) $t['amount'];
+                $runningBal   -= (float) $t['amount'];
+            }
+            $t['running_balance'] = $runningBal;
+        }
+        unset($t);
+        $closingBal = $runningBal;
+
+        // Génération du HTML du relevé
+        $accountTypes = \App\Models\Account::TYPES;
+        $typeLabel    = $accountTypes[$account['type']]['label'] ?? ucfirst($account['type']);
+        $generatedAt  = (new \DateTime())->format('d/m/Y à H:i');
+
+        $html = $this->renderStatementHtml(
+            $account,
+            $owner,
+            $typeLabel,
+            $dateFrom,
+            $dateTo,
+            $openingBal,
+            $closingBal,
+            $totalIncome,
+            $totalExpense,
+            $transactions,
+            $generatedAt
+        );
+
+        // Génération PDF avec mPDF
+        $mpdf = new \Mpdf\Mpdf([
+            'mode'          => 'utf-8',
+            'format'        => 'A4',
+            'margin_top'    => 15,
+            'margin_bottom' => 20,
+            'margin_left'   => 15,
+            'margin_right'  => 15,
+            'tempDir'       => sys_get_temp_dir(),
+        ]);
+
+        $mpdf->SetTitle('Relevé de compte — ' . $account['name']);
+        $mpdf->SetAuthor('BankApp');
+        $mpdf->SetCreator('BankApp');
+
+        $mpdf->SetHTMLFooter('
+            <table width="100%" style="font-size:8pt;color:#888;border-top:1px solid #ddd;padding-top:4px;">
+                <tr>
+                    <td>Document généré le ' . $generatedAt . ' — Confidentiel</td>
+                    <td style="text-align:right;">Page {PAGENO} / {nbpg}</td>
+                </tr>
+            </table>');
+
+        $mpdf->WriteHTML($html);
+
+        $filename = 'releve_' . preg_replace('/[^a-z0-9]+/', '_', strtolower($account['name']))
+                  . '_' . str_replace('-', '', $dateFrom)
+                  . '_' . str_replace('-', '', $dateTo)
+                  . '.pdf';
+
+        $mpdf->Output($filename, \Mpdf\Output\Destination::INLINE);
+        exit;
+    }
+
+    private function renderStatementHtml(
+        array   $account,
+        ?array  $owner,
+        string  $typeLabel,
+        string  $dateFrom,
+        string  $dateTo,
+        float   $openingBal,
+        float   $closingBal,
+        float   $totalIncome,
+        float   $totalExpense,
+        array   $transactions,
+        string  $generatedAt
+    ): string {
+        $fmt = fn(float $v): string => number_format($v, 2, ',', ' ') . ' ' . e($account['currency']);
+
+        $fromFmt = (new \DateTime($dateFrom))->format('d/m/Y');
+        $toFmt   = (new \DateTime($dateTo))->format('d/m/Y');
+
+        $rows = '';
+        foreach ($transactions as $t) {
+            $isIncome  = $t['type'] === 'income';
+            $amount    = (float) $t['amount'];
+            $bal       = (float) $t['running_balance'];
+            $color     = $isIncome ? '#16a34a' : '#dc2626';
+            $sign      = $isIncome ? '+' : '−';
+            $balColor  = $bal < 0 ? '#dc2626' : '#1e293b';
+            $date      = (new \DateTime($t['created_at']))->format('d/m/Y H:i');
+
+            $rows .= '<tr>
+                <td style="color:#64748b;font-size:10pt;">' . e($date) . '</td>
+                <td>' . e($t['category']) . '</td>
+                <td style="max-width:200px;">' . e($t['comment'] ?: '—') . '</td>
+                <td style="text-align:right;color:' . $color . ';font-weight:600;">'
+                    . $sign . ' ' . number_format($amount, 2, ',', ' ') . '</td>
+                <td style="text-align:right;color:' . $balColor . ';font-weight:600;">'
+                    . number_format($bal, 2, ',', ' ') . ' ' . e($account['currency']) . '</td>
+            </tr>';
+        }
+
+        if (empty($transactions)) {
+            $rows = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:20px;">Aucune opération sur cette période.</td></tr>';
+        }
+
+        $ownerName = e($owner['username'] ?? 'Inconnu');
+
+        return '<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<style>
+    body          { font-family: DejaVu Sans, sans-serif; font-size: 10pt; color: #1e293b; margin: 0; }
+    h1            { font-size: 18pt; color: #1e40af; margin: 0 0 4px; }
+    h2            { font-size: 12pt; color: #334155; margin: 0 0 10px; font-weight: normal; }
+    .header-block { border-bottom: 2px solid #1e40af; padding-bottom: 12px; margin-bottom: 18px; }
+    .bank-name    { font-size: 22pt; font-weight: 700; color: #1e40af; letter-spacing: 1px; }
+    .meta-grid    { width: 100%; }
+    .meta-grid td { vertical-align: top; padding: 2px 0; }
+    .label        { color: #64748b; font-size: 9pt; }
+    .value        { color: #1e293b; font-weight: 600; }
+    .summary-box  { background: #f1f5f9; border-radius: 6px; padding: 12px 16px; margin: 16px 0; }
+    .summary-grid { width: 100%; }
+    .summary-grid td { padding: 4px 8px; font-size: 9.5pt; }
+    .s-label      { color: #64748b; }
+    .s-value      { font-weight: 700; text-align: right; }
+    .income       { color: #16a34a; }
+    .expense      { color: #dc2626; }
+    .neutral      { color: #1e293b; }
+    table.ops     { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    table.ops th  { background: #1e40af; color: #fff; padding: 7px 8px; font-size: 9pt; text-align: left; }
+    table.ops td  { padding: 6px 8px; font-size: 9pt; border-bottom: 1px solid #e2e8f0; }
+    table.ops tr:nth-child(even) td { background: #f8fafc; }
+    .closing-row td { font-weight: 700; background: #eff6ff !important; border-top: 2px solid #1e40af; }
+    .no-break     { page-break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<div class="header-block">
+    <table style="width:100%">
+        <tr>
+            <td>
+                <div class="bank-name">&#127981; BankApp</div>
+                <div style="color:#64748b;font-size:9pt;">Banque de simulation — Relevé de compte</div>
+            </td>
+            <td style="text-align:right;vertical-align:bottom;">
+                <div style="font-size:9pt;color:#64748b;">Généré le ' . $generatedAt . '</div>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<h1>' . e($account['name']) . '</h1>
+<h2>Relevé du ' . $fromFmt . ' au ' . $toFmt . '</h2>
+
+<table class="meta-grid" style="margin-bottom:6px;">
+    <tr>
+        <td style="width:50%">
+            <span class="label">Type de compte&nbsp;</span>
+            <span class="value">' . $typeLabel . '</span>
+        </td>
+        <td>
+            <span class="label">Titulaire&nbsp;</span>
+            <span class="value">' . $ownerName . '</span>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <span class="label">Devise&nbsp;</span>
+            <span class="value">' . e($account['currency']) . '</span>
+        </td>
+        <td>
+            <span class="label">N° de compte&nbsp;</span>
+            <span class="value">#' . (int) $account['id'] . '</span>
+        </td>
+    </tr>
+</table>
+
+<div class="summary-box no-break">
+    <table class="summary-grid">
+        <tr>
+            <td class="s-label">Solde d\'ouverture (' . $fromFmt . ')</td>
+            <td class="s-value neutral">' . $fmt($openingBal) . '</td>
+            <td style="width:50px;"></td>
+            <td class="s-label">Nombre d\'opérations</td>
+            <td class="s-value neutral">' . count($transactions) . '</td>
+        </tr>
+        <tr>
+            <td class="s-label">Total crédits (entrées)</td>
+            <td class="s-value income">+ ' . $fmt($totalIncome) . '</td>
+            <td></td>
+            <td class="s-label">Total débits (sorties)</td>
+            <td class="s-value expense">− ' . $fmt($totalExpense) . '</td>
+        </tr>
+        <tr>
+            <td class="s-label" style="font-weight:700;font-size:10.5pt;">Solde de clôture (' . $toFmt . ')</td>
+            <td class="s-value neutral" style="font-size:12pt;">' . $fmt($closingBal) . '</td>
+            <td colspan="3"></td>
+        </tr>
+    </table>
+</div>
+
+<table class="ops">
+    <thead>
+        <tr>
+            <th style="width:17%">Date</th>
+            <th style="width:16%">Catégorie</th>
+            <th>Libellé</th>
+            <th style="width:14%;text-align:right;">Montant (' . e($account['currency']) . ')</th>
+            <th style="width:18%;text-align:right;">Solde courant</th>
+        </tr>
+    </thead>
+    <tbody>
+        ' . $rows . '
+    </tbody>
+</table>
+
+</body>
+</html>';
+    }
 }
+
