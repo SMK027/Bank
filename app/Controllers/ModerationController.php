@@ -97,13 +97,13 @@ class ModerationController extends Controller
         }
 
         $this->accountModel->freezeAccount($accountId);
-        // Notifier le propriétaire du compte
-        $this->notifModel->notify(
+        // Notifier le propriétaire du compte (et ses tuteurs si compte mineur)
+        $this->notifyAccountOwner(
             (int) $account['user_id'],
+            $accountId,
             'account_frozen',
             'Compte « ' . $account['name'] . ' » gelé',
-            'Votre compte a été gelé par la modération. Les opérations sortantes sont bloquées.',
-            '/accounts/' . $accountId
+            'Votre compte a été gelé par la modération. Les opérations sortantes sont bloquées.'
         );
         $this->setFlash('success', 'Compte « ' . $account['name'] . ' » gelé avec succès.');
         $this->redirect(isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '/moderation');
@@ -127,13 +127,13 @@ class ModerationController extends Controller
         }
 
         $this->accountModel->unfreezeAccount($accountId);
-        // Notifier le propriétaire du compte
-        $this->notifModel->notify(
+        // Notifier le propriétaire du compte (et ses tuteurs si compte mineur)
+        $this->notifyAccountOwner(
             (int) $account['user_id'],
+            $accountId,
             'account_unfrozen',
             'Compte « ' . $account['name'] . ' » dégelé',
-            'Les restrictions sur votre compte ont été levées. Vous pouvez effectuer à nouveau des opérations sortantes.',
-            '/accounts/' . $accountId
+            'Les restrictions sur votre compte ont été levées. Vous pouvez effectuer à nouveau des opérations sortantes.'
         );
         $this->setFlash('success', 'Compte « ' . $account['name'] . ' » dégelé avec succès.');
         $this->redirect(isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '/moderation');
@@ -439,25 +439,25 @@ class ModerationController extends Controller
 
         $this->transferModel->markCancelled($transferId);
 
-        // Notifier les propriétaires des comptes concernés
+        // Notifier les propriétaires des comptes concernés (et leurs tuteurs si mineurs)
         $fromAccount = $this->accountModel->find((int) $transfer['from_account_id']);
         $toAccount   = $this->accountModel->find((int) $transfer['to_account_id']);
         if ($fromAccount) {
-            $this->notifModel->notify(
+            $this->notifyAccountOwner(
                 (int) $fromAccount['user_id'],
+                (int) $fromAccount['id'],
                 'transfer_cancelled',
                 'Virement #' . $transferId . ' annulé',
-                'Le virement de ' . number_format($amount, 2, ',', ' ') . ' € depuis votre compte « ' . $fromAccount['name'] . ' » a été annulé par la modération. Le montant a été recrédité.',
-                '/accounts/' . (int) $fromAccount['id']
+                'Le virement de ' . number_format($amount, 2, ',', ' ') . ' € depuis votre compte « ' . $fromAccount['name'] . ' » a été annulé par la modération. Le montant a été recrédité.'
             );
         }
         if ($toAccount && $toAccount['user_id'] !== ($fromAccount['user_id'] ?? null)) {
-            $this->notifModel->notify(
+            $this->notifyAccountOwner(
                 (int) $toAccount['user_id'],
+                (int) $toAccount['id'],
                 'transfer_cancelled',
                 'Virement #' . $transferId . ' annulé',
-                'Un virement de ' . number_format($amount, 2, ',', ' ') . ' € vers votre compte « ' . $toAccount['name'] . ' » a été annulé par la modération.',
-                '/accounts/' . (int) $toAccount['id']
+                'Un virement de ' . number_format($amount, 2, ',', ' ') . ' € vers votre compte « ' . $toAccount['name'] . ' » a été annulé par la modération.'
             );
         }
 
@@ -637,15 +637,15 @@ class ModerationController extends Controller
         }
 
         $this->directDebitModel->markCancelled($debitId);
-        // Notifier le propriétaire du compte débité
+        // Notifier le propriétaire du compte débité (et ses tuteurs si compte mineur)
         $toAccount = $this->accountModel->find((int) $directDebit['to_account_id']);
         if ($toAccount) {
-            $this->notifModel->notify(
+            $this->notifyAccountOwner(
                 (int) $toAccount['user_id'],
+                (int) $directDebit['to_account_id'],
                 'direct_debit_cancelled',
                 'Prélèvement #' . $debitId . ' annulé',
-                'Le prélèvement (mandat ' . $directDebit['mandate_number'] . ') de ' . number_format((float) $directDebit['amount'], 2, ',', ' ') . ' € prévu sur votre compte « ' . $toAccount['name'] . ' » a été annulé par la modération.',
-                '/accounts/' . (int) $directDebit['to_account_id']
+                'Le prélèvement (mandat ' . $directDebit['mandate_number'] . ') de ' . number_format((float) $directDebit['amount'], 2, ',', ' ') . ' € prévu sur votre compte « ' . $toAccount['name'] . ' » a été annulé par la modération.'
             );
         }
         $this->setFlash('success', 'Prélèvement #' . $debitId . ' (mandat ' . $directDebit['mandate_number'] . ') annulé.');
@@ -705,15 +705,15 @@ class ModerationController extends Controller
 
         $this->directDebitModel->markRejected($debitId);
 
-        // Notifier le propriétaire du compte débité
+        // Notifier le propriétaire du compte débité (et ses tuteurs si compte mineur)
         $toAccount = $this->accountModel->find($toAccountId);
         if ($toAccount) {
-            $this->notifModel->notify(
+            $this->notifyAccountOwner(
                 (int) $toAccount['user_id'],
+                $toAccountId,
                 'direct_debit_rejected',
                 'Prélèvement rejeté — ' . number_format($amount, 2, ',', ' ') . ' €',
-                'Le prélèvement (mandat ' . $directDebit['mandate_number'] . ') de ' . number_format($amount, 2, ',', ' ') . ' € sur votre compte « ' . $toAccount['name'] . ' » a été rejeté par la modération. Le montant a été recrédité.',
-                '/accounts/' . $toAccountId
+                'Le prélèvement (mandat ' . $directDebit['mandate_number'] . ') de ' . number_format($amount, 2, ',', ' ') . ' € sur votre compte « ' . $toAccount['name'] . ' » a été rejeté par la modération. Le montant a été recrédité.'
             );
         }
 
@@ -1386,28 +1386,50 @@ class ModerationController extends Controller
         }
 
         $this->mandateModel->revoke($mandateId);
-        // Notifier les propriétaires des comptes concernés par le mandat
+        // Notifier les propriétaires des comptes concernés (et leurs tuteurs si mineurs)
         $emitterAccount   = $this->accountModel->find((int) $mandate['emitter_account_id']);
         $recipientAccount = $this->accountModel->find((int) $mandate['recipient_account_id']);
         if ($emitterAccount) {
-            $this->notifModel->notify(
+            $this->notifyAccountOwner(
                 (int) $emitterAccount['user_id'],
+                (int) $emitterAccount['id'],
                 'mandate_revoked',
                 'Mandat ' . $mandate['number'] . ' révoqué',
-                'Le mandat ' . $mandate['number'] . ' associé à votre compte « ' . $emitterAccount['name'] . ' » a été révoqué par la modération.',
-                '/accounts/' . (int) $emitterAccount['id']
+                'Le mandat ' . $mandate['number'] . ' associé à votre compte « ' . $emitterAccount['name'] . ' » a été révoqué par la modération.'
             );
         }
         if ($recipientAccount && (int) $recipientAccount['user_id'] !== (int) ($emitterAccount['user_id'] ?? -1)) {
-            $this->notifModel->notify(
+            $this->notifyAccountOwner(
                 (int) $recipientAccount['user_id'],
+                (int) $recipientAccount['id'],
                 'mandate_revoked',
                 'Mandat ' . $mandate['number'] . ' révoqué',
-                'Le mandat ' . $mandate['number'] . ' associé à votre compte « ' . $recipientAccount['name'] . ' » a été révoqué par la modération.',
-                '/accounts/' . (int) $recipientAccount['id']
+                'Le mandat ' . $mandate['number'] . ' associé à votre compte « ' . $recipientAccount['name'] . ' » a été révoqué par la modération.'
             );
         }
         $this->setFlash('success', 'Mandat ' . $mandate['number'] . ' révoqué.');
         $this->redirect('/moderation/mandates');
+    }
+
+    // =========================================================
+    // HELPERS PRIVÉS
+    // =========================================================
+
+    /**
+     * Notifie le propriétaire d'un compte ET ses éventuels responsables légaux (tuteurs).
+     * Garantit que les comptes mineurs transmettent bien l'alerte au responsable légal.
+     */
+    private function notifyAccountOwner(
+        int $userId,
+        int $accountId,
+        string $type,
+        string $title,
+        string $body
+    ): void {
+        $link = '/accounts/' . $accountId;
+        $this->notifModel->notify($userId, $type, $title, $body, $link);
+        foreach ($this->guardianshipModel->getGuardiansOf($userId) as $g) {
+            $this->notifModel->notify((int) $g['guardian_user_id'], $type, $title, $body, $link);
+        }
     }
 }
