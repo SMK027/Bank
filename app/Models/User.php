@@ -10,6 +10,10 @@ class User extends Model
 {
     protected string $table = 'users';
 
+    public const STATUS_ACTIVE    = 'active';
+    public const STATUS_SUSPENDED = 'suspended';
+    public const STATUS_BANNED    = 'banned';
+
     public function register(string $username, string $email, string $password, string $birthDate): int
     {
         return $this->create([
@@ -27,7 +31,42 @@ class User extends Model
         if (!$user || !password_verify($password, $user['password'])) {
             return null;
         }
+
+        // Lever automatiquement une suspension expirée
+        $status = $user['status'] ?? self::STATUS_ACTIVE;
+        if ($status === self::STATUS_SUSPENDED && !empty($user['suspended_until'])) {
+            if (strtotime($user['suspended_until']) < time()) {
+                $this->activate((int) $user['id']);
+                $user['status']          = self::STATUS_ACTIVE;
+                $user['suspended_until'] = null;
+            }
+        }
+
         return $user;
+    }
+
+    public function suspend(int $userId, ?string $until = null): bool
+    {
+        return $this->update($userId, [
+            'status'          => self::STATUS_SUSPENDED,
+            'suspended_until' => $until,
+        ]);
+    }
+
+    public function ban(int $userId): bool
+    {
+        return $this->update($userId, [
+            'status'          => self::STATUS_BANNED,
+            'suspended_until' => null,
+        ]);
+    }
+
+    public function activate(int $userId): bool
+    {
+        return $this->update($userId, [
+            'status'          => self::STATUS_ACTIVE,
+            'suspended_until' => null,
+        ]);
     }
 
     public function findByUsername(string $username): ?array

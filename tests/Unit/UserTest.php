@@ -171,4 +171,133 @@ class UserTest extends TestCase
     {
         $this->assertFalse(User::isProfessional(null));
     }
+
+    // ─── STATUS CONSTANTS ────────────────────────────────────────────────────
+
+    public function testStatusConstants(): void
+    {
+        $this->assertSame('active',    User::STATUS_ACTIVE);
+        $this->assertSame('suspended', User::STATUS_SUSPENDED);
+        $this->assertSame('banned',    User::STATUS_BANNED);
+    }
+
+    // ─── suspend() ───────────────────────────────────────────────────────────
+
+    public function testSuspendWithoutDate(): void
+    {
+        $id = $this->user->register('susp1', 'susp1@test.com', 'password123', '1990-01-01');
+        $this->user->suspend($id);
+        $u = $this->user->find($id);
+
+        $this->assertSame('suspended', $u['status']);
+        $this->assertNull($u['suspended_until']);
+    }
+
+    public function testSuspendWithDate(): void
+    {
+        $id    = $this->user->register('susp2', 'susp2@test.com', 'password123', '1990-01-01');
+        $until = '2099-12-31 23:59:59';
+        $this->user->suspend($id, $until);
+        $u = $this->user->find($id);
+
+        $this->assertSame('suspended', $u['status']);
+        $this->assertSame($until, $u['suspended_until']);
+    }
+
+    // ─── ban() ───────────────────────────────────────────────────────────────
+
+    public function testBanUser(): void
+    {
+        $id = $this->user->register('ban1', 'ban1@test.com', 'password123', '1990-01-01');
+        $this->user->ban($id);
+        $u = $this->user->find($id);
+
+        $this->assertSame('banned', $u['status']);
+        $this->assertNull($u['suspended_until']);
+    }
+
+    public function testBanClearsSuspendedUntil(): void
+    {
+        $id = $this->user->register('ban2', 'ban2@test.com', 'password123', '1990-01-01');
+        $this->user->suspend($id, '2099-01-01 23:59:59');
+        $this->user->ban($id);
+        $u = $this->user->find($id);
+
+        $this->assertSame('banned', $u['status']);
+        $this->assertNull($u['suspended_until']);
+    }
+
+    // ─── activate() ──────────────────────────────────────────────────────────
+
+    public function testActivateFromSuspended(): void
+    {
+        $id = $this->user->register('act1', 'act1@test.com', 'password123', '1990-01-01');
+        $this->user->suspend($id, '2099-12-31 23:59:59');
+        $this->user->activate($id);
+        $u = $this->user->find($id);
+
+        $this->assertSame('active', $u['status']);
+        $this->assertNull($u['suspended_until']);
+    }
+
+    public function testActivateFromBanned(): void
+    {
+        $id = $this->user->register('act2', 'act2@test.com', 'password123', '1990-01-01');
+        $this->user->ban($id);
+        $this->user->activate($id);
+        $u = $this->user->find($id);
+
+        $this->assertSame('active', $u['status']);
+    }
+
+    // ─── authenticate() — vérification du statut ─────────────────────────────
+
+    public function testAuthenticateActiveUserReturnsUser(): void
+    {
+        $this->user->register('auth1', 'auth1@test.com', 'password123', '1990-01-01');
+        $u = $this->user->authenticate('auth1@test.com', 'password123');
+
+        $this->assertNotNull($u);
+        $this->assertSame('auth1', $u['username']);
+        $this->assertSame('active', $u['status'] ?? 'active');
+    }
+
+    public function testAuthenticateSuspendedUserReturnsSuspendedStatus(): void
+    {
+        $id = $this->user->register('auth2', 'auth2@test.com', 'password123', '1990-01-01');
+        $this->user->suspend($id, '2099-01-01 23:59:59');
+        $u = $this->user->authenticate('auth2@test.com', 'password123');
+
+        $this->assertNotNull($u);
+        $this->assertSame('suspended', $u['status']);
+    }
+
+    public function testAuthenticateBannedUserReturnsBannedStatus(): void
+    {
+        $id = $this->user->register('auth3', 'auth3@test.com', 'password123', '1990-01-01');
+        $this->user->ban($id);
+        $u = $this->user->authenticate('auth3@test.com', 'password123');
+
+        $this->assertNotNull($u);
+        $this->assertSame('banned', $u['status']);
+    }
+
+    public function testAuthenticateAutoLiftsExpiredSuspension(): void
+    {
+        $id = $this->user->register('auth4', 'auth4@test.com', 'password123', '1990-01-01');
+        // Forcer une suspension déjà expirée
+        $pdo = Database::getInstance();
+        $pdo->prepare(
+            "UPDATE users SET status = 'suspended', suspended_until = '2000-01-01 23:59:59' WHERE id = ?"
+        )->execute([$id]);
+
+        $u = $this->user->authenticate('auth4@test.com', 'password123');
+        $this->assertNotNull($u);
+        $this->assertSame('active', $u['status']);
+
+        // La BDD doit être mise à jour
+        $fresh = $this->user->find($id);
+        $this->assertSame('active', $fresh['status']);
+        $this->assertNull($fresh['suspended_until']);
+    }
 }

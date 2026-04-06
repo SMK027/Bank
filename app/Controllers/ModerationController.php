@@ -176,6 +176,119 @@ class ModerationController extends Controller
     }
 
     /**
+     * Suspendre un compte utilisateur (POST).
+     */
+    public function suspendUser(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $targetId = (int) $id;
+
+        if ($targetId === $this->getCurrentUserId()) {
+            $this->setFlash('danger', 'Vous ne pouvez pas suspendre votre propre compte.');
+            $this->redirect('/moderation/users');
+            return;
+        }
+
+        $target = $this->userModel->find($targetId);
+        if (!$target) {
+            $this->setFlash('danger', 'Utilisateur introuvable.');
+            $this->redirect('/moderation/users');
+            return;
+        }
+
+        if (($target['global_role'] ?? 'user') === 'moderator') {
+            $this->setFlash('danger', 'Impossible de suspendre un modérateur.');
+            $this->redirect('/moderation/users');
+            return;
+        }
+
+        $data  = $this->getPostData(['suspended_until']);
+        $until = !empty($data['suspended_until']) ? trim($data['suspended_until']) : null;
+
+        if ($until !== null) {
+            $dt = \DateTime::createFromFormat('Y-m-d', $until);
+            if (!$dt || $dt->format('Y-m-d') !== $until) {
+                $this->setFlash('danger', 'Date de suspension invalide.');
+                $this->redirect('/moderation/users');
+                return;
+            }
+            if ($dt <= new \DateTime('today')) {
+                $this->setFlash('danger', 'La date de fin de suspension doit être dans le futur.');
+                $this->redirect('/moderation/users');
+                return;
+            }
+            $until = $dt->format('Y-m-d') . ' 23:59:59';
+        }
+
+        $this->userModel->suspend($targetId, $until);
+
+        $msg  = '« ' . $target['username'] . ' » est suspendu';
+        $msg .= $until
+            ? ' jusqu\'au ' . (new \DateTime($until))->format('d/m/Y') . '.'
+            : ' indéfiniment.';
+        $this->setFlash('success', $msg);
+        $this->redirect('/moderation/users');
+    }
+
+    /**
+     * Bannir un compte utilisateur (POST).
+     */
+    public function banUser(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $targetId = (int) $id;
+
+        if ($targetId === $this->getCurrentUserId()) {
+            $this->setFlash('danger', 'Vous ne pouvez pas bannir votre propre compte.');
+            $this->redirect('/moderation/users');
+            return;
+        }
+
+        $target = $this->userModel->find($targetId);
+        if (!$target) {
+            $this->setFlash('danger', 'Utilisateur introuvable.');
+            $this->redirect('/moderation/users');
+            return;
+        }
+
+        if (($target['global_role'] ?? 'user') === 'moderator') {
+            $this->setFlash('danger', 'Impossible de bannir un modérateur.');
+            $this->redirect('/moderation/users');
+            return;
+        }
+
+        $this->userModel->ban($targetId);
+        $this->setFlash('success', '« ' . $target['username'] . ' » a été banni de la plateforme.');
+        $this->redirect('/moderation/users');
+    }
+
+    /**
+     * Réactiver un compte utilisateur suspendu ou banni (POST).
+     */
+    public function activateUser(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $targetId = (int) $id;
+
+        $target = $this->userModel->find($targetId);
+        if (!$target) {
+            $this->setFlash('danger', 'Utilisateur introuvable.');
+            $this->redirect('/moderation/users');
+            return;
+        }
+
+        $this->userModel->activate($targetId);
+        $this->setFlash('success', 'Le compte de « ' . $target['username'] . ' » a été réactivé.');
+        $this->redirect('/moderation/users');
+    }
+
+    /**
      * Liste de tous les virements (espace modération).
      */
     public function transfers(): void

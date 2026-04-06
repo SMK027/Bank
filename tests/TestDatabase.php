@@ -45,6 +45,8 @@ class TestDatabase
                 email           TEXT    NOT NULL UNIQUE,
                 password        TEXT    NOT NULL,
                 global_role     TEXT    NOT NULL DEFAULT 'user',
+                status          TEXT    NOT NULL DEFAULT 'active',
+                suspended_until TEXT    DEFAULT NULL,
                 birth_date      TEXT    DEFAULT NULL,
                 is_professional INTEGER NOT NULL DEFAULT 0,
                 company_name    TEXT    DEFAULT NULL,

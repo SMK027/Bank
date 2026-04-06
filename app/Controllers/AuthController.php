@@ -53,6 +53,24 @@ class AuthController extends Controller
             return;
         }
 
+        // Vérifier que le compte n'est pas suspendu ou banni
+        $status = $user['status'] ?? 'active';
+        if ($status === 'suspended') {
+            $msg = 'Votre compte est suspendu';
+            if (!empty($user['suspended_until'])) {
+                $dt   = \DateTime::createFromFormat('Y-m-d H:i:s', $user['suspended_until']);
+                $msg .= ' jusqu\'au ' . ($dt ? $dt->format('d/m/Y') : $user['suspended_until']);
+            }
+            $this->setFlash('danger', $msg . '.');
+            $this->redirect('/login');
+            return;
+        }
+        if ($status === 'banned') {
+            $this->setFlash('danger', 'Votre compte a été banni de la plateforme.');
+            $this->redirect('/login');
+            return;
+        }
+
         // Régénérer l'ID de session (sécurité)
         Session::regenerate();
 
