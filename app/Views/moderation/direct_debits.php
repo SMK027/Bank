@@ -129,15 +129,12 @@
             <tr>
                 <th style="white-space:nowrap;padding:0.6rem 0.8rem;">#</th>
                 <th style="white-space:nowrap;padding:0.6rem 0.8rem;">Mandat</th>
+                <th style="white-space:nowrap;padding:0.6rem 0.8rem;">Comptes</th>
                 <th style="white-space:nowrap;padding:0.6rem 0.8rem;">Montant</th>
-                <th style="white-space:nowrap;padding:0.6rem 0.8rem;">Émetteur</th>
-                <th style="white-space:nowrap;padding:0.6rem 0.8rem;">Destinataire</th>
                 <th style="white-space:nowrap;padding:0.6rem 0.8rem;">Motif</th>
-                <th style="white-space:nowrap;padding:0.6rem 0.8rem;">Planifié le</th>
-                <th style="white-space:nowrap;padding:0.6rem 0.8rem;">Exécuté le</th>
+                <th style="white-space:nowrap;padding:0.6rem 0.8rem;">Dates</th>
                 <th style="white-space:nowrap;padding:0.6rem 0.8rem;">Statut</th>
-                <th style="white-space:nowrap;padding:0.6rem 0.8rem;">Créé par</th>
-                <th style="white-space:nowrap;padding:0.6rem 0.8rem;">Actions</th>
+                <th style="white-space:nowrap;padding:0.6rem 0.8rem;text-align:center">Actions</th>
             </tr>
         </thead>
         <tbody id="dd-tbody"></tbody>
@@ -156,11 +153,19 @@ var DD_CSRF   = <?= json_encode($csrfToken) ?>;
 var ddVisible = DD_DATA.slice();
 
 var STATUS_BADGE = {
-    scheduled: '<span class="badge badge-warning">Planifié</span>',
-    success:   '<span class="badge badge-success">Exécuté</span>',
-    failed:    '<span class="badge badge-danger">Échoué</span>',
-    cancelled: '<span class="badge badge-secondary">Annulé</span>',
-    rejected:  '<span class="badge badge-danger" style="opacity:0.8">Rejeté</span>',
+    scheduled: '<span class="badge badge-warning"><i class="bi bi-clock"></i> Planifié</span>',
+    success:   '<span class="badge badge-success"><i class="bi bi-check-circle"></i> Exécuté</span>',
+    failed:    '<span class="badge badge-danger"><i class="bi bi-exclamation-triangle"></i> Échoué</span>',
+    cancelled: '<span class="badge badge-secondary"><i class="bi bi-slash-circle"></i> Annulé</span>',
+    rejected:  '<span class="badge badge-danger" style="opacity:0.85"><i class="bi bi-x-octagon"></i> Rejeté</span>',
+};
+
+var ROW_BG = {
+    scheduled: 'background:rgba(245,158,11,0.04)',
+    success:   '',
+    failed:    'background:rgba(239,68,68,0.05)',
+    cancelled: 'background:rgba(107,114,128,0.04)',
+    rejected:  'background:rgba(239,68,68,0.05)',
 };
 
 function esc(s) {
@@ -187,7 +192,7 @@ function renderTable() {
         + ' sur ' + DD_DATA.length;
 
     if (ddVisible.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--text-muted);padding:1.5rem"><i class="bi bi-search"></i> Aucun résultat</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:1.5rem"><i class="bi bi-search"></i> Aucun résultat</td></tr>';
         return;
     }
 
@@ -200,7 +205,7 @@ function renderTable() {
                 '<form method="POST" action="/moderation/direct-debits/' + esc(String(d.id)) + '/cancel"'
                 + ' style="display:inline" onsubmit="return confirm(\'Annuler le prélèvement #' + d.id + ' (mandat ' + esc(d.mandate_number) + ') ?\');">'
                 + '<input type="hidden" name="csrf_token" value="' + esc(DD_CSRF) + '">'
-                + '<button type="submit" class="btn btn-danger btn-sm" style="padding:0.2rem 0.5rem;font-size:0.76rem;">'
+                + '<button type="submit" class="btn btn-danger btn-sm" style="padding:0.25rem 0.6rem;font-size:0.76rem;" title="Annuler ce prélèvement">'
                 + '<i class="bi bi-x-circle"></i> Annuler</button>'
                 + '</form>';
         } else if (d.status === 'success') {
@@ -214,39 +219,59 @@ function renderTable() {
                     '<form method="POST" action="/moderation/direct-debits/' + esc(String(d.id)) + '/reject"'
                     + ' style="display:inline" onsubmit="return confirm(\'Rejeter le prélèvement #' + d.id + ' (mandat ' + esc(d.mandate_number) + ') ?\\nLe montant sera recrédité sur le compte débité.\')">'
                     + '<input type="hidden" name="csrf_token" value="' + esc(DD_CSRF) + '">'
-                    + '<button type="submit" class="btn btn-warning btn-sm" style="padding:0.2rem 0.5rem;font-size:0.76rem;">'
+                    + '<button type="submit" class="btn btn-warning btn-sm" style="padding:0.25rem 0.6rem;font-size:0.76rem;" title="Rejeter et rembourser">'
                     + '<i class="bi bi-arrow-counterclockwise"></i> Rejeter</button>'
                     + '</form>';
             } else if (!executedMs || ageMs < H48) {
-                actionCell = '<span style="color:var(--text-muted);font-size:0.76rem;" title="Rejet disponible 48 h après exécution">⏳ Trop récent</span>';
+                actionCell = '<span class="badge badge-secondary" style="font-size:0.7rem;opacity:0.7" title="Rejet possible 48 h après exécution"><i class="bi bi-hourglass-split"></i> &lt; 48h</span>';
             } else {
-                actionCell = '<span style="color:var(--text-muted);font-size:0.76rem;" title="Délai de rejet dépassé (2 semaines)">⌛ Délai expiré</span>';
+                actionCell = '<span class="badge badge-secondary" style="font-size:0.7rem;opacity:0.5" title="Délai de rejet dépassé (2 semaines)"><i class="bi bi-hourglass-bottom"></i> Expiré</span>';
             }
         } else if (d.status === 'rejected' || d.status === 'failed') {
             actionCell =
                 '<form method="POST" action="/moderation/direct-debits/' + esc(String(d.id)) + '/retry"'
                 + ' style="display:inline" onsubmit="return confirm(\'Réexécuter le prélèvement #' + d.id + ' (mandat ' + esc(d.mandate_number) + ') ?\\nUn nouveau prélèvement planifié sera créé.\')">'
                 + '<input type="hidden" name="csrf_token" value="' + esc(DD_CSRF) + '">'
-                + '<button type="submit" class="btn btn-info btn-sm" style="padding:0.2rem 0.5rem;font-size:0.76rem;">'
+                + '<button type="submit" class="btn btn-info btn-sm" style="padding:0.25rem 0.6rem;font-size:0.76rem;" title="Créer un nouveau prélèvement planifié">'
                 + '<i class="bi bi-arrow-repeat"></i> Réexécuter</button>'
                 + '</form>';
         } else {
             actionCell = '<span style="color:var(--text-muted);font-size:0.76rem;">—</span>';
         }
 
+        /* Colonne Comptes : émetteur → destinataire */
+        var accountsCell =
+            '<div style="line-height:1.4">'
+            + '<div style="font-size:0.78rem;color:var(--text-muted)"><i class="bi bi-arrow-right" style="font-size:0.65rem"></i> de <strong>' + esc(d.from_account) + '</strong></div>'
+            + '<div style="font-size:0.78rem"><i class="bi bi-arrow-right" style="font-size:0.65rem"></i> vers <strong>' + esc(d.to_account) + '</strong></div>'
+            + '</div>';
+
+        /* Colonne Dates : planifié + exécuté sur deux lignes */
+        var datesCell =
+            '<div style="line-height:1.4;font-size:0.76rem">'
+            + '<div title="Planifié le"><i class="bi bi-calendar-event" style="font-size:0.7rem;opacity:0.6"></i> ' + fmtDate(d.scheduled_at) + '</div>';
+        if (d.executed_at) {
+            datesCell += '<div title="Exécuté le" style="color:var(--success,#10b981)"><i class="bi bi-calendar-check" style="font-size:0.7rem;opacity:0.6"></i> ' + fmtDate(d.executed_at) + '</div>';
+        }
+        datesCell += '</div>';
+
+        /* Colonne Mandat : numéro + créé par */
+        var mandateCell =
+            '<div>'
+            + '<div style="font-family:monospace;font-size:0.76rem;word-break:break-all;max-width:170px" title="' + esc(d.mandate_number) + '">' + esc(d.mandate_number) + '</div>'
+            + '<div style="font-size:0.7rem;color:var(--text-muted);margin-top:1px"><i class="bi bi-person" style="font-size:0.65rem"></i> ' + esc(d.created_by_name) + '</div>'
+            + '</div>';
+
         html +=
-            '<tr>'
-            + '<td style="padding:0.5rem 0.8rem;white-space:nowrap">' + esc(String(d.id)) + '</td>'
-            + '<td style="padding:0.5rem 0.8rem;white-space:nowrap;font-family:monospace">' + esc(d.mandate_number) + '</td>'
-            + '<td style="padding:0.5rem 0.8rem;white-space:nowrap;font-weight:600">' + fmtAmount(d.amount) + '</td>'
-            + '<td style="padding:0.5rem 0.8rem;white-space:nowrap">' + esc(d.from_account) + '</td>'
-            + '<td style="padding:0.5rem 0.8rem;white-space:nowrap">' + esc(d.to_account) + '</td>'
-            + '<td style="padding:0.5rem 0.8rem;max-width:160px;overflow:hidden;text-overflow:ellipsis">' + esc(d.motif || '—') + '</td>'
-            + '<td style="padding:0.5rem 0.8rem;white-space:nowrap;font-size:0.78rem">' + fmtDate(d.scheduled_at) + '</td>'
-            + '<td style="padding:0.5rem 0.8rem;white-space:nowrap;font-size:0.78rem">' + fmtDate(d.executed_at) + '</td>'
+            '<tr style="' + (ROW_BG[d.status] || '') + '">'
+            + '<td style="padding:0.5rem 0.8rem;white-space:nowrap;color:var(--text-muted);font-size:0.78rem">' + esc(String(d.id)) + '</td>'
+            + '<td style="padding:0.5rem 0.8rem">' + mandateCell + '</td>'
+            + '<td style="padding:0.5rem 0.8rem">' + accountsCell + '</td>'
+            + '<td style="padding:0.5rem 0.8rem;white-space:nowrap;font-weight:600;font-size:0.9rem">' + fmtAmount(d.amount) + '</td>'
+            + '<td style="padding:0.5rem 0.8rem;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(d.motif || '') + '">' + esc(d.motif || '—') + '</td>'
+            + '<td style="padding:0.5rem 0.8rem;white-space:nowrap">' + datesCell + '</td>'
             + '<td style="padding:0.5rem 0.8rem;white-space:nowrap">' + (STATUS_BADGE[d.status] || esc(d.status)) + '</td>'
-            + '<td style="padding:0.5rem 0.8rem;white-space:nowrap;font-size:0.78rem">' + esc(d.created_by_name) + '</td>'
-            + '<td style="padding:0.5rem 0.8rem;white-space:nowrap">' + actionCell + '</td>'
+            + '<td style="padding:0.5rem 0.8rem;white-space:nowrap;text-align:center">' + actionCell + '</td>'
             + '</tr>';
     }
     tbody.innerHTML = html;
