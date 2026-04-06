@@ -20,9 +20,12 @@ use App\Core\Model;
  *   access_granted       — accès partagé accordé
  *   access_revoked       — accès partagé révoqué
  *   ticket_replied       — réponse à un ticket de support
- *   direct_debit_success — prélèvement exécuté avec succès
- *   direct_debit_failed  — prélèvement échoué
- *   direct_debit_rejected— prélèvement rejeté
+ *   direct_debit_success        — prélèvement exécuté avec succès
+ *   direct_debit_failed         — prélèvement échoué (compte gelé ou erreur technique)
+ *   direct_debit_rejected       — prélèvement rejeté (auto ou modération)
+ *   direct_debit_cancelled      — prélèvement annulé par la modération
+ *   recurring_transfer_failed   — virement récurrent non exécuté
+ *   mandate_revoked             — mandat révoqué par la modération
  *
  * Types modérateur supplémentaires :
  *   mod_new_ticket       — nouveau ticket ouvert
@@ -46,10 +49,13 @@ class Notification extends Model
         'access_granted'        => 'bi-person-check-fill text-success',
         'access_revoked'        => 'bi-person-x-fill text-danger',
         'ticket_replied'        => 'bi-chat-left-text-fill text-primary',
-        'direct_debit_success'  => 'bi-check-circle-fill text-success',
-        'direct_debit_failed'   => 'bi-exclamation-circle-fill text-danger',
-        'direct_debit_rejected' => 'bi-slash-circle text-danger',
-        'mod_new_ticket'        => 'bi-ticket-perforated-fill text-warning',
+        'direct_debit_success'       => 'bi-check-circle-fill text-success',
+        'direct_debit_failed'        => 'bi-exclamation-circle-fill text-danger',
+        'direct_debit_rejected'      => 'bi-slash-circle text-danger',
+        'direct_debit_cancelled'     => 'bi-slash-circle text-warning',
+        'recurring_transfer_failed'  => 'bi-arrow-repeat text-danger',
+        'mandate_revoked'            => 'bi-file-earmark-x text-danger',
+        'mod_new_ticket'             => 'bi-ticket-perforated-fill text-warning',
         'mod_transfer_pending'  => 'bi-arrow-left-right text-primary',
         'mod_direct_debit_due'  => 'bi-file-earmark-arrow-down text-warning',
     ];

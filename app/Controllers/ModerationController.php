@@ -637,6 +637,17 @@ class ModerationController extends Controller
         }
 
         $this->directDebitModel->markCancelled($debitId);
+        // Notifier le propriétaire du compte débité
+        $toAccount = $this->accountModel->find((int) $directDebit['to_account_id']);
+        if ($toAccount) {
+            $this->notifModel->notify(
+                (int) $toAccount['user_id'],
+                'direct_debit_cancelled',
+                'Prélèvement #' . $debitId . ' annulé',
+                'Le prélèvement (mandat ' . $directDebit['mandate_number'] . ') de ' . number_format((float) $directDebit['amount'], 2, ',', ' ') . ' € prévu sur votre compte « ' . $toAccount['name'] . ' » a été annulé par la modération.',
+                '/accounts/' . (int) $directDebit['to_account_id']
+            );
+        }
         $this->setFlash('success', 'Prélèvement #' . $debitId . ' (mandat ' . $directDebit['mandate_number'] . ') annulé.');
         $this->redirect('/moderation/direct-debits');
     }
@@ -1375,6 +1386,27 @@ class ModerationController extends Controller
         }
 
         $this->mandateModel->revoke($mandateId);
+        // Notifier les propriétaires des comptes concernés par le mandat
+        $emitterAccount   = $this->accountModel->find((int) $mandate['emitter_account_id']);
+        $recipientAccount = $this->accountModel->find((int) $mandate['recipient_account_id']);
+        if ($emitterAccount) {
+            $this->notifModel->notify(
+                (int) $emitterAccount['user_id'],
+                'mandate_revoked',
+                'Mandat ' . $mandate['number'] . ' révoqué',
+                'Le mandat ' . $mandate['number'] . ' associé à votre compte « ' . $emitterAccount['name'] . ' » a été révoqué par la modération.',
+                '/accounts/' . (int) $emitterAccount['id']
+            );
+        }
+        if ($recipientAccount && (int) $recipientAccount['user_id'] !== (int) ($emitterAccount['user_id'] ?? -1)) {
+            $this->notifModel->notify(
+                (int) $recipientAccount['user_id'],
+                'mandate_revoked',
+                'Mandat ' . $mandate['number'] . ' révoqué',
+                'Le mandat ' . $mandate['number'] . ' associé à votre compte « ' . $recipientAccount['name'] . ' » a été révoqué par la modération.',
+                '/accounts/' . (int) $recipientAccount['id']
+            );
+        }
         $this->setFlash('success', 'Mandat ' . $mandate['number'] . ' révoqué.');
         $this->redirect('/moderation/mandates');
     }

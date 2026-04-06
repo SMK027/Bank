@@ -28,6 +28,7 @@ date_default_timezone_set('Europe/Paris');
 use App\Models\Account;
 use App\Models\DirectDebit;
 use App\Models\Mandate;
+use App\Models\Notification;
 use App\Models\RecurringTransfer;
 use App\Models\Transaction;
 use App\Models\Transfer;
@@ -38,6 +39,7 @@ $directDebitModel       = new DirectDebit();
 $accountModel           = new Account();
 $mandateModel           = new Mandate();
 $recurringTransferModel = new RecurringTransfer();
+$notifModel             = new Notification();
 
 $now      = time();
 $executed = 0;
@@ -109,6 +111,16 @@ foreach ($recurringTransferModel->getDue() as $recurring) {
         );
         // On reprogramme quand même pour ne pas bloquer les futures occurrences
         $recurringTransferModel->markExecuted($recId);
+        $frozenAccount = $accountModel->find($fromAccountId);
+        if ($frozenAccount) {
+            $notifModel->notify(
+                (int) $frozenAccount['user_id'],
+                'recurring_transfer_failed',
+                'Virement récurrent #' . $recId . ' non exécuté',
+                'Le virement récurrent de ' . number_format($amount, 2, ',', ' ') . ' € n\'a pas pu être exécuté : votre compte « ' . ($frozenAccount['name'] ?? 'Compte #' . $fromAccountId) . ' » est actuellement gelé.',
+                '/accounts/' . $fromAccountId
+            );
+        }
         $errors++;
         continue;
     }
@@ -124,6 +136,13 @@ foreach ($recurringTransferModel->getDue() as $recurring) {
             date('Y-m-d H:i:s'), $recId, $fromAccountId, $balance, $amount
         );
         $recurringTransferModel->markExecuted($recId);
+        $notifModel->notify(
+            (int) $fromAccount['user_id'],
+            'recurring_transfer_failed',
+            'Virement récurrent #' . $recId . ' non exécuté',
+            'Le virement récurrent de ' . number_format($amount, 2, ',', ' ') . ' € n\'a pas pu être exécuté : solde insuffisant sur votre compte « ' . ($fromAccount['name'] ?? 'Compte #' . $fromAccountId) . ' ».',
+            '/accounts/' . $fromAccountId
+        );
         $errors++;
         continue;
     }
@@ -215,6 +234,16 @@ foreach ($directDebitModel->getDue() as $debit) {
             date('Y-m-d H:i:s'), $debitId, $toAccountId
         );
         $directDebitModel->markFailed($debitId);
+        $frozenAccount = $accountModel->find($toAccountId);
+        if ($frozenAccount) {
+            $notifModel->notify(
+                (int) $frozenAccount['user_id'],
+                'direct_debit_failed',
+                'Prélèvement #' . $debitId . ' échoué',
+                'Le prélèvement (mandat ' . $mandate . ') de ' . number_format($amount, 2, ',', ' ') . ' € n\'a pas pu être exécuté : votre compte « ' . ($frozenAccount['name'] ?? 'Compte #' . $toAccountId) . ' » est actuellement gelé.',
+                '/accounts/' . $toAccountId
+            );
+        }
         $errors++;
         continue;
     }
@@ -232,6 +261,13 @@ foreach ($directDebitModel->getDue() as $debit) {
                 date('Y-m-d H:i:s'), $debitId, $toAccountId, $toType, $currentBalance, $amount
             );
             $directDebitModel->markAutoRejected($debitId);
+            $notifModel->notify(
+                (int) $toAccount['user_id'],
+                'direct_debit_rejected',
+                'Prélèvement #' . $debitId . ' rejeté',
+                'Le prélèvement (mandat ' . $mandate . ') de ' . number_format($amount, 2, ',', ' ') . ' € a été automatiquement rejeté : solde insuffisant sur votre compte « ' . ($toAccount['name'] ?? 'Compte #' . $toAccountId) . ' » (compte sans autorisation de découvert).',
+                '/accounts/' . $toAccountId
+            );
             $errors++;
             continue;
         }
@@ -293,6 +329,13 @@ foreach ($directDebitModel->getDue() as $debit) {
 
     if ($ok) {
         $directDebitModel->markSuccess($debitId, $debitTxId, $creditTxId);
+        $notifModel->notify(
+            (int) $toAccount['user_id'],
+            'direct_debit_success',
+            'Prélèvement #' . $debitId . ' exécuté',
+            'Le prélèvement (mandat ' . $mandate . ') de ' . number_format($amount, 2, ',', ' ') . ' € a été exécuté sur votre compte « ' . ($toAccount['name'] ?? 'Compte #' . $toAccountId) . ' ».',
+            '/accounts/' . $toAccountId
+        );
         $executed++;
         echo sprintf(
             "[%s] Prélèvement #%d exécuté : débit compte #%d%s — %.2f — mandat %s\n",
@@ -305,6 +348,13 @@ foreach ($directDebitModel->getDue() as $debit) {
         );
     } else {
         $directDebitModel->markFailed($debitId);
+        $notifModel->notify(
+            (int) $toAccount['user_id'],
+            'direct_debit_failed',
+            'Prélèvement #' . $debitId . ' échoué',
+            'Le prélèvement (mandat ' . $mandate . ') de ' . number_format($amount, 2, ',', ' ') . ' € n\'a pas pu être exécuté en raison d\'une erreur technique sur votre compte « ' . ($toAccount['name'] ?? 'Compte #' . $toAccountId) . ' ».',
+            '/accounts/' . $toAccountId
+        );
         $errors++;
     }
 }
