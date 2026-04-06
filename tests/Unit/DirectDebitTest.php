@@ -113,6 +113,18 @@ class DirectDebitTest extends TestCase
         $this->assertFalse($this->dd->canRetry(['status' => 'cancelled']));
     }
 
+    public function testCanRetryFalseWhenRetryCountIsOne(): void
+    {
+        $this->assertFalse($this->dd->canRetry(['status' => 'failed',    'retry_count' => 1]));
+        $this->assertFalse($this->dd->canRetry(['status' => 'rejected',  'retry_count' => 1]));
+    }
+
+    public function testCanRetryTrueWhenRetryCountIsZero(): void
+    {
+        $this->assertTrue($this->dd->canRetry(['status' => 'failed',   'retry_count' => 0]));
+        $this->assertTrue($this->dd->canRetry(['status' => 'rejected', 'retry_count' => 0]));
+    }
+
     /* ------------------------------------------------------------------
      *  retry — crée un nouveau prélèvement planifié
      * ----------------------------------------------------------------*/
@@ -158,6 +170,48 @@ class DirectDebitTest extends TestCase
     public function testRetryNonExistentReturnsNull(): void
     {
         $this->assertNull($this->dd->retry(99999));
+    }
+
+    public function testRetryMarksOriginalAsNonRetryable(): void
+    {
+        $id = $this->dd->createDirectDebit('MND-005', '2026-04-01 08:00:00', 80.0, 1);
+        $this->dd->markFailed($id);
+
+        $this->dd->retry($id);
+
+        // L'original doit maintenant avoir retry_count = 1 → plus retryable
+        $original = $this->dd->find($id);
+        $this->assertSame(1, (int) $original['retry_count']);
+        $this->assertFalse($this->dd->canRetry($original));
+    }
+
+    public function testRetryNewDebitIsItself​NonRetryable(): void
+    {
+        $id = $this->dd->createDirectDebit('MND-006', '2026-04-01 08:00:00', 60.0, 2);
+        $this->dd->markAutoRejected($id);
+
+        $newId = $this->dd->retry($id);
+        $this->assertNotNull($newId);
+
+        // Le nouveau prélèvement a retry_count = 1 → pas retryable même s'il échoue
+        $newRecord = $this->dd->find($newId);
+        $this->assertSame(1, (int) $newRecord['retry_count']);
+
+        $this->dd->markFailed($newId);
+        $this->assertFalse($this->dd->canRetry($this->dd->find($newId)));
+    }
+
+    public function testRetryIdempotentCannotRetryTwice(): void
+    {
+        $id = $this->dd->createDirectDebit('MND-007', '2026-04-01 08:00:00', 40.0, 3);
+        $this->dd->markFailed($id);
+
+        $newId1 = $this->dd->retry($id);
+        $this->assertNotNull($newId1);
+
+        // Deuxième tentative sur le même original → refusée
+        $newId2 = $this->dd->retry($id);
+        $this->assertNull($newId2);
     }
 
     /* ------------------------------------------------------------------

@@ -53,7 +53,8 @@ class DirectDebit extends Model
         int     $toAccountId,
         ?int    $fromAccountId = null,
         ?string $motif         = null,
-        int     $createdBy     = 0
+        int     $createdBy     = 0,
+        int     $retryCount    = 0
     ): int {
         return $this->create([
             'mandate_number'  => $mandateNumber,
@@ -67,6 +68,7 @@ class DirectDebit extends Model
             'credit_tx_id'    => null,
             'status'          => self::STATUS_SCHEDULED,
             'created_by'      => $createdBy,
+            'retry_count'     => $retryCount,
         ]);
     }
 
@@ -162,14 +164,20 @@ class DirectDebit extends Model
 
     /**
      * Vérifie si un prélèvement rejeté ou échoué peut être réexécuté.
+     * Condition : statut failed/rejected ET retry_count = 0 (une seule tentative autorisée).
      */
     public function canRetry(array $directDebit): bool
     {
+        if ((int) ($directDebit['retry_count'] ?? 0) !== 0) {
+            return false;
+        }
         return in_array($directDebit['status'] ?? '', [self::STATUS_REJECTED, self::STATUS_FAILED], true);
     }
 
     /**
      * Crée un nouveau prélèvement planifié à partir d'un prélèvement rejeté/échoué.
+     * Marque l'original comme déjà réexécuté (retry_count = 1) et crée le
+     * nouveau prélèvement avec retry_count = 1 (lui-même non réexécutable).
      */
     public function retry(int $id): ?int
     {
@@ -178,6 +186,9 @@ class DirectDebit extends Model
             return null;
         }
 
+        // Verrouiller l'original : ne peut plus être réexécuté
+        $this->update($id, ['retry_count' => 1]);
+
         return $this->createDirectDebit(
             $original['mandate_number'],
             date('Y-m-d H:i:s'),
@@ -185,7 +196,8 @@ class DirectDebit extends Model
             (int) $original['to_account_id'],
             $original['from_account_id'] !== null ? (int) $original['from_account_id'] : null,
             $original['motif'],
-            (int) $original['created_by']
+            (int) $original['created_by'],
+            1 // retry_count = 1 : ce nouveau prélèvement n'est lui-même pas réexécutable
         );
     }
 }

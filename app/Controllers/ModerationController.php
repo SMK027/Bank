@@ -733,7 +733,7 @@ class ModerationController extends Controller
         }
 
         if (!$this->directDebitModel->canRetry($directDebit)) {
-            $this->setFlash('danger', 'Ce prélèvement ne peut pas être réexécuté (statut incompatible).');
+            $this->setFlash('danger', 'Ce prélèvement ne peut pas être réexécuté (statut incompatible ou limite d\'une réexécution déjà atteinte).');
             $this->redirect('/moderation/direct-debits');
             return;
         }
