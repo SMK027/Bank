@@ -85,6 +85,8 @@ $router->post('/accounts/{accountId}/transactions/{transactionId}/delete', Trans
 // --- Virements ---
 $router->get('/transfers/create', TransferController::class, 'createForm');
 $router->post('/transfers/create', TransferController::class, 'create');
+$router->get('/transfers/recurring', TransferController::class, 'listRecurring');
+$router->post('/transfers/recurring/{id}/cancel', TransferController::class, 'cancelRecurring');
 
 // --- Modération ---
 $router->get('/moderation', ModerationController::class, 'index');

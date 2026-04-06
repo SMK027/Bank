@@ -183,6 +183,21 @@ class TestDatabase
                 created_at TEXT,
                 updated_at TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS recurring_transfers (
+                id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                from_account_id   INTEGER NOT NULL DEFAULT 0,
+                to_account_id     INTEGER NOT NULL DEFAULT 0,
+                user_id           INTEGER NOT NULL DEFAULT 0,
+                amount            REAL    NOT NULL,
+                motif             TEXT    NOT NULL DEFAULT '',
+                status            TEXT    NOT NULL DEFAULT 'active',
+                interval_days     INTEGER NOT NULL,
+                next_execution_at TEXT    NOT NULL,
+                last_executed_at  TEXT    DEFAULT NULL,
+                created_at        TEXT,
+                updated_at        TEXT
+            );
         SQL;
     }
 }

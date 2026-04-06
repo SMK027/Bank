@@ -28,14 +28,16 @@ date_default_timezone_set('Europe/Paris');
 use App\Models\Account;
 use App\Models\DirectDebit;
 use App\Models\Mandate;
+use App\Models\RecurringTransfer;
 use App\Models\Transaction;
 use App\Models\Transfer;
 
-$transferModel    = new Transfer();
-$transactionModel = new Transaction();
-$directDebitModel = new DirectDebit();
-$accountModel     = new Account();
-$mandateModel     = new Mandate();
+$transferModel          = new Transfer();
+$transactionModel       = new Transaction();
+$directDebitModel       = new DirectDebit();
+$accountModel           = new Account();
+$mandateModel           = new Mandate();
+$recurringTransferModel = new RecurringTransfer();
 
 $now      = time();
 $executed = 0;
@@ -88,7 +90,74 @@ foreach ($transferModel->getDueScheduled() as $transfer) {
 }
 
 /* ─────────────────────────────────────────────────────────────────
-   2. Génération des prélèvements issus des mandats échus
+   2. Exécution des virements récurrents échus
+   ───────────────────────────────────────────────────────────────── */
+foreach ($recurringTransferModel->getDue() as $recurring) {
+    $recId         = (int) $recurring['id'];
+    $fromAccountId = (int) $recurring['from_account_id'];
+    $toAccountId   = (int) $recurring['to_account_id'];
+    $amount        = (float) $recurring['amount'];
+    $motif         = $recurring['motif'] ?? '';
+    $userId        = (int) ($recurring['user_id'] ?? 0);
+    $ok            = true;
+
+    // Vérifier que le compte émetteur n'est pas gelé
+    if ($accountModel->isFrozen($fromAccountId)) {
+        echo sprintf(
+            "[%s] ERREUR virement récurrent #%d : compte émetteur #%d gelé — report à la prochaine occurrence.\n",
+            date('Y-m-d H:i:s'), $recId, $fromAccountId
+        );
+        // On reprogramme quand même pour ne pas bloquer les futures occurrences
+        $recurringTransferModel->markExecuted($recId);
+        $errors++;
+        continue;
+    }
+
+    $fromAccount = $accountModel->find($fromAccountId);
+    $fromType    = $fromAccount['type'] ?? 'standard';
+    $balance     = $accountModel->getBalance($fromAccountId);
+    $overdraft   = (float) ($fromAccount['overdraft'] ?? 0);
+
+    if ($balance - $amount < -$overdraft) {
+        echo sprintf(
+            "[%s] ERREUR virement récurrent #%d : solde insuffisant sur compte #%d (%.2f < %.2f).\n",
+            date('Y-m-d H:i:s'), $recId, $fromAccountId, $balance, $amount
+        );
+        $recurringTransferModel->markExecuted($recId);
+        $errors++;
+        continue;
+    }
+
+    $label    = 'Virement récurrent' . ($motif !== '' ? ' — ' . $motif : '');
+    $nowStr   = date('Y-m-d H:i:s');
+
+    try {
+        $debitTxId = $transactionModel->addTransaction(
+            $fromAccountId, 'expense', $amount, 'Virement', $label, $userId
+        );
+        $creditTxId = $transactionModel->addTransaction(
+            $toAccountId, 'income', $amount, 'Virement', $label, $userId
+        );
+        $transferModel->createTransfer(
+            $fromAccountId, $toAccountId, $userId, $amount, $motif, null, $debitTxId, $creditTxId
+        );
+        $recurringTransferModel->markExecuted($recId);
+        $executed++;
+        echo sprintf(
+            "[%s] Virement récurrent #%d exécuté : compte #%d → #%d — %.2f\n",
+            date('Y-m-d H:i:s'), $recId, $fromAccountId, $toAccountId, $amount
+        );
+    } catch (\Throwable $e) {
+        echo sprintf(
+            "[%s] ERREUR virement récurrent #%d : %s\n",
+            date('Y-m-d H:i:s'), $recId, $e->getMessage()
+        );
+        $errors++;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   3. Génération des prélèvements issus des mandats échus
    ───────────────────────────────────────────────────────────────── */
 foreach ($mandateModel->getDue() as $mandate) {
     $mandateId          = (int) $mandate['id'];
@@ -127,7 +196,7 @@ foreach ($mandateModel->getDue() as $mandate) {
 }
 
 /* ─────────────────────────────────────────────────────────────────
-   3. Traitement des prélèvements automatiques échus
+   4. Traitement des prélèvements automatiques échus
    ───────────────────────────────────────────────────────────────── */
 foreach ($directDebitModel->getDue() as $debit) {
     $debitId       = (int) $debit['id'];
@@ -241,7 +310,7 @@ foreach ($directDebitModel->getDue() as $debit) {
 }
 
 /* ─────────────────────────────────────────────────────────────────
-   4. Rétro-compatibilité : transactions planifiées sans virement
+   5. Rétro-compatibilité : transactions planifiées sans virement
    ───────────────────────────────────────────────────────────────── */
 // Collecter les IDs de transactions déjà traitées via les virements et prélèvements
 $processedTxIds = [];

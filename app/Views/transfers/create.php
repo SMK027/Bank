@@ -166,6 +166,12 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                                     style="flex:1;">
                                 <i class="bi bi-calendar-event"></i> Planifié
                             </button>
+                            <button type="button" id="sched-btn-recur-p"
+                                    onclick="setSchedMode('p','recurring')"
+                                    class="btn btn-sm btn-outline-secondary"
+                                    style="flex:1;">
+                                <i class="bi bi-arrow-repeat"></i> Récurrent
+                            </button>
                         </div>
                         <div id="sched-date-p" style="display:none;">
                             <label for="scheduled_at-p" class="form-label" style="font-size:0.85rem; color:var(--text-muted);">
@@ -176,6 +182,29 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                             <div id="warn-p-date" class="alert alert-warning" style="display:none; margin-top:0.4rem; padding:0.5rem 0.75rem;">
                                 <i class="bi bi-exclamation-triangle-fill"></i>
                                 <span id="warn-p-date-text"></span>
+                            </div>
+                        </div>
+                        <div id="sched-recur-p" style="display:none;">
+                            <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+                                <div style="flex:1; min-width:180px;">
+                                    <label for="first_execution_at-p" class="form-label" style="font-size:0.85rem; color:var(--text-muted);">
+                                        <i class="bi bi-calendar-plus"></i> Date du premier virement
+                                    </label>
+                                    <input type="datetime-local" id="first_execution_at-p" name="first_execution_at"
+                                           class="form-control"
+                                           min="<?= date('Y-m-d\TH:i', strtotime('+1 minute')) ?>">
+                                </div>
+                                <div style="width:140px;">
+                                    <label for="interval_days-p" class="form-label" style="font-size:0.85rem; color:var(--text-muted);">
+                                        <i class="bi bi-arrow-clockwise"></i> Intervalle (jours)
+                                    </label>
+                                    <input type="number" id="interval_days-p" name="interval_days"
+                                           class="form-control" min="1" step="1" placeholder="Ex : 30">
+                                </div>
+                            </div>
+                            <div id="warn-p-recur" class="alert alert-warning" style="display:none; margin-top:0.4rem; padding:0.5rem 0.75rem;">
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                <span id="warn-p-recur-text"></span>
                             </div>
                         </div>
                     </div>
@@ -289,6 +318,12 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                                     style="flex:1;">
                                 <i class="bi bi-calendar-event"></i> Planifié
                             </button>
+                            <button type="button" id="sched-btn-recur-m"
+                                    onclick="setSchedMode('m','recurring')"
+                                    class="btn btn-sm btn-outline-secondary"
+                                    style="flex:1;">
+                                <i class="bi bi-arrow-repeat"></i> Récurrent
+                            </button>
                         </div>
                         <div id="sched-date-m" style="display:none;">
                             <label for="scheduled_at-m" class="form-label" style="font-size:0.85rem; color:var(--text-muted);">
@@ -299,6 +334,29 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                             <div id="warn-m-date" class="alert alert-warning" style="display:none; margin-top:0.4rem; padding:0.5rem 0.75rem;">
                                 <i class="bi bi-exclamation-triangle-fill"></i>
                                 <span id="warn-m-date-text"></span>
+                            </div>
+                        </div>
+                        <div id="sched-recur-m" style="display:none;">
+                            <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+                                <div style="flex:1; min-width:180px;">
+                                    <label for="first_execution_at-m" class="form-label" style="font-size:0.85rem; color:var(--text-muted);">
+                                        <i class="bi bi-calendar-plus"></i> Date du premier virement
+                                    </label>
+                                    <input type="datetime-local" id="first_execution_at-m" name="first_execution_at"
+                                           class="form-control"
+                                           min="<?= date('Y-m-d\TH:i', strtotime('+1 minute')) ?>">
+                                </div>
+                                <div style="width:140px;">
+                                    <label for="interval_days-m" class="form-label" style="font-size:0.85rem; color:var(--text-muted);">
+                                        <i class="bi bi-arrow-clockwise"></i> Intervalle (jours)
+                                    </label>
+                                    <input type="number" id="interval_days-m" name="interval_days"
+                                           class="form-control" min="1" step="1" placeholder="Ex : 30">
+                                </div>
+                            </div>
+                            <div id="warn-m-recur" class="alert alert-warning" style="display:none; margin-top:0.4rem; padding:0.5rem 0.75rem;">
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                <span id="warn-m-recur-text"></span>
                             </div>
                         </div>
                     </div>
@@ -631,23 +689,50 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
     /* ─── Planification (toggle instantané / planifié) ──────────────────── */
     window.setSchedMode = function (form, mode) {
         schedModes[form] = mode;
-        var dateDiv   = document.getElementById('sched-date-' + form);
-        var btnNow    = document.getElementById('sched-btn-now-' + form);
+        var dateDiv   = document.getElementById('sched-date-'  + form);
+        var recurDiv  = document.getElementById('sched-recur-' + form);
+        var btnNow    = document.getElementById('sched-btn-now-'   + form);
         var btnLater  = document.getElementById('sched-btn-later-' + form);
+        var btnRecur  = document.getElementById('sched-btn-recur-' + form);
         var labelEl   = document.getElementById('submit-' + form + '-label');
         if (!dateDiv) return;
 
+        // Reset all buttons to outline
+        [btnNow, btnLater, btnRecur].forEach(function(b) {
+            if (b) {
+                b.className = b.className.replace('btn-primary', 'btn-outline-secondary');
+            }
+        });
+
         if (mode === 'later') {
-            dateDiv.style.display = '';
-            btnNow.className   = btnNow.className.replace('btn-primary', 'btn-outline-secondary');
-            btnLater.className = btnLater.className.replace('btn-outline-secondary', 'btn-primary');
+            if (dateDiv)  dateDiv.style.display  = '';
+            if (recurDiv) recurDiv.style.display = 'none';
+            // Clear recurring fields
+            var ri = document.getElementById('interval_days-'       + form);
+            var rf = document.getElementById('first_execution_at-'  + form);
+            if (ri) ri.value = '';
+            if (rf) rf.value = '';
+            if (btnLater) btnLater.className = btnLater.className.replace('btn-outline-secondary', 'btn-primary');
             if (labelEl) labelEl.textContent = 'Planifier le virement';
+        } else if (mode === 'recurring') {
+            if (dateDiv)  dateDiv.style.display  = 'none';
+            if (recurDiv) recurDiv.style.display = '';
+            // Clear one-time scheduled_at
+            var sinp = document.getElementById('scheduled_at-' + form);
+            if (sinp) sinp.value = '';
+            if (btnRecur) btnRecur.className = btnRecur.className.replace('btn-outline-secondary', 'btn-primary');
+            if (labelEl) labelEl.textContent = 'Créer le virement récurrent';
         } else {
-            dateDiv.style.display = 'none';
-            var inp = document.getElementById('scheduled_at-' + form);
-            if (inp) inp.value = '';
-            btnNow.className   = btnNow.className.replace('btn-outline-secondary', 'btn-primary');
-            btnLater.className = btnLater.className.replace('btn-primary', 'btn-outline-secondary');
+            // 'now'
+            if (dateDiv)  dateDiv.style.display  = 'none';
+            if (recurDiv) recurDiv.style.display = 'none';
+            var sinp2 = document.getElementById('scheduled_at-' + form);
+            var ri2   = document.getElementById('interval_days-'      + form);
+            var rf2   = document.getElementById('first_execution_at-' + form);
+            if (sinp2) sinp2.value = '';
+            if (ri2)   ri2.value   = '';
+            if (rf2)   rf2.value   = '';
+            if (btnNow) btnNow.className = btnNow.className.replace('btn-outline-secondary', 'btn-primary');
             if (labelEl) labelEl.textContent = 'Effectuer le virement';
         }
 

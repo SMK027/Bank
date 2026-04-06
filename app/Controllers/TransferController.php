@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Models\Account;
 use App\Models\Notification;
+use App\Models\RecurringTransfer;
 use App\Models\Transaction;
 use App\Models\Transfer;
 use App\Models\User;
@@ -16,16 +17,18 @@ class TransferController extends Controller
     private Account $accountModel;
     private Transaction $transactionModel;
     private Transfer $transferModel;
+    private RecurringTransfer $recurringTransferModel;
     private User $userModel;
     private Notification $notifModel;
 
     public function __construct()
     {
-        $this->accountModel     = new Account();
-        $this->transactionModel = new Transaction();
-        $this->transferModel    = new Transfer();
-        $this->userModel        = new User();
-        $this->notifModel       = new Notification();
+        $this->accountModel           = new Account();
+        $this->transactionModel       = new Transaction();
+        $this->transferModel          = new Transfer();
+        $this->recurringTransferModel = new RecurringTransfer();
+        $this->userModel              = new User();
+        $this->notifModel             = new Notification();
     }
 
     public function createForm(): void
@@ -96,10 +99,11 @@ class TransferController extends Controller
         $this->validateCSRF();
 
         $userId = $this->getCurrentUserId();
-        $data   = $this->getPostData(['from_account_id', 'to_account_id', 'amount', 'motif', 'mode', 'scheduled_at']);
+        $data   = $this->getPostData(['from_account_id', 'to_account_id', 'amount', 'motif', 'mode', 'scheduled_at', 'interval_days', 'first_execution_at']);
 
-        $fromId  = (int) $data['from_account_id'];
-        $toId    = (int) $data['to_account_id'];
+        $fromId      = (int) $data['from_account_id'];
+        $toId        = (int) $data['to_account_id'];
+        $isRecurring = (int) ($data['interval_days'] ?? 0) > 0;
         $modMode = $this->isModerator() && ($data['mode'] ?? '') === 'moderation';
 
         // Comptes identiques
@@ -176,6 +180,65 @@ class TransferController extends Controller
         }
 
         $motif = trim($data['motif'] ?: '');
+
+        // ── Virement récurrent ────────────────────────────────────────────────
+        if ($isRecurring) {
+            $intervalDays = (int) $data['interval_days'];
+            if ($intervalDays < 1) {
+                $this->setFlash('danger', "L'intervalle entre chaque virement doit être d'au moins 1 jour.");
+                $this->redirect('/transfers/create' . ($modMode ? '?tab=moderation' : ''));
+                return;
+            }
+            $rawFirst = trim($data['first_execution_at'] ?? '');
+            $dtFirst  = \DateTime::createFromFormat('Y-m-d\TH:i', $rawFirst)
+                     ?: \DateTime::createFromFormat('Y-m-d H:i:s', $rawFirst)
+                     ?: \DateTime::createFromFormat('Y-m-d H:i', $rawFirst);
+            if (!$dtFirst || $dtFirst->getTimestamp() <= time()) {
+                $this->setFlash('danger', 'La date du premier virement doit être dans le futur.');
+                $this->redirect('/transfers/create' . ($modMode ? '?tab=moderation' : ''));
+                return;
+            }
+            $firstExecutionAt = $dtFirst->format('Y-m-d H:i:s');
+
+            $this->recurringTransferModel->createRecurringTransfer(
+                $fromId,
+                $toId,
+                $userId,
+                $amount,
+                $motif,
+                $intervalDays,
+                $firstExecutionAt
+            );
+
+            $this->notifModel->notify(
+                $userId,
+                'recurring_transfer_created',
+                'Virement récurrent créé',
+                sprintf(
+                    'Virement de %s %s de « %s » vers « %s » toutes les %d jour(s), premier le %s.',
+                    number_format($amount, 2, ',', ' '),
+                    $fromAccount['currency'],
+                    $fromAccount['name'],
+                    $toAccount['name'],
+                    $intervalDays,
+                    $dtFirst->format('d/m/Y à H\hi')
+                ),
+                '/transfers/recurring'
+            );
+
+            $this->setFlash('success', sprintf(
+                'Virement récurrent créé (%s %s de « %s » vers « %s » tous les %d jour(s), premier le %s).',
+                number_format($amount, 2, ',', ' '),
+                $fromAccount['currency'],
+                $fromAccount['name'],
+                $toAccount['name'],
+                $intervalDays,
+                $dtFirst->format('d/m/Y à H\hi')
+            ));
+            $this->redirect('/accounts/' . $fromId);
+            return;
+        }
+        // ─────────────────────────────────────────────────────────────────────
 
         $scheduledAt = null;
         if (!empty($data['scheduled_at'])) {
@@ -282,4 +345,66 @@ class TransferController extends Controller
         }
         $this->redirect('/accounts/' . $fromId);
     }
+
+    /**
+     * Affiche la liste des virements récurrents de l'utilisateur courant.
+     */
+    public function listRecurring(): void
+    {
+        $this->requireAuth();
+        $userId = $this->getCurrentUserId();
+
+        $all = $this->recurringTransferModel->getByUser($userId);
+
+        // Enrichir avec les noms de comptes
+        foreach ($all as &$r) {
+            $fromAcc = $this->accountModel->find((int) $r['from_account_id']);
+            $toAcc   = $this->accountModel->find((int) $r['to_account_id']);
+            $r['from_account_name'] = $fromAcc['name'] ?? ('Compte #' . $r['from_account_id']);
+            $r['to_account_name']   = $toAcc['name']   ?? ('Compte #' . $r['to_account_id']);
+        }
+        unset($r);
+
+        $this->render('transfers/recurring', [
+            'title'   => 'Virements récurrents',
+            'items'   => $all,
+        ]);
+    }
+
+    /**
+     * Annule un virement récurrent (POST).
+     */
+    public function cancelRecurring(string $id): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+
+        $recId  = (int) $id;
+        $userId = $this->getCurrentUserId();
+        $record = $this->recurringTransferModel->find($recId);
+
+        if (!$record) {
+            $this->setFlash('danger', 'Virement récurrent introuvable.');
+            $this->redirect('/transfers/recurring');
+            return;
+        }
+
+        // Seul le créateur ou un modérateur peut annuler
+        if ((int) $record['user_id'] !== $userId && !$this->isModerator()) {
+            $this->setFlash('danger', 'Vous ne pouvez pas annuler ce virement récurrent.');
+            $this->redirect('/transfers/recurring');
+            return;
+        }
+
+        if (!$this->recurringTransferModel->canCancel($record)) {
+            $this->setFlash('danger', 'Ce virement récurrent est déjà annulé.');
+            $this->redirect('/transfers/recurring');
+            return;
+        }
+
+        $this->recurringTransferModel->cancel($recId);
+        $this->setFlash('success', 'Virement récurrent annulé.');
+        $this->redirect('/transfers/recurring');
+    }
 }
+
