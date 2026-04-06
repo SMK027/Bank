@@ -67,6 +67,17 @@
                 </div>
 
                 <div class="form-group">
+                    <label for="first_execution_at" class="form-label">
+                        Date de première exécution
+                        <span class="text-muted" style="font-weight:normal;font-size:0.88em;">(optionnelle — immédiate si vide)</span>
+                    </label>
+                    <input type="datetime-local" id="first_execution_at" name="first_execution_at"
+                           class="form-control"
+                           min="<?= date('Y-m-d\TH:i', strtotime('+1 minute')) ?>">
+                    <span class="form-hint">Laissez vide pour une exécution dès le prochain traitement.</span>
+                </div>
+
+                <div class="form-group">
                     <button type="submit" class="btn btn-primary btn-block">
                         <i class="bi bi-check-lg"></i> Créer le mandat
                     </button>

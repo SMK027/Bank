@@ -214,6 +214,21 @@ class DirectDebitTest extends TestCase
         $this->assertNull($newId2);
     }
 
+    public function testRetryWithScheduledAtUsesProvidedDate(): void
+    {
+        $id = $this->dd->createDirectDebit('MND-008', '2026-04-01 08:00:00', 75.0, 5, 10, 'Abonnement', 1);
+        $this->dd->markFailed($id);
+
+        $targetDate = '2027-06-15 09:30:00';
+        $newId = $this->dd->retry($id, $targetDate);
+        $this->assertNotNull($newId);
+
+        $newRecord = $this->dd->find($newId);
+        $this->assertSame($targetDate, $newRecord['scheduled_at']);
+        $this->assertSame('scheduled', $newRecord['status']);
+        $this->assertSame(1, (int) $newRecord['retry_count']);
+    }
+
     /* ------------------------------------------------------------------
      *  markSuccess / markFailed / markCancelled / markRejected
      * ----------------------------------------------------------------*/

@@ -33,14 +33,15 @@ class Mandate extends Model
      * Crée un nouveau mandat.
      */
     public function createMandate(
-        string $number,
-        int    $emitterAccountId,
-        int    $recipientAccountId,
-        string $description,
-        float  $amount,
-        string $type,
-        ?int   $intervalDays,
-        int    $createdBy
+        string  $number,
+        int     $emitterAccountId,
+        int     $recipientAccountId,
+        string  $description,
+        float   $amount,
+        string  $type,
+        ?int    $intervalDays,
+        int     $createdBy,
+        ?string $firstExecutionAt = null
     ): int {
         return $this->create([
             'number'               => $number,
@@ -52,7 +53,7 @@ class Mandate extends Model
             'interval_days'        => $type === self::TYPE_RECURRING ? $intervalDays : null,
             'status'               => self::STATUS_ACTIVE,
             'created_by'           => $createdBy,
-            'next_execution_at'    => date('Y-m-d H:i:s'),
+            'next_execution_at'    => $firstExecutionAt ?? date('Y-m-d H:i:s'),
         ]);
     }
 

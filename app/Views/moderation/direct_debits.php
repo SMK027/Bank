@@ -225,10 +225,15 @@ function renderTable() {
         } else if (d.status === 'rejected' || d.status === 'failed') {
             actionCell =
                 '<form method="POST" action="/moderation/direct-debits/' + esc(String(d.id)) + '/retry"'
-                + ' style="display:inline" onsubmit="return confirm(\'Réexécuter le prélèvement #' + d.id + ' (mandat ' + esc(d.mandate_number) + ') ?\\nUn nouveau prélèvement planifié sera créé.\')">'
+                + ' style="display:inline">'
                 + '<input type="hidden" name="csrf_token" value="' + esc(DD_CSRF) + '">'
+                + '<div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;">'
+                + '<input type="datetime-local" name="scheduled_at"'
+                + ' title="Date de planification (vide = immédiate)"'
+                + ' style="font-size:0.76rem;padding:0.2rem 0.4rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);">'
                 + '<button type="submit" class="btn btn-info btn-sm" style="padding:0.25rem 0.6rem;font-size:0.76rem;" title="Créer un nouveau prélèvement planifié">'
                 + '<i class="bi bi-arrow-repeat"></i> Réexécuter</button>'
+                + '</div>'
                 + '</form>';
         } else {
             actionCell = '<span style="color:var(--text-muted);font-size:0.76rem;">—</span>';

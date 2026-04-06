@@ -179,7 +179,7 @@ class DirectDebit extends Model
      * Marque l'original comme déjà réexécuté (retry_count = 1) et crée le
      * nouveau prélèvement avec retry_count = 1 (lui-même non réexécutable).
      */
-    public function retry(int $id): ?int
+    public function retry(int $id, ?string $scheduledAt = null): ?int
     {
         $original = $this->find($id);
         if (!$original || !$this->canRetry($original)) {
@@ -191,7 +191,7 @@ class DirectDebit extends Model
 
         return $this->createDirectDebit(
             $original['mandate_number'],
-            date('Y-m-d H:i:s'),
+            $scheduledAt ?? date('Y-m-d H:i:s'),
             (float) $original['amount'],
             (int) $original['to_account_id'],
             $original['from_account_id'] !== null ? (int) $original['from_account_id'] : null,

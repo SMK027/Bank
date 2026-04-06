@@ -738,7 +738,22 @@ class ModerationController extends Controller
             return;
         }
 
-        $newId = $this->directDebitModel->retry($debitId);
+        $retryData    = $this->getPostData(['scheduled_at']);
+        $scheduledAt  = null;
+        $rawRetryDate = trim($retryData['scheduled_at'] ?? '');
+        if ($rawRetryDate !== '') {
+            $dt = \DateTime::createFromFormat('Y-m-d\TH:i', $rawRetryDate)
+               ?: \DateTime::createFromFormat('Y-m-d H:i:s', $rawRetryDate)
+               ?: \DateTime::createFromFormat('Y-m-d H:i', $rawRetryDate);
+            if (!$dt) {
+                $this->setFlash('danger', 'Date de planification invalide.');
+                $this->redirect('/moderation/direct-debits');
+                return;
+            }
+            $scheduledAt = $dt->format('Y-m-d H:i:s');
+        }
+
+        $newId = $this->directDebitModel->retry($debitId, $scheduledAt);
 
         if ($newId === null) {
             $this->setFlash('danger', 'Erreur lors de la réexécution du prélèvement.');
@@ -746,10 +761,12 @@ class ModerationController extends Controller
             return;
         }
 
+        $dateInfo = $scheduledAt ? ' pour le ' . (new \DateTime($scheduledAt))->format('d/m/Y à H\hi') : '';
         $this->setFlash('success', sprintf(
-            'Prélèvement #%d (mandat %s) reprogrammé → nouveau prélèvement #%d planifié.',
+            'Prélèvement #%d (mandat %s) reprogrammé%s → nouveau prélèvement #%d planifié.',
             $debitId,
             $directDebit['mandate_number'],
+            $dateInfo,
             $newId
         ));
         $this->redirect('/moderation/direct-debits');
@@ -1226,7 +1243,7 @@ class ModerationController extends Controller
 
         $data = $this->getPostData([
             'number', 'emitter_account_id', 'recipient_account_id',
-            'description', 'amount', 'type', 'interval_days',
+            'description', 'amount', 'type', 'interval_days', 'first_execution_at',
         ]);
 
         $number = trim($data['number'] ?? '');
@@ -1297,6 +1314,20 @@ class ModerationController extends Controller
             }
         }
 
+        $firstExecutionAt = null;
+        $rawDate = trim($data['first_execution_at'] ?? '');
+        if ($rawDate !== '') {
+            $dt = \DateTime::createFromFormat('Y-m-d\TH:i', $rawDate)
+               ?: \DateTime::createFromFormat('Y-m-d H:i:s', $rawDate)
+               ?: \DateTime::createFromFormat('Y-m-d H:i', $rawDate);
+            if (!$dt) {
+                $this->setFlash('danger', 'Date de première exécution invalide.');
+                $this->redirect('/moderation/mandates/create');
+                return;
+            }
+            $firstExecutionAt = $dt->format('Y-m-d H:i:s');
+        }
+
         $this->mandateModel->createMandate(
             $number,
             $emitterAccountId,
@@ -1305,7 +1336,8 @@ class ModerationController extends Controller
             $amount,
             $type,
             $intervalDays,
-            $this->getCurrentUserId()
+            $this->getCurrentUserId(),
+            $firstExecutionAt
         );
 
         $this->setFlash('success', sprintf(
