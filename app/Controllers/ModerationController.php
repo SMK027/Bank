@@ -1455,6 +1455,38 @@ class ModerationController extends Controller
         $history      = $this->rateModel->getHistory(30, $filterType);
         $eligibleTypes = Account::getInterestEligibleTypes();
 
+        // Filtre utilisateurs pour l'aperçu : IDs passés en GET (ex: ?user_ids[]=3&user_ids[]=7)
+        $filterUserIds = [];
+        if (!empty($_GET['user_ids']) && is_array($_GET['user_ids'])) {
+            foreach ($_GET['user_ids'] as $uid) {
+                $uid = (int) $uid;
+                if ($uid > 0) {
+                    $filterUserIds[] = $uid;
+                }
+            }
+            $filterUserIds = array_unique($filterUserIds);
+        }
+
+        // Résoudre les account_ids autorisés pour les utilisateurs filtrés
+        // (comptes propres, partagés et comptes de mineurs sous tutelle)
+        $allowedAccountIds = null; // null = tous les comptes
+        $filterUserLabels  = [];
+        if (!empty($filterUserIds)) {
+            $allowedAccountIds = [];
+            foreach ($filterUserIds as $uid) {
+                $user = $this->userModel->find($uid);
+                if (!$user) {
+                    continue;
+                }
+                $filterUserLabels[$uid] = $user['username'];
+                $accessible = $this->accountModel->getAccessibleAccounts($uid);
+                foreach (array_merge($accessible['own'], $accessible['shared']) as $acc) {
+                    $allowedAccountIds[] = (int) $acc['id'];
+                }
+            }
+            $allowedAccountIds = array_unique($allowedAccountIds);
+        }
+
         // Aperçu indicatif des intérêts en cours (?preview=1) — lecture seule, aucune écriture BDD.
         $previewResults = null;
         if (isset($_GET['preview'])) {
@@ -1466,7 +1498,13 @@ class ModerationController extends Controller
             }
             foreach ($eligibleTypes as $accountType) {
                 foreach ($this->accountModel->findBy(['type' => $accountType]) as $account) {
-                    $accountId   = (int) $account['id'];
+                    $accountId = (int) $account['id'];
+
+                    // Appliquer le filtre utilisateurs si actif
+                    if ($allowedAccountIds !== null && !in_array($accountId, $allowedAccountIds, true)) {
+                        continue;
+                    }
+
                     $accountRate = isset($account['interest_rate']) && $account['interest_rate'] !== null
                         ? (float) $account['interest_rate']
                         : 0.0;
@@ -1489,12 +1527,14 @@ class ModerationController extends Controller
         }
 
         $this->render('moderation/savings_rate', [
-            'title'          => 'Modération — Taux d\'intérêt épargne',
-            'allRates'       => $allRates,
-            'history'        => $history,
-            'eligibleTypes'  => $eligibleTypes,
-            'filterType'     => $filterType,
-            'previewResults' => $previewResults,
+            'title'            => 'Modération — Taux d\'intérêt épargne',
+            'allRates'         => $allRates,
+            'history'          => $history,
+            'eligibleTypes'    => $eligibleTypes,
+            'filterType'       => $filterType,
+            'filterUserIds'    => $filterUserIds,
+            'filterUserLabels' => $filterUserLabels,
+            'previewResults'   => $previewResults,
         ]);
     }
 

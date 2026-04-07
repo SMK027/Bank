@@ -97,15 +97,9 @@ foreach (Account::TYPES as $key => $def) { $typeMap[$key] = $def['label']; }
 
 <!-- Intérêts en cours — aperçu indicatif -->
 <div class="card" style="margin-bottom:1.5rem;border-left:4px solid #10b981;">
-    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;flex-wrap:wrap;">
-        <div style="display:flex;align-items:center;gap:0.6rem;">
-            <i class="bi bi-graph-up-arrow" style="color:#10b981;font-size:1.1rem;"></i>
-            <h3 style="margin:0;">Intérêts en cours <?= (int) date('Y') ?> <span style="font-size:0.7em;font-weight:400;color:var(--text-muted,#6b7280);">(aperçu indicatif)</span></h3>
-        </div>
-        <a href="/moderation/savings-rate?preview=1<?= $filterType ? '&type=' . urlencode($filterType) : '' ?>"
-           class="btn btn-outline btn-sm">
-            <i class="bi bi-arrow-clockwise"></i> Actualiser l'aperçu
-        </a>
+    <div class="card-header" style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;">
+        <i class="bi bi-graph-up-arrow" style="color:#10b981;font-size:1.1rem;"></i>
+        <h3 style="margin:0;">Intérêts en cours <?= (int) date('Y') ?> <span style="font-size:0.7em;font-weight:400;color:var(--text-muted,#6b7280);">(aperçu indicatif)</span></h3>
     </div>
     <div class="card-body">
         <p style="margin:0 0 0.8rem;color:var(--text-muted,#6b7280);font-size:0.85rem;">
@@ -113,13 +107,66 @@ foreach (Account::TYPES as $key => $def) { $typeMap[$key] = $def['label']; }
             jusqu'à aujourd'hui, calculée au prorata temporis (TWAB) pour chaque compte ayant un taux configuré.
             <strong>Aucune écriture en base — valeur purement indicative.</strong>
         </p>
+
+        <!-- Filtre utilisateurs + bouton de calcul -->
+        <form id="preview-form" method="GET" action="/moderation/savings-rate" style="margin-bottom:0.8rem;">
+            <input type="hidden" name="preview" value="1">
+            <?php if ($filterType): ?>
+            <input type="hidden" name="type" value="<?= e($filterType) ?>">
+            <?php endif; ?>
+
+            <div style="display:flex;gap:0.5rem;align-items:flex-start;flex-wrap:wrap;">
+                <!-- Champ autocomplete utilisateurs -->
+                <div style="position:relative;flex:1;min-width:220px;max-width:380px;">
+                    <input type="text" id="user-search-input" autocomplete="off"
+                           placeholder="Filtrer par utilisateur…"
+                           class="form-control"
+                           style="padding:0.4rem 0.6rem;font-size:0.85rem;">
+                    <ul id="user-search-dropdown"
+                        style="display:none;position:absolute;top:100%;left:0;right:0;z-index:200;
+                               background:var(--card-bg,#fff);border:1px solid var(--border-color,#e5e7eb);
+                               border-radius:0.375rem;box-shadow:0 4px 12px rgba(0,0,0,.1);
+                               list-style:none;margin:0.2rem 0 0;padding:0;max-height:200px;overflow-y:auto;">
+                    </ul>
+                </div>
+
+                <!-- Badges des utilisateurs sélectionnés + champs cachés -->
+                <div id="user-filter-tags" style="display:flex;gap:0.35rem;flex-wrap:wrap;align-items:center;">
+                    <?php foreach ($filterUserIds as $uid): ?>
+                    <span class="badge" data-uid="<?= (int) $uid ?>"
+                          style="display:inline-flex;align-items:center;gap:0.25rem;
+                                 background:var(--primary,#6366f1);color:#fff;
+                                 padding:0.25rem 0.55rem;border-radius:999px;font-size:0.8rem;">
+                        <?= e($filterUserLabels[$uid] ?? ('#' . $uid)) ?>
+                        <button type="button" onclick="removeUser(<?= (int) $uid ?>)"
+                                title="Retirer" aria-label="Retirer"
+                                style="background:none;border:none;color:#fff;cursor:pointer;
+                                       padding:0;line-height:1;font-size:1rem;">&times;</button>
+                        <input type="hidden" name="user_ids[]" value="<?= (int) $uid ?>">
+                    </span>
+                    <?php endforeach; ?>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-sm" style="white-space:nowrap;">
+                    <i class="bi bi-arrow-clockwise"></i>
+                    <?= empty($filterUserIds) ? 'Calculer pour tous' : 'Actualiser l\'aperçu' ?>
+                </button>
+                <?php if (!empty($filterUserIds)): ?>
+                <a href="/moderation/savings-rate?preview=1<?= $filterType ? '&type=' . urlencode($filterType) : '' ?>"
+                   class="btn btn-outline btn-sm" style="white-space:nowrap;">
+                    <i class="bi bi-x-circle"></i> Tous les comptes
+                </a>
+                <?php endif; ?>
+            </div>
+        </form>
+
         <?php if ($previewResults === null): ?>
             <p class="text-muted" style="font-size:0.88rem;margin:0;">
-                <i class="bi bi-info-circle"></i> Cliquez sur « Actualiser l'aperçu » pour calculer.
+                <i class="bi bi-info-circle"></i> Cliquez sur « Calculer pour tous » pour afficher l'aperçu.
             </p>
         <?php elseif (empty($previewResults)): ?>
             <p class="text-muted" style="font-size:0.88rem;margin:0;">
-                <i class="bi bi-dash-circle"></i> Aucun compte éligible avec un taux configuré.
+                <i class="bi bi-dash-circle"></i> Aucun compte éligible avec un taux configuré<?= !empty($filterUserIds) ? ' pour les utilisateurs sélectionnés' : '' ?>.
             </p>
         <?php else: ?>
             <table class="table" style="margin:0;">
@@ -168,10 +215,93 @@ foreach (Account::TYPES as $key => $def) { $typeMap[$key] = $def['label']; }
             </table>
             <p style="margin:0.6rem 0 0;font-size:0.78rem;color:var(--text-muted,#6b7280);">
                 <i class="bi bi-clock"></i> Calculé le <?= date('d/m/Y à H\hi') ?>
+                <?php if (!empty($filterUserIds)): ?>
+                — filtre : <?= e(implode(', ', array_values($filterUserLabels))) ?>
+                <?php endif; ?>
             </p>
         <?php endif; ?>
     </div>
 </div>
+
+<script>
+(function () {
+    const input    = document.getElementById('user-search-input');
+    const dropdown = document.getElementById('user-search-dropdown');
+    const tagsDiv  = document.getElementById('user-filter-tags');
+    let debounce;
+
+    // IDs déjà sélectionnés (pré-remplis depuis PHP)
+    const selected = new Set(
+        [...tagsDiv.querySelectorAll('[data-uid]')].map(el => parseInt(el.dataset.uid, 10))
+    );
+
+    input.addEventListener('input', () => {
+        clearTimeout(debounce);
+        const q = input.value.trim();
+        if (q.length < 2) { hideDropdown(); return; }
+        debounce = setTimeout(() => fetchUsers(q), 220);
+    });
+
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Escape') hideDropdown();
+    });
+
+    document.addEventListener('click', e => {
+        if (!input.contains(e.target) && !dropdown.contains(e.target)) hideDropdown();
+    });
+
+    function fetchUsers(q) {
+        fetch('/moderation/users/search?q=' + encodeURIComponent(q))
+            .then(r => r.json())
+            .then(rows => {
+                dropdown.innerHTML = '';
+                const filtered = rows.filter(r => !selected.has(r.id));
+                if (!filtered.length) { hideDropdown(); return; }
+                filtered.forEach(user => {
+                    const li = document.createElement('li');
+                    li.textContent = user.label;
+                    li.style.cssText = 'padding:0.45rem 0.75rem;cursor:pointer;font-size:0.85rem;';
+                    li.addEventListener('mouseenter', () => li.style.background = 'var(--hover-bg,#f3f4f6)');
+                    li.addEventListener('mouseleave', () => li.style.background = '');
+                    li.addEventListener('mousedown', e => { e.preventDefault(); addUser(user); });
+                    dropdown.appendChild(li);
+                });
+                dropdown.style.display = 'block';
+            })
+            .catch(() => hideDropdown());
+    }
+
+    function addUser(user) {
+        if (selected.has(user.id)) { hideDropdown(); return; }
+        selected.add(user.id);
+
+        const span = document.createElement('span');
+        span.className = 'badge';
+        span.dataset.uid = user.id;
+        span.style.cssText = 'display:inline-flex;align-items:center;gap:0.25rem;background:var(--primary,#6366f1);color:#fff;padding:0.25rem 0.55rem;border-radius:999px;font-size:0.8rem;';
+        span.innerHTML =
+            escHtml(user.username) +
+            `<button type="button" title="Retirer" aria-label="Retirer" onclick="removeUser(${user.id})" style="background:none;border:none;color:#fff;cursor:pointer;padding:0;line-height:1;font-size:1rem;">&times;</button>` +
+            `<input type="hidden" name="user_ids[]" value="${user.id}">`;
+        tagsDiv.appendChild(span);
+
+        input.value = '';
+        hideDropdown();
+    }
+
+    window.removeUser = function (uid) {
+        selected.delete(uid);
+        const el = tagsDiv.querySelector('[data-uid="' + uid + '"]');
+        if (el) el.remove();
+    };
+
+    function hideDropdown() { dropdown.style.display = 'none'; }
+
+    function escHtml(str) {
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+})();
+</script>
 
 <!-- Historique -->
 <div class="card">
