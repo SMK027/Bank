@@ -20,6 +20,20 @@ services:
       - DB_DATABASE=${DB_DATABASE:-bankapp}
       - DB_USERNAME=${DB_USERNAME:-bankapp}
       - DB_PASSWORD=${DB_PASSWORD:-bankapp_secret}
+      - MAIL_HOST=mailpit
+      - MAIL_PORT=1025
+      - MAIL_FROM=noreply@bankapp.local
+      - MAIL_FROM_NAME=BankApp
+      - MAIL_ENCRYPTION=
+      - MAIL_USERNAME=
+      - MAIL_PASSWORD=
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: bankapp_mailpit
+    ports:
+      - "8025:8025"  # Interface web Mailpit
     restart: unless-stopped
 
   db:

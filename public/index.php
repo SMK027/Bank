@@ -60,6 +60,10 @@ $router->post('/login/pin', AuthController::class, 'loginPin');
 $router->get('/register', AuthController::class, 'registerForm');
 $router->post('/register', AuthController::class, 'register');
 $router->get('/logout', AuthController::class, 'logout');
+$router->get('/forgot-password', AuthController::class, 'forgotPasswordForm');
+$router->post('/forgot-password', AuthController::class, 'forgotPassword');
+$router->get('/reset-password/{token}', AuthController::class, 'resetPasswordForm');
+$router->post('/reset-password/{token}', AuthController::class, 'resetPassword');
 
 // --- Dashboard ---
 $router->get('/dashboard', DashboardController::class, 'index');

@@ -25,10 +25,12 @@ class AuditLog extends Model
     // ── Constantes d'actions ────────────────────────────────────────────────
 
     // Authentification
-    public const ACTION_AUTH_LOGIN        = 'auth.login';
-    public const ACTION_AUTH_LOGIN_FAILED = 'auth.login_failed';
-    public const ACTION_AUTH_LOGOUT       = 'auth.logout';
-    public const ACTION_AUTH_REGISTER     = 'auth.register';
+    public const ACTION_AUTH_LOGIN                  = 'auth.login';
+    public const ACTION_AUTH_LOGIN_FAILED           = 'auth.login_failed';
+    public const ACTION_AUTH_LOGOUT                 = 'auth.logout';
+    public const ACTION_AUTH_REGISTER               = 'auth.register';
+    public const ACTION_AUTH_PASSWORD_RESET_REQUEST = 'auth.password_reset_request';
+    public const ACTION_AUTH_PASSWORD_RESET         = 'auth.password_reset';
 
     // Comptes bancaires
     public const ACTION_ACCOUNT_CREATE   = 'account.create';
@@ -93,7 +95,9 @@ class AuditLog extends Model
         'auth.login'               => 'Connexion',
         'auth.login_failed'        => 'Échec de connexion',
         'auth.logout'              => 'Déconnexion',
-        'auth.register'            => 'Inscription',
+        'auth.register'                  => 'Inscription',
+        'auth.password_reset_request'    => 'Demande de réinitialisation de mot de passe',
+        'auth.password_reset'            => 'Mot de passe réinitialisé',
         'account.create'           => 'Création de compte',
         'account.delete'           => 'Suppression de compte',
         'account.freeze'           => 'Compte gelé',

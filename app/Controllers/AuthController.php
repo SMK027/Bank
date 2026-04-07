@@ -8,7 +8,9 @@ use App\Core\Controller;
 use App\Core\Session;
 use App\Models\Account;
 use App\Models\AuditLog;
+use App\Models\PasswordReset;
 use App\Models\User;
+use App\Services\Mailer;
 
 /**
  * Contrôleur d'authentification.
@@ -255,6 +257,115 @@ class AuthController extends Controller
         Session::start();
         AuditLog::log($uid, AuditLog::ACTION_AUTH_LOGOUT, []);
         $this->setFlash('success', 'Vous avez été déconnecté.');
+        $this->redirect('/login');
+    }
+
+    // ─── Réinitialisation du mot de passe ───────────────────────────────────
+
+    /**
+     * Formulaire de demande de réinitialisation.
+     */
+    public function forgotPasswordForm(): void
+    {
+        $this->render('auth/forgot_password', ['title' => 'Mot de passe oublié']);
+    }
+
+    /**
+     * Traitement de la demande : génère un token et envoie l'email.
+     * La réponse est volontairement neutre pour ne pas révéler l'existence d'un compte.
+     */
+    public function forgotPassword(): void
+    {
+        $this->validateCSRF();
+        $email = trim($this->getPostData(['email'])['email'] ?? '');
+
+        if ($email !== '') {
+            $user = $this->userModel->findByEmail($email);
+            if ($user) {
+                $resetModel = new PasswordReset();
+                $token      = $resetModel->createToken((int)$user['id']);
+                $appUrl     = rtrim(getenv('APP_URL') ?: 'http://localhost:8080', '/');
+                $resetUrl   = "{$appUrl}/reset-password/{$token}";
+
+                try {
+                    (new Mailer())->sendPasswordReset($email, $user['username'], $resetUrl);
+                } catch (\Throwable) {
+                    // L'email est silencieusement ignoré pour ne pas bloquer
+                }
+
+                AuditLog::log(
+                    (int)$user['id'],
+                    AuditLog::ACTION_AUTH_PASSWORD_RESET_REQUEST,
+                    ['email' => $email],
+                    targetUserId: (int)$user['id']
+                );
+            }
+        }
+
+        // Toujours le même message pour éviter l'énumération d'emails
+        $this->setFlash('success', 'Si cette adresse email est associée à un compte, vous recevrez un lien de réinitialisation sous quelques instants.');
+        $this->redirect('/forgot-password');
+    }
+
+    /**
+     * Formulaire de saisie du nouveau mot de passe.
+     */
+    public function resetPasswordForm(string $token): void
+    {
+        $resetModel = new PasswordReset();
+        $record     = $resetModel->findValidByToken($token);
+
+        if (!$record) {
+            $this->setFlash('danger', 'Ce lien de réinitialisation est invalide ou a expiré.');
+            $this->redirect('/forgot-password');
+            return;
+        }
+
+        $this->render('auth/reset_password', [
+            'title' => 'Nouveau mot de passe',
+            'token' => $token,
+        ]);
+    }
+
+    /**
+     * Traitement du nouveau mot de passe.
+     */
+    public function resetPassword(string $token): void
+    {
+        $this->validateCSRF();
+
+        $resetModel = new PasswordReset();
+        $record     = $resetModel->findValidByToken($token);
+
+        if (!$record) {
+            $this->setFlash('danger', 'Ce lien de réinitialisation est invalide ou a expiré.');
+            $this->redirect('/forgot-password');
+            return;
+        }
+
+        $data     = $this->getPostData(['password', 'password_confirm']);
+        $password = $data['password']         ?? '';
+        $confirm  = $data['password_confirm'] ?? '';
+
+        if (strlen($password) < 8) {
+            $this->setFlash('danger', 'Le mot de passe doit contenir au moins 8 caractères.');
+            $this->redirect("/reset-password/{$token}");
+            return;
+        }
+
+        if ($password !== $confirm) {
+            $this->setFlash('danger', 'Les mots de passe ne correspondent pas.');
+            $this->redirect("/reset-password/{$token}");
+            return;
+        }
+
+        $userId = (int)$record['user_id'];
+        $this->userModel->updatePassword($userId, $password);
+        $resetModel->markUsed((int)$record['id']);
+
+        AuditLog::log($userId, AuditLog::ACTION_AUTH_PASSWORD_RESET, [], targetUserId: $userId);
+
+        $this->setFlash('success', 'Votre mot de passe a été réinitialisé avec succès. Vous pouvez maintenant vous connecter.');
         $this->redirect('/login');
     }
 }

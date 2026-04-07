@@ -27,6 +27,9 @@
                 Pas encore de compte ? <a href="/register">Créer un compte</a>
             </p>
             <p class="text-center text-muted text-small">
+                <a href="/forgot-password"><i class="bi bi-key"></i> Mot de passe oublié ?</a>
+            </p>
+            <p class="text-center text-muted text-small">
                 <a href="/login/pin"><i class="bi bi-shield-lock"></i> Se connecter avec un numéro de compte et un code PIN</a>
             </p>
         </div>
