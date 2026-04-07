@@ -992,25 +992,24 @@ class ModerationController extends Controller
 
         $allUsers   = $this->userModel->findAll('username', 'ASC');
         $minorUsers = array_values(array_filter($allUsers, fn($u) => User::isMinorFromDate($u['birth_date'] ?? null)));
-        $adultUsers = array_values(array_filter($allUsers, fn($u) => !User::isMinorFromDate($u['birth_date'] ?? null)));
 
         $this->render('moderation/minor_account_create', [
             'title'      => 'Modération — Nouveau compte mineur',
             'minorUsers' => $minorUsers,
-            'adultUsers' => $adultUsers,
             'csrfToken'  => csrf_token(),
         ]);
     }
 
     /**
-     * Créer un compte mineur avec ses tuteurs légaux (POST).
+     * Créer un compte mineur (POST).
+     * Les tutelles légales doivent être configurées séparément avant la création du compte.
      */
     public function createMinorAccount(): void
     {
         $this->requireModerator();
         $this->validateCSRF();
 
-        $data = $this->getPostData(['minor_user_id', 'name', 'currency', 'guardian_1_id', 'guardian_2_id']);
+        $data = $this->getPostData(['minor_user_id', 'name', 'currency']);
 
         $minorUserId = (int) ($data['minor_user_id'] ?? 0);
         $minor       = $minorUserId > 0 ? $this->userModel->find($minorUserId) : null;
@@ -1030,66 +1029,19 @@ class ModerationController extends Controller
         $allowedCurrencies = ['EUR', 'USD', 'GBP', 'CHF', 'CAD', 'JPY', 'XOF', 'MAD'];
         $currency = in_array($data['currency'] ?? '', $allowedCurrencies, true) ? $data['currency'] : 'EUR';
 
-        // Premier tuteur (obligatoire)
-        $guardian1Id = (int) ($data['guardian_1_id'] ?? 0);
-        $guardian1   = $guardian1Id > 0 ? $this->userModel->find($guardian1Id) : null;
-        if (!$guardian1 || User::isMinorFromDate($guardian1['birth_date'] ?? null)) {
-            $this->setFlash('danger', 'Le premier responsable légal doit être un utilisateur adulte.');
-            $this->redirect('/moderation/minor-accounts/create');
-            return;
-        }
-        if ($guardian1Id === $minorUserId) {
-            $this->setFlash('danger', 'Le responsable légal ne peut pas être le mineur lui-même.');
-            $this->redirect('/moderation/minor-accounts/create');
-            return;
-        }
-
-        // Second tuteur (facultatif)
-        $guardian2Raw = trim($data['guardian_2_id'] ?? '');
-        $guardian2Id  = ($guardian2Raw !== '' && $guardian2Raw !== '0') ? (int) $guardian2Raw : 0;
-        $guardian2    = null;
-        if ($guardian2Id > 0) {
-            $guardian2 = $this->userModel->find($guardian2Id);
-            if (!$guardian2 || User::isMinorFromDate($guardian2['birth_date'] ?? null)) {
-                $this->setFlash('danger', 'Le second responsable légal doit être un utilisateur adulte.');
-                $this->redirect('/moderation/minor-accounts/create');
-                return;
-            }
-            if ($guardian2Id === $guardian1Id) {
-                $this->setFlash('danger', 'Les deux responsables légaux doivent être des personnes différentes.');
-                $this->redirect('/moderation/minor-accounts/create');
-                return;
-            }
-            if ($guardian2Id === $minorUserId) {
-                $this->setFlash('danger', 'Le responsable légal ne peut pas être le mineur lui-même.');
-                $this->redirect('/moderation/minor-accounts/create');
-                return;
-            }
-        }
-
         $moderatorId = $this->getCurrentUserId();
 
-        // Créer le compte mineur
         $minorAccountId = $this->accountModel->createAccount($minorUserId, $name, $currency, 0.0, 'minor', null);
 
-        // Créer les tutelles
-        $this->guardianshipModel->addGuardian($minorUserId, $guardian1Id, $moderatorId);
-        if ($guardian2Id > 0) {
-            $this->guardianshipModel->addGuardian($minorUserId, $guardian2Id, $moderatorId);
-        }
-
         AuditLog::log($moderatorId, AuditLog::ACTION_MINOR_ACCOUNT_CREATE, [
-            'name'     => $name,
-            'minor'    => $minor['username'],
-            'guardian' => $guardian1['username'] . ($guardian2 ? ', ' . $guardian2['username'] : ''),
+            'name'  => $name,
+            'minor' => $minor['username'],
         ], targetUserId: $minorUserId, targetAccountId: $minorAccountId);
 
         $this->setFlash('success', sprintf(
-            'Compte mineur « %s » créé pour %s. Responsable(s) légal(aux) : %s%s.',
+            'Compte mineur « %s » créé pour %s.',
             $name,
-            $minor['username'],
-            $guardian1['username'],
-            $guardian2 ? ', ' . $guardian2['username'] : ''
+            $minor['username']
         ));
         $this->redirect('/moderation/guardianships');
     }

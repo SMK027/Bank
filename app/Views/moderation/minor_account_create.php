@@ -1,7 +1,7 @@
 <div class="page-header">
     <div>
         <h1><i class="bi bi-person-plus"></i> Nouveau compte mineur</h1>
-        <p class="page-description">Créer un compte bancaire pour un utilisateur mineur et désigner ses responsables légaux</p>
+        <p class="page-description">Créer un compte bancaire pour un utilisateur mineur</p>
     </div>
     <div style="display:flex;gap:0.5rem;">
         <a href="/moderation/guardianships" class="btn btn-outline btn-sm">
@@ -28,9 +28,8 @@
     <i class="bi bi-shield-lock" style="font-size:1.3rem;color:var(--warning,#f59e0b);flex-shrink:0;"></i>
     <div style="font-size:0.88rem;">
         <strong>Compte à supervision légale obligatoire.</strong><br>
-        Un compte mineur est soumis à la tutelle d'un ou deux adultes désignés comme responsables légaux.
-        Ces personnes auront automatiquement <strong>procuration sur tous les comptes du mineur</strong> tant qu'il n'est pas majeur.
-        À ses 18 ans, toutes les procurations expirent et doivent être remises en place manuellement.
+        Avant de créer un compte mineur, assurez-vous que les <a href="/moderation/guardianships">tutelles légales</a> du mineur sont déjà en place.
+        Les responsables légaux auront automatiquement <strong>procuration sur tous les comptes du mineur</strong> tant qu'il n'est pas majeur.
     </div>
 </div>
 
@@ -90,58 +89,8 @@
                 </select>
             </div>
 
-            <hr style="margin:1.2rem 0;border-color:var(--border-color);">
-            <h3 style="margin:0 0 1rem;font-size:1rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">
-                <i class="bi bi-people"></i> Responsables légaux
-            </h3>
-
-            <?php if (empty($adultUsers)): ?>
-            <div class="alert alert-warning" style="font-size:0.88rem;">
-                <i class="bi bi-exclamation-triangle"></i>
-                Aucun utilisateur adulte disponible pour être désigné responsable légal.
-            </div>
-            <?php else: ?>
-
-            <div class="form-group">
-                <label for="guardian_1_id_search" class="form-label">
-                    Responsable légal principal <span style="color:var(--danger)">*</span>
-                </label>
-                <input type="hidden" id="guardian_1_id" name="guardian_1_id" value="">
-                <div class="ac-wrap" style="position:relative;">
-                    <input type="text" id="guardian_1_id_search" class="form-control"
-                           placeholder="Rechercher un adulte…" autocomplete="off">
-                    <div id="guardian_1_id_results" class="ac-results" style="display:none;position:absolute;z-index:200;width:100%;background:var(--card-bg,#fff);border:1px solid var(--border-color);border-radius:4px;max-height:200px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.15);"></div>
-                    <div id="guardian_1_id_selected" style="display:none;align-items:center;gap:0.4rem;margin-top:0.35rem;background:rgba(59,130,246,0.08);border-radius:6px;padding:0.3rem 0.7rem;font-size:0.83rem;">
-                        <i class="bi bi-person-check" style="color:#3b82f6;"></i>
-                        <span id="guardian_1_id_label"></span>
-                        <button type="button" onclick="clearUserAc('guardian_1_id')" style="background:none;border:none;cursor:pointer;padding:0 0 0 0.3rem;color:var(--text-muted);font-size:1rem;line-height:1;margin-left:auto;">×</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label for="guardian_2_id_search" class="form-label">
-                    Second responsable légal
-                    <span style="color:var(--text-muted);font-size:0.8rem;">(facultatif — max 2)</span>
-                </label>
-                <input type="hidden" id="guardian_2_id" name="guardian_2_id" value="">
-                <div class="ac-wrap" style="position:relative;">
-                    <input type="text" id="guardian_2_id_search" class="form-control"
-                           placeholder="Rechercher un adulte… (laisser vide si aucun)" autocomplete="off">
-                    <div id="guardian_2_id_results" class="ac-results" style="display:none;position:absolute;z-index:200;width:100%;background:var(--card-bg,#fff);border:1px solid var(--border-color);border-radius:4px;max-height:200px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.15);"></div>
-                    <div id="guardian_2_id_selected" style="display:none;align-items:center;gap:0.4rem;margin-top:0.35rem;background:rgba(59,130,246,0.08);border-radius:6px;padding:0.3rem 0.7rem;font-size:0.83rem;">
-                        <i class="bi bi-person-check" style="color:#3b82f6;"></i>
-                        <span id="guardian_2_id_label"></span>
-                        <button type="button" onclick="clearUserAc('guardian_2_id')" style="background:none;border:none;cursor:pointer;padding:0 0 0 0.3rem;color:var(--text-muted);font-size:1rem;line-height:1;margin-left:auto;">×</button>
-                    </div>
-                </div>
-            </div>
-
-            <?php endif; ?>
-
             <div class="form-group" style="margin-top:1.5rem;">
-                <button type="submit" class="btn btn-primary btn-block"
-                    <?= empty($adultUsers) ? 'disabled' : '' ?>>
+                <button type="submit" class="btn btn-primary btn-block">
                     <i class="bi bi-check-lg"></i> Créer le compte mineur
                 </button>
             </div>
@@ -230,14 +179,7 @@ document.querySelector('form[action="/moderation/minor-accounts"]').addEventList
         alert('Veuillez sélectionner un mineur.');
         return;
     }
-    if (!document.getElementById('guardian_1_id').value) {
-        e.preventDefault();
-        alert('Veuillez sélectionner le responsable légal principal.');
-        return;
-    }
 });
 
 setupUserAc('minor_user_id',  'minor');
-setupUserAc('guardian_1_id',  'adult');
-setupUserAc('guardian_2_id',  'adult');
 </script>
