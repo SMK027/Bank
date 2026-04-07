@@ -14,7 +14,7 @@ services:
       # Routeur HTTPS
       - "traefik.http.routers.bankapp.rule=Host(`${APP_DOMAIN}`)"
       - "traefik.http.routers.bankapp.entrypoints=websecure"
-      - "traefik.http.routers.bankapp.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.bankapp.tls.certresolver=le"
       - "traefik.http.services.bankapp.loadbalancer.server.port=8080"
       - "traefik.docker.network=proxy"
       # Redirection HTTP → HTTPS
