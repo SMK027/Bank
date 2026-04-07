@@ -1,11 +1,21 @@
 version: '3.8'
 
 services:
+  nginx:
+    image: nginx:alpine
+    container_name: bankapp_nginx
+    ports:
+      - "8083:80"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+
   app:
     build: .
     container_name: bankapp_web
-    ports:
-      - "8083:80"
+    # Plus de port exposé directement : nginx fait le frontal
     volumes:
       - .:/var/www/html
     depends_on:

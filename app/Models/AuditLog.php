@@ -159,11 +159,56 @@ class AuditLog extends Model
                 'details'           => $details ? json_encode($details, JSON_UNESCAPED_UNICODE) : null,
                 'target_user_id'    => $targetUserId,
                 'target_account_id' => $targetAccountId,
-                'ip_address'        => $ip ?? ($_SERVER['REMOTE_ADDR'] ?? null),
+                'ip_address'        => $ip ?? self::resolveClientIp(),
             ]);
         } catch (\Throwable) {
             // L'audit ne doit jamais bloquer l'opération principale.
         }
+    }
+
+    /**
+     * Résout l'IP réelle du client en tenant compte des proxies de confiance.
+     *
+     * X-Forwarded-For peut contenir plusieurs adresses séparées par des virgules :
+     *   client, proxy1, proxy2
+     * On prend la première (la plus à gauche), qui est l'IP du client d'origine.
+     * On valide que c'est bien une adresse IP (filter_var) pour rejeter toute
+     * valeur forgée par un attaquant qui enverrait un en-tête arbitraire.
+     *
+     * Note : cette résolution ne s'applique que si REMOTE_ADDR est une IP privée
+     * (Gateway Docker, reverse-proxy local…), afin de ne pas faire confiance
+     * à X-Forwarded-For envoyé directement par un client non proxifié.
+     */
+    private static function resolveClientIp(): ?string
+    {
+        $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? null;
+
+        // Si le serveur est directement exposé (IP publique), on l'utilise telle quelle.
+        if ($remoteAddr !== null && !self::isPrivateIp($remoteAddr)) {
+            return $remoteAddr;
+        }
+
+        // Derrière un proxy (Docker gateway, reverse-proxy) : lire X-Forwarded-For.
+        $xff = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? null;
+        if ($xff !== null) {
+            // Prendre la première IP de la chaîne (le client d'origine).
+            $candidate = trim(explode(',', $xff)[0]);
+            if (filter_var($candidate, FILTER_VALIDATE_IP) !== false) {
+                return $candidate;
+            }
+        }
+
+        return $remoteAddr;
+    }
+
+    /** Retourne true si l'IP est dans un espace d'adressage privé (RFC 1918 / loopback / link-local). */
+    private static function isPrivateIp(string $ip): bool
+    {
+        return filter_var(
+            $ip,
+            FILTER_VALIDATE_IP,
+            FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+        ) === false;
     }
 
     // ── Lecture ──────────────────────────────────────────────────────────────
