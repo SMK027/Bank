@@ -31,6 +31,7 @@ class AuditLog extends Model
     public const ACTION_AUTH_REGISTER               = 'auth.register';
     public const ACTION_AUTH_PASSWORD_RESET_REQUEST = 'auth.password_reset_request';
     public const ACTION_AUTH_PASSWORD_RESET         = 'auth.password_reset';
+    public const ACTION_AUTH_IP_BLOCKED             = 'auth.ip_blocked';
 
     // Comptes bancaires
     public const ACTION_ACCOUNT_CREATE   = 'account.create';
@@ -98,6 +99,7 @@ class AuditLog extends Model
         'auth.register'                  => 'Inscription',
         'auth.password_reset_request'    => 'Demande de réinitialisation de mot de passe',
         'auth.password_reset'            => 'Mot de passe réinitialisé',
+        'auth.ip_blocked'                => 'IP bloquée (tentatives de connexion excessives)',
         'account.create'           => 'Création de compte',
         'account.delete'           => 'Suppression de compte',
         'account.freeze'           => 'Compte gelé',

@@ -8,6 +8,7 @@ use App\Core\Controller;
 use App\Core\Session;
 use App\Models\Account;
 use App\Models\AuditLog;
+use App\Models\LoginRateLimit;
 use App\Models\PasswordReset;
 use App\Models\User;
 use App\Services\Mailer;
@@ -19,11 +20,13 @@ use App\Services\Mailer;
  */
 class AuthController extends Controller
 {
-    private User $userModel;
+    private User           $userModel;
+    private LoginRateLimit $rateLimitModel;
 
     public function __construct()
     {
-        $this->userModel = new User();
+        $this->userModel      = new User();
+        $this->rateLimitModel = new LoginRateLimit();
     }
 
     /**
@@ -31,6 +34,12 @@ class AuthController extends Controller
      */
     public function loginForm(): void
     {
+        $ip           = LoginRateLimit::resolveClientIp();
+        $blockedUntil = $this->rateLimitModel->getBlockedUntil($ip);
+        if ($blockedUntil !== null) {
+            $remaining = $this->minutesRemaining($blockedUntil);
+            $this->setFlash('danger', "Trop de tentatives de connexion \u00e9chou\u00e9es. Votre acc\u00e8s est bloqu\u00e9. R\u00e9essayez dans {$remaining}\u00a0minute" . ($remaining > 1 ? 's' : '') . '.');
+        }
         $this->render('auth/login', ['title' => 'Connexion']);
     }
 
@@ -40,6 +49,16 @@ class AuthController extends Controller
     public function login(): void
     {
         $this->validateCSRF();
+
+        $ip = LoginRateLimit::resolveClientIp();
+        if ($this->rateLimitModel->isBlocked($ip)) {
+            AuditLog::log(null, AuditLog::ACTION_AUTH_LOGIN_FAILED, ['ip_blocked' => true]);
+            $remaining = $this->minutesRemaining($this->rateLimitModel->getBlockedUntil($ip));
+            $this->setFlash('danger', "Trop de tentatives de connexion \u00e9chou\u00e9es. R\u00e9essayez dans {$remaining}\u00a0minute" . ($remaining > 1 ? 's' : '') . '.');
+            $this->redirect('/login');
+            return;
+        }
+
         $data = $this->getPostData(['email', 'password']);
 
         if (empty($data['email']) || empty($data['password'])) {
@@ -51,11 +70,20 @@ class AuthController extends Controller
         $user = $this->userModel->authenticate($data['email'], $data['password']);
 
         if (!$user) {
+            $justBlocked = $this->rateLimitModel->recordFailedAttempt($ip);
             AuditLog::log(null, AuditLog::ACTION_AUTH_LOGIN_FAILED, ['email' => $data['email']]);
-            $this->setFlash('danger', 'Identifiants incorrects.');
+            if ($justBlocked) {
+                AuditLog::log(null, AuditLog::ACTION_AUTH_IP_BLOCKED, ['ip' => $ip]);
+                $this->setFlash('danger', 'Trop de tentatives de connexion échouées. Votre accès est bloqué pendant 30 minutes.');
+            } else {
+                $this->setFlash('danger', 'Identifiants incorrects.');
+            }
             $this->redirect('/login');
             return;
         }
+
+        // Identifiants corrects : réinitialiser le compteur de tentatives
+        $this->rateLimitModel->clearIp($ip);
 
         // Vérifier que le compte n'est pas suspendu ou banni
         $status = $user['status'] ?? 'active';
@@ -98,6 +126,13 @@ class AuthController extends Controller
         $raw      = strtoupper(trim($_GET['account'] ?? ''));
         $prefilled = preg_match('/^BK\d{8}$/', $raw) ? $raw : '';
 
+        $ip           = LoginRateLimit::resolveClientIp();
+        $blockedUntil = $this->rateLimitModel->getBlockedUntil($ip);
+        if ($blockedUntil !== null) {
+            $remaining = $this->minutesRemaining($blockedUntil);
+            $this->setFlash('danger', "Trop de tentatives de connexion \u00e9chou\u00e9es. Votre acc\u00e8s est bloqu\u00e9. R\u00e9essayez dans {$remaining}\u00a0minute" . ($remaining > 1 ? 's' : '') . '.');
+        }
+
         $this->render('auth/login_pin', [
             'title'     => 'Connexion par code PIN',
             'prefilled' => $prefilled,
@@ -110,6 +145,16 @@ class AuthController extends Controller
     public function loginPin(): void
     {
         $this->validateCSRF();
+
+        $ip = LoginRateLimit::resolveClientIp();
+        if ($this->rateLimitModel->isBlocked($ip)) {
+            AuditLog::log(null, AuditLog::ACTION_AUTH_LOGIN_FAILED, ['ip_blocked' => true]);
+            $remaining = $this->minutesRemaining($this->rateLimitModel->getBlockedUntil($ip));
+            $this->setFlash('danger', "Trop de tentatives de connexion \u00e9chou\u00e9es. R\u00e9essayez dans {$remaining}\u00a0minute" . ($remaining > 1 ? 's' : '') . '.');
+            $this->redirect('/login/pin');
+            return;
+        }
+
         $data = $this->getPostData(['account_number', 'pin']);
 
         $accountNumber = trim($data['account_number'] ?? '');
@@ -130,11 +175,20 @@ class AuthController extends Controller
         $user = $this->userModel->authenticateByPin($accountNumber, $pin);
 
         if (!$user) {
+            $justBlocked = $this->rateLimitModel->recordFailedAttempt($ip);
             AuditLog::log(null, AuditLog::ACTION_AUTH_LOGIN_FAILED, ['account_number' => $accountNumber]);
-            $this->setFlash('danger', 'Numéro de compte ou code PIN incorrect.');
+            if ($justBlocked) {
+                AuditLog::log(null, AuditLog::ACTION_AUTH_IP_BLOCKED, ['ip' => $ip]);
+                $this->setFlash('danger', 'Trop de tentatives de connexion échouées. Votre accès est bloqué pendant 30 minutes.');
+            } else {
+                $this->setFlash('danger', 'Numéro de compte ou code PIN incorrect.');
+            }
             $this->redirect('/login/pin');
             return;
         }
+
+        // Identifiants corrects : réinitialiser le compteur de tentatives
+        $this->rateLimitModel->clearIp($ip);
 
         // Vérifier que le compte n'est pas suspendu ou banni
         $status = $user['status'] ?? 'active';
@@ -367,5 +421,18 @@ class AuthController extends Controller
 
         $this->setFlash('success', 'Votre mot de passe a été réinitialisé avec succès. Vous pouvez maintenant vous connecter.');
         $this->redirect('/login');
+    }
+
+    // ─── Helpers privés ─────────────────────────────────────────────────────
+
+    /**
+     * Calcule le nombre de minutes restantes avant la fin d'un blocage IP.
+     */
+    private function minutesRemaining(?string $blockedUntil): int
+    {
+        if ($blockedUntil === null) {
+            return 0;
+        }
+        return max(1, (int) ceil((strtotime($blockedUntil) - time()) / 60));
     }
 }
