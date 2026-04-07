@@ -106,11 +106,11 @@
         <div class="stat-label">Solde à venir (<?= e($account['currency']) ?>)</div>
     </div>
     <?php endif; ?>
-    <div class="stat-card">
+    <div class="stat-card stat-hide-mobile">
         <div class="stat-value text-success"><?= number_format($totalIncome, 2, ',', ' ') ?></div>
         <div class="stat-label">Total entrées<?= $hasPending && $totalIncomeFuture > $totalIncome ? ' <span style="font-size:0.75em;opacity:0.7;">(' . number_format($totalIncomeFuture, 2, ',', ' ') . ' à venir)</span>' : '' ?></div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card stat-hide-mobile">
         <div class="stat-value text-danger"><?= number_format($totalExpense, 2, ',', ' ') ?></div>
         <div class="stat-label">Total dépenses<?= $hasPending && $totalExpenseFuture > $totalExpense ? ' <span style="font-size:0.75em;opacity:0.7;">(' . number_format($totalExpenseFuture, 2, ',', ' ') . ' à venir)</span>' : '' ?></div>
     </div>
@@ -992,8 +992,8 @@
                 </div>
             </div>
         <?php else: ?>
-        <div style="overflow-x:auto;">
-            <table class="table" style="margin:0;">
+        <div class="table-responsive">
+            <table class="table" id="recurring-transfers-table" style="margin:0;">
                 <thead>
                     <tr>
                         <th>Sens</th>

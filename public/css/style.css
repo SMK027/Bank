@@ -1373,6 +1373,33 @@ select.form-control {
     .btn-group {
         width: 100%;
     }
+
+    /* Comptes : masquer total entrées / dépenses */
+    .stat-hide-mobile { display: none; }
+
+    /* Tables transactions : masquer Catégorie (col 3) et Commentaire (col 5) */
+    #tx-table th:nth-child(3),
+    #tx-table td:nth-child(3),
+    #tx-table th:nth-child(5),
+    #tx-table td:nth-child(5),
+    #pending-tx-table th:nth-child(3),
+    #pending-tx-table td:nth-child(3),
+    #pending-tx-table th:nth-child(5),
+    #pending-tx-table td:nth-child(5) { display: none; }
+
+    /* Table prélèvements planifiés : masquer Motif (col 3) */
+    #upcoming-debits-table th:nth-child(3),
+    #upcoming-debits-table td:nth-child(3) { display: none; }
+
+    /* Table mandats à venir : masquer Descriptif (col 5) */
+    #upcoming-mandates-table th:nth-child(5),
+    #upcoming-mandates-table td:nth-child(5) { display: none; }
+
+    /* Virements permanents : masquer Intervalle (col 5) et Motif (col 7) */
+    #recurring-transfers-table th:nth-child(5),
+    #recurring-transfers-table td:nth-child(5),
+    #recurring-transfers-table th:nth-child(7),
+    #recurring-transfers-table td:nth-child(7) { display: none; }
 }
 
 /* -----------------------------------------------------------
@@ -1398,6 +1425,16 @@ select.form-control {
     .toast {
         max-width: calc(100vw - 2rem);
     }
+
+    /* Tables transactions : masquer aussi "Par" (col 4) sur très petit écran */
+    #tx-table th:nth-child(4),
+    #tx-table td:nth-child(4),
+    #pending-tx-table th:nth-child(4),
+    #pending-tx-table td:nth-child(4) { display: none; }
+
+    /* Mandats à venir : masquer Contrepartie (col 4) sur très petit écran */
+    #upcoming-mandates-table th:nth-child(4),
+    #upcoming-mandates-table td:nth-child(4) { display: none; }
 }
 
 /* =====================================================================
