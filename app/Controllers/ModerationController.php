@@ -17,6 +17,7 @@ use App\Models\TicketMessage;
 use App\Models\Transaction;
 use App\Models\Transfer;
 use App\Models\User;
+use App\Models\SavingsInterest;
 use App\Models\SavingsRate;
 
 class ModerationController extends Controller
@@ -33,6 +34,7 @@ class ModerationController extends Controller
     private Mandate        $mandateModel;
     private Notification   $notifModel;
     private SavingsRate     $rateModel;
+    private SavingsInterest $interestModel;
 
     public function __construct()
     {
@@ -48,6 +50,7 @@ class ModerationController extends Controller
         $this->mandateModel       = new Mandate();
         $this->notifModel         = new Notification();
         $this->rateModel          = new SavingsRate();
+        $this->interestModel      = new SavingsInterest();
     }
 
     /**
@@ -1494,6 +1497,117 @@ class ModerationController extends Controller
             'Taux d\'intérêt « %s » mis à jour : %s %%.',
             $label,
             number_format($rateRaw, 2, ',', ' ')
+        ));
+        $this->redirect('/moderation/savings-rate');
+    }
+
+    // =========================================================
+    // INTÉRÊTS ÉPARGNE
+    // =========================================================
+
+    /**
+     * Déclenche le calcul immédiat des intérêts pour une année donnée.
+     *
+     * Contrairement au cron annuel (TWAB sur l'année écoulée), cette action
+     * utilise le solde actuel du compte × le taux annuel brut (pas de prorata
+     * temporis), ce qui revient à considérer que le solde est présent depuis
+     * le 1er janvier de l'année.
+     *
+     * Un enregistrement 'pending' est créé pour chaque compte éligible qui
+     * ne possède pas encore d'intérêts pour l'année demandée.
+     */
+    public function triggerInterestCalculation(): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $data = $this->getPostData(['year']);
+        $year = (int) ($data['year'] ?? date('Y'));
+
+        if ($year < 2000 || $year > (int) date('Y') + 1) {
+            $this->setFlash('danger', 'Année invalide.');
+            $this->redirect('/moderation/savings-rate');
+            return;
+        }
+
+        $eligibleTypes = Account::getInterestEligibleTypes();
+        $processed = 0;
+        $skipped   = 0;
+
+        foreach ($eligibleTypes as $accountType) {
+            foreach ($this->accountModel->findBy(['type' => $accountType]) as $account) {
+                $accountId   = (int) $account['id'];
+                $accountRate = isset($account['interest_rate']) && $account['interest_rate'] !== null
+                    ? (float) $account['interest_rate']
+                    : 0.0;
+
+                if ($accountRate <= 0) {
+                    $skipped++;
+                    continue;
+                }
+
+                if ($this->interestModel->existsForAccountYear($accountId, $year)) {
+                    $skipped++;
+                    continue;
+                }
+
+                // Solde actuel — considéré présent depuis le 1er janvier
+                $balance = $this->accountModel->getBalance($accountId);
+                if ($balance <= 0) {
+                    $skipped++;
+                    continue;
+                }
+
+                $cap = Account::typeHasCap($accountType) && ($account['cap'] ?? 0) > 0
+                    ? (float) $account['cap']
+                    : null;
+                $maxAmount        = SavingsInterest::computeMaxAmount($balance, $accountRate, $cap);
+                $calculatedAmount = min(round($balance * $accountRate, 2), $maxAmount);
+
+                if ($calculatedAmount <= 0) {
+                    $skipped++;
+                    continue;
+                }
+
+                $this->interestModel->create([
+                    'account_id'        => $accountId,
+                    'account_type'      => $accountType,
+                    'year'              => $year,
+                    'rate'              => $accountRate,
+                    'calculated_amount' => $calculatedAmount,
+                    'max_amount'        => $maxAmount,
+                    'status'            => SavingsInterest::STATUS_PENDING,
+                ]);
+
+                $userId = (int) $account['user_id'];
+                $title  = sprintf('Intérêts %d — %s', $year, $account['name']);
+                $body   = sprintf(
+                    'Vos intérêts pour %d sur le compte « %s » ont été calculés : %s %s (taux : %s %%). '
+                    . 'Rendez-vous dans « Mes intérêts » pour les confirmer.',
+                    $year,
+                    $account['name'],
+                    number_format($calculatedAmount, 2, ',', ' '),
+                    $account['currency'],
+                    number_format($accountRate * 100, 2, ',', ' ')
+                );
+                $this->notifModel->notify($userId, 'interest_pending', $title, $body, '/interests');
+                foreach ($this->guardianshipModel->getGuardiansOf($userId) as $g) {
+                    $this->notifModel->notify((int) $g['guardian_user_id'], 'interest_pending', $title, $body, '/interests');
+                }
+
+                $processed++;
+            }
+        }
+
+        AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_INTEREST_RUN, [
+            'year'      => $year,
+            'processed' => $processed,
+            'skipped'   => $skipped,
+        ]);
+
+        $this->setFlash('success', sprintf(
+            'Calcul des intérêts %d terminé : %d compte(s) traité(s), %d ignoré(s).',
+            $year, $processed, $skipped
         ));
         $this->redirect('/moderation/savings-rate');
     }

@@ -77,6 +77,7 @@ class AuditLog extends Model
     // Intérêts épargne
     public const ACTION_INTEREST_CONFIRM  = 'interest.confirm';
     public const ACTION_INTEREST_RATE_SET = 'interest.rate_set';
+    public const ACTION_INTEREST_RUN      = 'interest.run';
 
     // Virements récurrents (cron)
     public const ACTION_TRANSFER_RECURRING_EXEC = 'transfer_recurring.execute';
@@ -119,6 +120,7 @@ class AuditLog extends Model
         'minor_account.create'     => 'Compte mineur créé',
         'interest.confirm'         => 'Intérêts confirmés',
         'interest.rate_set'        => 'Taux d\'intérêt maximum configuré',
+        'interest.run'             => 'Calcul des intérêts déclenché (modération)',
     ];
 
     /** Couleur Bootstrap associée à chaque catégorie. */

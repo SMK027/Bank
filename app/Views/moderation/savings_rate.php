@@ -84,6 +84,34 @@ foreach (Account::TYPES as $key => $def) { $typeMap[$key] = $def['label']; }
     </div>
 </div>
 
+<!-- Déclencher un calcul d'intérêts -->
+<div class="card" style="margin-bottom:1.5rem;border-left:4px solid #10b981;">
+    <div class="card-header" style="display:flex;align-items:center;gap:0.6rem;">
+        <i class="bi bi-play-circle-fill" style="color:#10b981;font-size:1.1rem;"></i>
+        <h3 style="margin:0;">Déclencher un calcul d'intérêts</h3>
+    </div>
+    <div class="card-body">
+        <p style="margin:0 0 0.8rem;color:var(--text-muted,#6b7280);font-size:0.88rem;">
+            Calcule et crée les intérêts en attente pour chaque compte éligible ayant un taux configuré.
+            Le <strong>solde actuel</strong> est utilisé directement (équivalent à considérer que le solde est présent depuis le 1<sup>er</sup> janvier).
+            Les comptes ayant déjà des intérêts enregistrés pour l'année choisie sont ignorés.
+        </p>
+        <form method="POST" action="/moderation/interests/run"
+              onsubmit="return confirm('Déclencher le calcul des intérêts pour ' + this.year.value + ' ?');"
+              style="display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;">
+            <?= csrf_field() ?>
+            <label for="run_year" style="font-weight:600;white-space:nowrap;">Année :</label>
+            <input type="number" id="run_year" name="year"
+                   class="form-control" style="width:110px;"
+                   min="2000" max="<?= (int) date('Y') + 1 ?>"
+                   value="<?= (int) date('Y') ?>" required>
+            <button type="submit" class="btn btn-success btn-sm">
+                <i class="bi bi-play-circle"></i> Lancer le calcul
+            </button>
+        </form>
+    </div>
+</div>
+
 <!-- Historique -->
 <div class="card">
     <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">

@@ -155,6 +155,7 @@ $router->post('/interests/{id}/confirm', SavingsInterestController::class, 'conf
 // --- Modération : taux d'intérêt épargne ---
 $router->get('/moderation/savings-rate', ModerationController::class, 'savingsRate');
 $router->post('/moderation/savings-rate', ModerationController::class, 'setSavingsRate');
+$router->post('/moderation/interests/run', ModerationController::class, 'triggerInterestCalculation');
 $router->get('/notifications/count', NotificationController::class, 'unreadCount');
 $router->post('/notifications/read-all', NotificationController::class, 'markAllRead');
 $router->post('/notifications/delete-read', NotificationController::class, 'deleteRead');

@@ -28,8 +28,15 @@ $txModel           = new Transaction();
 $notifModel        = new Notification();
 $guardianshipModel = new Guardianship();
 
-// Année dont on calcule les intérêts (celle qui vient de se terminer)
+// Année dont on calcule les intérêts.
+// Par défaut : l'année qui vient de se terminer (comportement cron).
+// On peut surcharger via --year=YYYY en ligne de commande.
 $year = (int) date('Y') - 1;
+foreach ($argv ?? [] as $arg) {
+    if (preg_match('/^--year=(\d{4})$/', $arg, $m)) {
+        $year = (int) $m[1];
+    }
+}
 
 // Récupérer tous les comptes éligibles aux intérêts
 $eligibleTypes = Account::getInterestEligibleTypes();
