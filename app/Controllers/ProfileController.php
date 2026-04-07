@@ -37,9 +37,25 @@ class ProfileController extends Controller
             return;
         }
 
+        $qrDataUri = null;
+        if (!empty($user['account_number'])) {
+            $scheme  = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            $host    = $_SERVER['HTTP_HOST'] ?? 'localhost';
+            $url     = $scheme . '://' . $host . '/login/pin?account=' . urlencode($user['account_number']);
+            $options = new QROptions([
+                'outputType'    => 'svg',
+                'eccLevel'      => EccLevel::M,
+                'addQuietzone'  => true,
+                'quietzoneSize' => 4,
+            ]);
+            // render() retourne un data URI "data:image/svg+xml;base64,..." en v6
+            $qrDataUri = (new QRCode($options))->render($url);
+        }
+
         $this->render('profile/index', [
-            'title' => 'Mon profil',
-            'user'  => $user,
+            'title'     => 'Mon profil',
+            'user'      => $user,
+            'qrDataUri' => $qrDataUri,
         ]);
     }
 
@@ -338,9 +354,13 @@ class ProfileController extends Controller
             'quietzoneSize' => 4,
         ]);
 
-        $svg = (new QRCode($options))->render($url);
+        // render() retourne un data URI "data:image/svg+xml;base64,..." en v6
+        // On décode le base64 pour servir le SVG brut
+        $dataUri = (new QRCode($options))->render($url);
+        $base64  = substr($dataUri, strlen('data:image/svg+xml;base64,'));
+        $svg     = base64_decode($base64);
 
-        header('Content-Type: image/svg+xml');
+        header('Content-Type: image/svg+xml; charset=utf-8');
         header('Cache-Control: private, max-age=3600');
         echo $svg;
         exit;

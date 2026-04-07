@@ -156,7 +156,7 @@
                         </p>
                     </div>
                     <div style="text-align:center;">
-                        <img src="/profile/qrcode"
+                        <img src="<?= e($qrDataUri) ?>"
                              alt="QR Code connexion PIN"
                              width="140" height="140"
                              style="border-radius:8px;border:1px solid var(--gray-light);display:block;">
