@@ -155,6 +155,39 @@ foreach ($recurringTransferModel->getDue() as $recurring) {
     $balance     = $accountModel->getBalance($fromAccountId);
     $overdraft   = (float) ($fromAccount['overdraft'] ?? 0);
 
+    // Vérifier le plafond du compte destinataire (les intérêts annuels passent par process_interests.php)
+    $toAccount = $accountModel->find($toAccountId);
+    $toCap     = (float) ($toAccount['cap'] ?? 0);
+    if (Account::typeHasCap($toAccount['type'] ?? '') && $toCap > 0) {
+        $toBalance = $accountModel->getBalance($toAccountId);
+        if ($toBalance + $amount > $toCap) {
+            echo sprintf(
+                "[%s] ERREUR virement récurrent #%d : plafond atteint sur compte destinataire #%d (%.2f + %.2f > %.2f).\n",
+                date('Y-m-d H:i:s'), $recId, $toAccountId, $toBalance, $amount, $toCap
+            );
+            $recurringTransferModel->markExecuted($recId);
+            AuditLog::log(null, AuditLog::ACTION_TRANSFER_RECURRING_FAIL, ['amount' => $amount, 'reason' => 'cap_reached', 'to_account' => $toAccountId], targetAccountId: $toAccountId);
+            $notifyWithGuardians(
+                (int) $fromAccount['user_id'],
+                $fromAccountId,
+                'recurring_transfer_failed',
+                'Virement récurrent #' . $recId . ' non exécuté',
+                sprintf(
+                    'Le virement récurrent de %s %s vers « %s » n\'a pas pu être exécuté : le plafond de %s %s est atteint (solde actuel : %s %s).',
+                    number_format($amount, 2, ',', ' '),
+                    $toAccount['currency'] ?? '€',
+                    $toAccount['name'] ?? ('Compte #' . $toAccountId),
+                    number_format($toCap, 2, ',', ' '),
+                    $toAccount['currency'] ?? '€',
+                    number_format($toBalance, 2, ',', ' '),
+                    $toAccount['currency'] ?? '€'
+                )
+            );
+            $errors++;
+            continue;
+        }
+    }
+
     if ($balance - $amount < -$overdraft) {
         echo sprintf(
             "[%s] ERREUR virement récurrent #%d : solde insuffisant sur compte #%d (%.2f < %.2f).\n",
