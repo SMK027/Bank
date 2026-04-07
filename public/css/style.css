@@ -1420,16 +1420,6 @@ select.form-control {
     /* Comptes : masquer total entrées / dépenses */
     .stat-hide-mobile { display: none; }
 
-    /* Tables transactions : masquer Catégorie (col 3) et Commentaire (col 5) */
-    #tx-table th:nth-child(3),
-    #tx-table td:nth-child(3),
-    #tx-table th:nth-child(5),
-    #tx-table td:nth-child(5),
-    #pending-tx-table th:nth-child(3),
-    #pending-tx-table td:nth-child(3),
-    #pending-tx-table th:nth-child(5),
-    #pending-tx-table td:nth-child(5) { display: none; }
-
     /* Table prélèvements planifiés : masquer Motif (col 3) */
     #upcoming-debits-table th:nth-child(3),
     #upcoming-debits-table td:nth-child(3) { display: none; }
@@ -1469,15 +1459,121 @@ select.form-control {
         max-width: calc(100vw - 2rem);
     }
 
-    /* Tables transactions : masquer aussi "Par" (col 4) sur très petit écran */
-    #tx-table th:nth-child(4),
-    #tx-table td:nth-child(4),
-    #pending-tx-table th:nth-child(4),
-    #pending-tx-table td:nth-child(4) { display: none; }
-
     /* Mandats à venir : masquer Contrepartie (col 4) sur très petit écran */
     #upcoming-mandates-table th:nth-child(4),
     #upcoming-mandates-table td:nth-child(4) { display: none; }
+}
+
+/* -----------------------------------------------------------
+   Tables opérations — layout carte sur mobile (≤ 600px)
+   ----------------------------------------------------------- */
+@media (max-width: 600px) {
+
+    /* Barre de filtres : 2 colonnes */
+    #tx-filter-bar {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem !important;
+        align-items: end;
+    }
+    #tx-filter-bar > .form-group {
+        min-width: 0 !important;
+    }
+    #tx-filter-bar > div:last-child { /* compteur */
+        grid-column: 1 / -1;
+        margin-left: 0 !important;
+    }
+
+    /* Cacher le <thead> */
+    #tx-table thead,
+    #pending-tx-table thead { display: none; }
+
+    /* Chaque ligne = carte */
+    #tx-table tbody tr,
+    #pending-tx-table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        padding: 0.65rem 0.5rem;
+        gap: 0.15rem 0.5rem;
+        border-bottom: 1px solid var(--gray-light);
+        border-radius: 0;
+    }
+
+    #tx-table tbody tr:last-child,
+    #pending-tx-table tbody tr:last-child { border-bottom: none; }
+
+    #tx-table td,
+    #pending-tx-table td {
+        padding: 0;
+        border: none;
+        font-size: 0.85rem;
+    }
+
+    /* Ligne 1 gauche : Type (badge) */
+    #tx-table td:nth-child(2),
+    #pending-tx-table td:nth-child(2) {
+        grid-column: 1; grid-row: 1;
+        align-self: center;
+    }
+
+    /* Ligne 1 droite : Montant */
+    #tx-table td:nth-child(6),
+    #pending-tx-table td:nth-child(6) {
+        grid-column: 2; grid-row: 1;
+        text-align: right;
+        font-size: 1rem;
+        align-self: center;
+    }
+
+    /* Ligne 2 : Date (pleine largeur, discrète) */
+    #tx-table td:nth-child(1),
+    #pending-tx-table td:nth-child(1) {
+        display: block;
+        grid-column: 1 / -1; grid-row: 2;
+        font-size: 0.73rem;
+        color: var(--gray);
+        margin-top: 0.1rem;
+    }
+
+    /* Ligne 3 gauche : Catégorie */
+    #tx-table td:nth-child(3),
+    #pending-tx-table td:nth-child(3) {
+        display: block;
+        grid-column: 1; grid-row: 3;
+        font-size: 0.78rem;
+        color: var(--gray);
+    }
+
+    /* Ligne 3 droite : Commentaire (italique) */
+    #tx-table td:nth-child(5),
+    #pending-tx-table td:nth-child(5) {
+        display: block;
+        grid-column: 2; grid-row: 3;
+        font-size: 0.78rem;
+        color: var(--gray);
+        font-style: italic;
+        text-align: right;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 140px;
+    }
+
+    /* Ligne 4 gauche : Par (auteur) */
+    #tx-table td:nth-child(4),
+    #pending-tx-table td:nth-child(4) {
+        display: block;
+        grid-column: 1; grid-row: 4;
+        font-size: 0.78rem;
+    }
+
+    /* Ligne 4 droite : Actions (bouton suppression) */
+    #tx-table td:nth-child(7),
+    #pending-tx-table td:nth-child(7) {
+        grid-column: 2; grid-row: 4;
+        text-align: right;
+        align-self: end;
+    }
 }
 
 /* =====================================================================
