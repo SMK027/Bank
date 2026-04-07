@@ -2,6 +2,15 @@
     <div class="card">
         <div class="card-body">
             <h2><i class="bi bi-pencil"></i> Modifier le compte</h2>
+
+            <?php if (!empty($isGuardian)): ?>
+            <div class="alert" style="background:rgba(var(--warning-rgb,245,158,11),0.1);border-left:4px solid var(--warning,#f59e0b);font-size:0.87rem;padding:0.75rem 1rem;margin-bottom:1rem;">
+                <i class="bi bi-person-lock"></i>
+                <strong>Mode responsable légal.</strong>
+                Vous pouvez modifier le nom du compte, la devise et le seuil d'alerte de solde.
+            </div>
+            <?php endif; ?>
+
             <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/edit">
                 <?= csrf_field() ?>
                 <div class="form-group">
@@ -31,12 +40,15 @@
                             <?php endforeach; ?>
                         </select>
                     </div>
+                    <?php if (empty($isGuardian)): ?>
                     <div class="form-group" id="overdraft-group">
                         <label for="overdraft" class="form-label">Découvert autorisé</label>
                         <input type="number" id="overdraft" name="overdraft" class="form-control"
                                value="<?= e((string) ($account['overdraft'] ?? 0)) ?>" min="0" step="0.01">
                     </div>
+                    <?php endif; ?>
                 </div>
+                <?php if (empty($isGuardian)): ?>
                 <div id="overdraft-blocked-notice" class="alert alert-warning" style="display:none;">
                     <i class="bi bi-slash-circle"></i>
                     Ce type de compte <strong>n'autorise pas le découvert</strong>.
@@ -48,6 +60,7 @@
                            min="0" step="0.01" placeholder="Ex : 50000.00">
                     <span class="form-hint">Solde maximum autorisé (0 ou vide = pas de plafond)</span>
                 </div>
+                <?php endif; ?>
                 <div class="form-group">
                     <label for="balance_alert_threshold" class="form-label">Seuil d'alerte de solde</label>
                     <input type="number" id="balance_alert_threshold" name="balance_alert_threshold" class="form-control"
@@ -56,8 +69,8 @@
                     <span class="form-hint">Notification envoyée lorsque le solde passe sous ce seuil. Laisser vide pour désactiver.</span>
                 </div>
 
+                <?php if (empty($isGuardian)): ?>
                 <?php
-                use App\Models\Account;
                 $currentInterestRatePct = $account['interest_rate'] !== null
                     ? number_format((float) $account['interest_rate'] * 100, 4, '.', '')
                     : '';
@@ -82,6 +95,7 @@
                         Laisser vide pour ne pas percevoir d'intérêts.
                     </span>
                 </div>
+                <?php endif; ?>
 
                 <div class="form-group">
                     <button type="submit" class="btn btn-primary btn-block">
@@ -97,14 +111,16 @@
 </div>
 <script>
 (function () {
+    <?php if (empty($isGuardian)): ?>
     // Le type est fixe — initialisation unique des sections liées
-    var noOd        = <?= json_encode(!Account::typeAllowsOverdraft($account['type'] ?? 'standard')) ?>;
-    var hasCap      = <?= json_encode(Account::typeHasCap($account['type'] ?? 'standard')) ?>;
-    var hasInterest = <?= json_encode(Account::typeHasInterest($account['type'] ?? 'standard')) ?>;
+    var noOd        = <?= json_encode(!AccountModel::typeAllowsOverdraft($account['type'] ?? 'standard')) ?>;
+    var hasCap      = <?= json_encode(AccountModel::typeHasCap($account['type'] ?? 'standard')) ?>;
+    var hasInterest = <?= json_encode(AccountModel::typeHasInterest($account['type'] ?? 'standard')) ?>;
 
     document.getElementById('overdraft-group').style.display          = noOd ? 'none' : '';
     document.getElementById('overdraft-blocked-notice').style.display = (noOd && !hasCap) ? 'block' : 'none';
     document.getElementById('cap-group').style.display                = hasCap ? '' : 'none';
     document.getElementById('interest-rate-group').style.display      = hasInterest ? '' : 'none';
+    <?php endif; ?>
 })();
 </script>

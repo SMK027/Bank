@@ -93,6 +93,7 @@ $router->get('/accounts/{id}/edit', AccountController::class, 'editForm');
 $router->post('/accounts/{id}/edit', AccountController::class, 'edit');
 $router->post('/accounts/{id}/disable', AccountController::class, 'disableAccount');
 $router->post('/accounts/{id}/enable', AccountController::class, 'enableAccount');
+$router->post('/accounts/{id}/toggle-hidden', AccountController::class, 'toggleHidden');
 
 // --- Transactions ---
 $router->post('/accounts/{accountId}/transactions', TransactionController::class, 'create');

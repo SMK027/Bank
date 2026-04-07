@@ -8,6 +8,9 @@
             <?php if ($isDisabled): ?>
                 <span class="badge" style="background:var(--danger);color:#fff;font-size:0.55em;vertical-align:middle;"><i class="bi bi-slash-circle"></i> En résiliation</span>
             <?php endif; ?>
+            <?php if (!empty($account['hidden_from_owner'])): ?>
+                <span class="badge" style="background:#6b7280;color:#fff;font-size:0.55em;vertical-align:middle;" title="Ce compte est masqué pour son propriétaire"><i class="bi bi-eye-slash"></i> Masqué</span>
+            <?php endif; ?>
         </h1>
         <p class="page-description">
             <?php if ($isOwner): ?>
@@ -45,6 +48,23 @@
         </a>
         <?php if ($isOwner): ?>
             <a href="/accounts/<?= (int) $account['id'] ?>/edit" class="btn btn-warning btn-sm"><i class="bi bi-pencil"></i> Modifier</a>
+        <?php endif; ?>
+        <?php if ($isGuardian): ?>
+            <a href="/accounts/<?= (int) $account['id'] ?>/edit" class="btn btn-warning btn-sm"><i class="bi bi-pencil"></i> Modifier</a>
+            <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/toggle-hidden" style="display:inline">
+                <?= csrf_field() ?>
+                <?php if (!empty($account['hidden_from_owner'])): ?>
+                    <button type="submit" class="btn btn-success btn-sm"
+                            onclick="return confirm('Rendre ce compte visible pour <?= e(addslashes($owner['username'] ?? 'le mineur')) ?> ?')">
+                        <i class="bi bi-eye"></i> Afficher à l’enfant
+                    </button>
+                <?php else: ?>
+                    <button type="submit" class="btn btn-secondary btn-sm"
+                            onclick="return confirm('Masquer ce compte à <?= e(addslashes($owner['username'] ?? 'le mineur')) ?> ?\nIl restera propriétaire mais ne pourra plus le consulter.')">
+                        <i class="bi bi-eye-slash"></i> Masquer à l’enfant
+                    </button>
+                <?php endif; ?>
+            </form>
         <?php endif; ?>
         <?php if ($isModerator): ?>
             <?php if ($isFrozen): ?>

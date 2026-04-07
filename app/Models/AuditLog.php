@@ -41,6 +41,8 @@ class AuditLog extends Model
     public const ACTION_ACCOUNT_DISABLE  = 'account.disable';
     public const ACTION_ACCOUNT_ENABLE   = 'account.enable';
     public const ACTION_ACCOUNT_CLOSE    = 'account.close';
+    public const ACTION_ACCOUNT_HIDE     = 'account.hide';
+    public const ACTION_ACCOUNT_SHOW     = 'account.show';
 
     // Transactions
     public const ACTION_TRANSACTION_CREATE = 'transaction.create';

@@ -198,22 +198,21 @@ class Account extends Model
 
     public function hasAccess(int $accountId, int $userId): bool
     {
-        if ($this->isOwner($accountId, $userId)) {
-            return true;
+        $account = $this->find($accountId);
+        if (!$account) {
+            return false;
+        }
+        if ((int) $account['user_id'] === $userId) {
+            // Le mineur ne peut pas consulter un compte que son responsable légal a masqué
+            return empty($account['hidden_from_owner']);
         }
         $accessModel = new AccountAccess();
         if ($accessModel->hasValidAccess($accountId, $userId)) {
             return true;
         }
-        // Vérifier si l'utilisateur est responsable légal actif du propriétaire du compte
-        $account = $this->find($accountId);
-        if ($account) {
-            $guardianshipModel = new Guardianship();
-            if ($guardianshipModel->isActiveGuardianOf($userId, (int) $account['user_id'])) {
-                return true;
-            }
-        }
-        return false;
+        // Responsable légal actif : accès complet, même si le compte est masqué au mineur
+        $guardianshipModel = new Guardianship();
+        return $guardianshipModel->isActiveGuardianOf($userId, (int) $account['user_id']);
     }
 
     public function isFrozen(int $accountId): bool
@@ -264,7 +263,11 @@ class Account extends Model
 
     public function getAccessibleAccounts(int $userId): array
     {
-        $ownAccounts = $this->getByUser($userId);
+        // Comptes masqués par un responsable légal : invisibles pour le mineur propriétaire
+        $ownAccounts = array_values(array_filter(
+            $this->getByUser($userId),
+            fn($a) => empty($a['hidden_from_owner'])
+        ));
 
         $accessModel = new AccountAccess();
         $sharedAccesses = $accessModel->getValidAccessesForUser($userId);

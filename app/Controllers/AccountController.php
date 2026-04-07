@@ -311,23 +311,29 @@ class AccountController extends Controller
         $accountId = (int) $id;
         $userId = $this->getCurrentUserId();
 
-        $account = $this->accountModel->find($accountId);
-        if (!$account || !$this->accountModel->isOwner($accountId, $userId)) {
+        $account    = $this->accountModel->find($accountId);
+        $isOwner    = $account && $this->accountModel->isOwner($accountId, $userId);
+        $isGuardian = false;
+        if (!$isOwner && $account) {
+            $guardianshipModel = new Guardianship();
+            $isGuardian = $guardianshipModel->isActiveGuardianOf($userId, (int) $account['user_id']);
+        }
+
+        if (!$account || (!$isOwner && !$isGuardian)) {
             $this->setFlash('danger', 'Accès refusé.');
             $this->redirect('/dashboard');
             return;
         }
 
-        $owner   = $this->userModel->find((int) $account['user_id']);
-        $isMinor = User::isMinorFromDate($owner['birth_date'] ?? null);
         $maxRate = Account::typeHasInterest($account['type'] ?? '')
             ? $this->rateModel->getCurrentRate($account['type'])
             : null;
 
         $this->render('accounts/edit', [
-            'title'   => 'Modifier le compte',
-            'account' => $account,
-            'maxRate' => $maxRate,
+            'title'      => 'Modifier le compte',
+            'account'    => $account,
+            'maxRate'    => $maxRate,
+            'isGuardian' => $isGuardian,
         ]);
     }
 
@@ -336,9 +342,17 @@ class AccountController extends Controller
         $this->requireAuth();
         $this->validateCSRF();
         $accountId = (int) $id;
-        $userId = $this->getCurrentUserId();
+        $userId    = $this->getCurrentUserId();
 
-        if (!$this->accountModel->isOwner($accountId, $userId)) {
+        $account    = $this->accountModel->find($accountId);
+        $isOwner    = $account && $this->accountModel->isOwner($accountId, $userId);
+        $isGuardian = false;
+        if (!$isOwner && $account) {
+            $guardianshipModel = new Guardianship();
+            $isGuardian = $guardianshipModel->isActiveGuardianOf($userId, (int) $account['user_id']);
+        }
+
+        if (!$account || (!$isOwner && !$isGuardian)) {
             $this->setFlash('danger', 'Accès refusé.');
             $this->redirect('/dashboard');
             return;
@@ -352,42 +366,90 @@ class AccountController extends Controller
             return;
         }
 
-        // Le type de compte est fixe une fois créé — on ignore toute valeur POST
-        $account = $this->accountModel->find($accountId);
-        $type    = $account['type'] ?? 'standard';
-        $overdraft      = Account::typeAllowsOverdraft($type) ? abs((float) ($data['overdraft'] ?: 0)) : 0.0;
-        $cap            = Account::typeHasCap($type) && $data['cap'] !== '' ? abs((float) $data['cap']) : null;
+        $type           = $account['type'] ?? 'standard';
         $alertThreshold = ($data['balance_alert_threshold'] ?? '') !== ''
             ? max(0.0, (float) $data['balance_alert_threshold'])
             : null;
 
-        // Taux d'intérêt propre au compte (uniquement pour les types éligibles)
-        $interestRate = null;
-        if (Account::typeHasInterest($type) && ($data['interest_rate'] ?? '') !== '') {
-            $rawPct       = (float) str_replace(',', '.', $data['interest_rate']);
-            $interestRate = round($rawPct / 100, 6); // formulaire en %, on stocke en décimal
-            // Borner au taux maximum configuré par la modération
-            $maxRate = $this->rateModel->getCurrentRate($type);
-            if ($maxRate !== null && $interestRate > $maxRate) {
-                $interestRate = $maxRate;
+        if ($isGuardian && !$isOwner) {
+            // Responsable légal : modification limitée au nom, devise et seuil d'alerte
+            $this->accountModel->update($accountId, [
+                'name'                    => $data['name'],
+                'currency'                => $data['currency'],
+                'balance_alert_threshold' => $alertThreshold,
+            ]);
+        } else {
+            $overdraft    = Account::typeAllowsOverdraft($type) ? abs((float) ($data['overdraft'] ?: 0)) : 0.0;
+            $cap          = Account::typeHasCap($type) && $data['cap'] !== '' ? abs((float) $data['cap']) : null;
+            $interestRate = null;
+            if (Account::typeHasInterest($type) && ($data['interest_rate'] ?? '') !== '') {
+                $rawPct       = (float) str_replace(',', '.', $data['interest_rate']);
+                $interestRate = round($rawPct / 100, 6);
+                $maxRate      = $this->rateModel->getCurrentRate($type);
+                if ($maxRate !== null && $interestRate > $maxRate) {
+                    $interestRate = $maxRate;
+                }
+                if ($interestRate < 0) {
+                    $interestRate = 0.0;
+                }
             }
-            if ($interestRate < 0) {
-                $interestRate = 0.0;
-            }
+            $this->accountModel->update($accountId, [
+                'name'                    => $data['name'],
+                'currency'                => $data['currency'],
+                'overdraft'               => $overdraft,
+                'type'                    => $type,
+                'cap'                     => $cap,
+                'balance_alert_threshold' => $alertThreshold,
+                'interest_rate'           => $interestRate,
+            ]);
         }
-
-        $this->accountModel->update($accountId, [
-            'name'                    => $data['name'],
-            'currency'                => $data['currency'],
-            'overdraft'               => $overdraft,
-            'type'                    => $type,
-            'cap'                     => $cap,
-            'balance_alert_threshold' => $alertThreshold,
-            'interest_rate'           => $interestRate,
-        ]);
 
         $this->setFlash('success', 'Compte modifié avec succès.');
         $this->redirect('/accounts/' . $id);
+    }
+
+    /**
+     * Bascule la visibilité d'un compte mineur pour son propriétaire.
+     * Seul un responsable légal actif peut effectuer cette action.
+     */
+    public function toggleHidden(string $id): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+        $accountId = (int) $id;
+        $userId    = $this->getCurrentUserId();
+
+        $account = $this->accountModel->find($accountId);
+        if (!$account) {
+            $this->setFlash('danger', 'Compte introuvable.');
+            $this->redirect('/dashboard');
+            return;
+        }
+
+        $guardianshipModel = new Guardianship();
+        if (!$guardianshipModel->isActiveGuardianOf($userId, (int) $account['user_id'])) {
+            $this->setFlash('danger', 'Accès refusé. Seul un responsable légal peut modifier la visibilité de ce compte.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $hide  = empty($account['hidden_from_owner']);
+        $minor = $this->userModel->find((int) $account['user_id']);
+        $this->accountModel->update($accountId, ['hidden_from_owner' => $hide ? 1 : 0]);
+
+        AuditLog::log(
+            $userId,
+            $hide ? AuditLog::ACTION_ACCOUNT_HIDE : AuditLog::ACTION_ACCOUNT_SHOW,
+            ['name' => $account['name']],
+            targetUserId: (int) $account['user_id'],
+            targetAccountId: $accountId
+        );
+
+        $this->setFlash('success', $hide
+            ? sprintf('Le compte « %s » est maintenant masqué pour %s.', $account['name'], $minor['username'] ?? 'le mineur')
+            : sprintf('Le compte « %s » est à nouveau visible pour %s.', $account['name'], $minor['username'] ?? 'le mineur')
+        );
+        $this->redirect('/accounts/' . $accountId);
     }
 
     public function disableAccount(string $id): void
