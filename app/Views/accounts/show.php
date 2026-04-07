@@ -828,6 +828,15 @@
                         <?php endforeach; ?>
                     </select>
                 </div>
+                <div class="form-group" style="margin:0;min-width:90px;">
+                    <label class="form-label" style="font-size:0.8rem;">Par page</label>
+                    <select id="tx-per-page" class="form-control form-control-sm">
+                        <option value="10"  <?= $txPerPage === 10  ? 'selected' : '' ?>>10</option>
+                        <option value="25"  <?= $txPerPage === 25  ? 'selected' : '' ?>>25</option>
+                        <option value="50"  <?= $txPerPage === 50  ? 'selected' : '' ?>>50</option>
+                        <option value="100" <?= $txPerPage === 100 ? 'selected' : '' ?>>100</option>
+                    </select>
+                </div>
                 <div class="form-group" style="margin:0;">
                     <label class="form-label" style="font-size:0.8rem;">&nbsp;</label>
                     <button type="button" id="tx-filter-reset" class="btn btn-outline btn-sm" style="display:block;">
@@ -898,6 +907,47 @@
                     Aucune opération ne correspond aux filtres.
                 </p>
             </div>
+            <!-- Navigation de pagination -->
+            <?php
+                $txBaseUrl  = '/accounts/' . (int) $account['id'] . '?per_page=' . $txPerPage . '&page=';
+                $txWinStart = max(1, $txPage - 2);
+                $txWinEnd   = min($txTotalPages, $txPage + 2);
+            ?>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:0.75rem;flex-wrap:wrap;gap:0.5rem;">
+                <p class="text-muted" style="margin:0;font-size:0.82rem;">
+                    <?php if ($txTotalCount > 0): ?>
+                        <?= number_format((($txPage - 1) * $txPerPage) + 1) ?>–<?= number_format(min($txPage * $txPerPage, $txTotalCount)) ?>
+                        sur <?= number_format($txTotalCount) ?> opération<?= $txTotalCount > 1 ? 's' : '' ?>
+                    <?php endif; ?>
+                </p>
+                <?php if ($txTotalPages > 1): ?>
+                <div style="display:flex;gap:0.3rem;flex-wrap:wrap;align-items:center;">
+                    <?php if ($txPage > 1): ?>
+                        <a href="<?= e($txBaseUrl . 1) ?>" class="btn btn-outline btn-sm" title="Première"><i class="bi bi-chevron-double-left"></i></a>
+                        <a href="<?= e($txBaseUrl . ($txPage - 1)) ?>" class="btn btn-outline btn-sm"><i class="bi bi-chevron-left"></i></a>
+                    <?php endif; ?>
+                    <?php if ($txWinStart > 1): ?>
+                        <a href="<?= e($txBaseUrl . 1) ?>" class="btn btn-outline btn-sm">1</a>
+                        <?php if ($txWinStart > 2): ?><span class="btn btn-sm" style="pointer-events:none;opacity:0.45">…</span><?php endif; ?>
+                    <?php endif; ?>
+                    <?php for ($p = $txWinStart; $p <= $txWinEnd; $p++): ?>
+                        <?php if ($p === $txPage): ?>
+                            <span class="btn btn-primary btn-sm"><?= $p ?></span>
+                        <?php else: ?>
+                            <a href="<?= e($txBaseUrl . $p) ?>" class="btn btn-outline btn-sm"><?= $p ?></a>
+                        <?php endif; ?>
+                    <?php endfor; ?>
+                    <?php if ($txWinEnd < $txTotalPages): ?>
+                        <?php if ($txWinEnd < $txTotalPages - 1): ?><span class="btn btn-sm" style="pointer-events:none;opacity:0.45">…</span><?php endif; ?>
+                        <a href="<?= e($txBaseUrl . $txTotalPages) ?>" class="btn btn-outline btn-sm"><?= $txTotalPages ?></a>
+                    <?php endif; ?>
+                    <?php if ($txPage < $txTotalPages): ?>
+                        <a href="<?= e($txBaseUrl . ($txPage + 1)) ?>" class="btn btn-outline btn-sm"><i class="bi bi-chevron-right"></i></a>
+                        <a href="<?= e($txBaseUrl . $txTotalPages) ?>" class="btn btn-outline btn-sm" title="Dernière"><i class="bi bi-chevron-double-right"></i></a>
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
+            </div>
             <script>
             (function () {
                 var typeEl   = document.getElementById('tx-filter-type');
@@ -931,7 +981,9 @@
                         if (ok) visible++;
                     });
 
-                    countEl.textContent = visible + ' / ' + rows.length + ' opération' + (rows.length > 1 ? 's' : '');
+                    countEl.textContent = visible < rows.length
+                        ? visible + ' / ' + rows.length + ' sur cette page'
+                        : '';
                     emptyMsg.style.display = visible === 0 ? '' : 'none';
                 }
 
@@ -947,6 +999,13 @@
                     authorEl.value = '';
                     applyFilters();
                 });
+
+                var perPageEl = document.getElementById('tx-per-page');
+                if (perPageEl) {
+                    perPageEl.addEventListener('change', function () {
+                        window.location.href = '/accounts/<?= (int) $account['id'] ?>?per_page=' + this.value + '&page=1';
+                    });
+                }
 
                 applyFilters();
             })();

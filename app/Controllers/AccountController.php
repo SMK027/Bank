@@ -197,13 +197,37 @@ class AccountController extends Controller
             }
         }
 
-        // Séparer les transactions à venir des exécutées
-        $pendingTransactions  = array_values(array_filter($transactions, fn($t) => $t['is_pending']));
-        $executedTransactions = array_values(array_filter($transactions, fn($t) => !$t['is_pending']));
+        // Transactions à venir (programmées futures) — enrichies depuis le chargement complet
+        $pendingTransactions = array_values(array_filter($transactions, fn($t) => $t['is_pending']));
 
-        // IDs de transactions liées à un virement ou prélèvement (non supprimables individuellement)
-        $allTxIds    = array_column($transactions, 'id');
-        $linkedTxIds = $allTxIds ? $this->transactionModel->getProtectedIds($allTxIds) : [];
+        // Pagination des transactions exécutées (serveur)
+        $txPerPage    = max(5, min(100, (int) ($_GET['per_page'] ?? 25)));
+        $txTotalCount = $this->transactionModel->countExecutedByAccount($accountId);
+        $txTotalPages = max(1, (int) ceil($txTotalCount / $txPerPage));
+        $txPage       = max(1, min($txTotalPages, (int) ($_GET['page'] ?? 1)));
+        $txOffset     = ($txPage - 1) * $txPerPage;
+
+        $executedTransactions = $this->transactionModel->getExecutedByAccountPaginated($accountId, $txPerPage, $txOffset);
+        foreach ($executedTransactions as &$t) {
+            $authorId = isset($t['user_id']) ? (int) $t['user_id'] : 0;
+            if ($authorId === 0) {
+                $t['author_name'] = 'Modération';
+            } else {
+                $author = $this->userModel->find($authorId);
+                if ($author && ($author['global_role'] ?? 'user') === 'moderator'
+                    && !$this->accountModel->hasAccess($accountId, $authorId)) {
+                    $t['author_name'] = 'Modération';
+                } else {
+                    $t['author_name'] = $author ? $author['username'] : 'Inconnu';
+                }
+            }
+            $t['is_pending'] = false;
+        }
+        unset($t);
+
+        // IDs des transactions de la page courante liées à un virement/prélèvement (non supprimables)
+        $pageTxIds   = array_column($executedTransactions, 'id');
+        $linkedTxIds = $pageTxIds ? $this->transactionModel->getProtectedIds($pageTxIds) : [];
 
         // Prélèvements planifiés sur ce compte (to_account) non encore exécutés
         $upcomingDebits = $this->directDebitModel->findBy(
@@ -251,6 +275,10 @@ class AccountController extends Controller
             'transactions'        => $transactions,
             'pendingTransactions'  => $pendingTransactions,
             'executedTransactions' => $executedTransactions,
+            'txPage'               => $txPage,
+            'txTotalPages'         => $txTotalPages,
+            'txTotalCount'         => $txTotalCount,
+            'txPerPage'            => $txPerPage,
             'upcomingDebits'       => $upcomingDebits,
             'balance'             => $balance,
             'futureBalance'      => $futureBalance,

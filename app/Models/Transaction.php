@@ -53,6 +53,39 @@ class Transaction extends Model
         return $this->findBy(['account_id' => (string) $accountId], $orderBy, $direction);
     }
 
+    /**
+     * Compte les transactions exécutées (non programmées futures) d'un compte.
+     */
+    public function countExecutedByAccount(int $accountId): int
+    {
+        $stmt = $this->getPdo()->prepare(
+            "SELECT COUNT(*) FROM `{$this->table}`
+             WHERE account_id = ?
+               AND (scheduled_at IS NULL OR scheduled_at <= CURRENT_TIMESTAMP)"
+        );
+        $stmt->execute([$accountId]);
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Retourne une page de transactions exécutées triées par date décroissante.
+     */
+    public function getExecutedByAccountPaginated(int $accountId, int $limit, int $offset): array
+    {
+        $stmt = $this->getPdo()->prepare(
+            "SELECT * FROM `{$this->table}`
+             WHERE account_id = ?
+               AND (scheduled_at IS NULL OR scheduled_at <= CURRENT_TIMESTAMP)
+             ORDER BY created_at DESC
+             LIMIT ? OFFSET ?"
+        );
+        $stmt->bindValue(1, $accountId, \PDO::PARAM_INT);
+        $stmt->bindValue(2, $limit,     \PDO::PARAM_INT);
+        $stmt->bindValue(3, $offset,    \PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
     public function getTotalIncome(int $accountId, bool $currentOnly = false): float
     {
         $transactions = $this->findBy(['account_id' => (string) $accountId]);
