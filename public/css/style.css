@@ -781,6 +781,14 @@ select.form-control {
     border-left: 3px solid #3b82f6;
 }
 
+.row-disabled td {
+    opacity: 0.7;
+}
+
+.row-disabled td:first-child {
+    border-left: 3px solid var(--danger);
+}
+
 .btn-freeze {
     background: rgba(96, 165, 250, 0.15);
     color: #1d4ed8;

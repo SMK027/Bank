@@ -60,6 +60,7 @@
                     <option value="">Tous les statuts</option>
                     <option value="active">Actif</option>
                     <option value="frozen">Gelé</option>
+                    <option value="disabled">Résiliation prévue</option>
                 </select>
             </div>
             <div class="form-group" style="margin:0;flex:2;min-width:200px;">
@@ -98,11 +99,11 @@
                 </thead>
                 <tbody>
                     <?php foreach ($allAccounts as $acc): ?>
-                        <?php $frozen = !empty($acc['frozen']); ?>
-                        <tr class="<?= $frozen ? 'row-frozen' : '' ?>"
+                        <?php $frozen = !empty($acc['frozen']); $disabled = !empty($acc['disabled_at']); ?>
+                        <tr class="<?= $frozen ? 'row-frozen' : ($disabled ? 'row-disabled' : '') ?>"
                             data-owner="<?= e($acc['owner_name']) ?>"
                             data-shared-users="<?= e(implode('|', $acc['shared_users'] ?? [])) ?>"
-                            data-status="<?= $frozen ? 'frozen' : 'active' ?>"
+                            data-status="<?= $frozen ? 'frozen' : ($disabled ? 'disabled' : 'active') ?>"
                             data-name="<?= e(strtolower($acc['name'])) ?>">
                             <td class="text-muted text-small">#<?= (int) $acc['id'] ?></td>
                             <td>
@@ -133,8 +134,13 @@
                             <td>
                                 <?php if ($frozen): ?>
                                     <span class="badge badge-frozen"><i class="bi bi-snow"></i> Gelé</span>
+                                <?php elseif ($disabled): ?>
+                                    <span class="badge" style="background:var(--danger);color:#fff;"><i class="bi bi-slash-circle"></i> Résiliation prévue</span>
                                 <?php else: ?>
                                     <span class="badge badge-success">Actif</span>
+                                <?php endif; ?>
+                                <?php if ($frozen && $disabled): ?>
+                                    <span class="badge" style="background:var(--danger);color:#fff;font-size:0.75em;"><i class="bi bi-slash-circle"></i> Résiliation prévue</span>
                                 <?php endif; ?>
                             </td>
                             <td>

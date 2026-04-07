@@ -48,9 +48,16 @@
                     <div class="card-body">
                         <div class="d-flex justify-between align-center mb-1">
                             <h3 style="margin:0"><?= e($account['name']) ?></h3>
-                            <span class="badge <?= $account['balance'] >= 0 ? 'badge-success' : 'badge-danger' ?>">
-                                <?= e($account['currency']) ?>
-                            </span>
+                            <div style="display:flex;gap:0.3rem;align-items:center;flex-wrap:wrap;">
+                                <?php if (!empty($account['disabled_at'])): ?>
+                                    <span class="badge" style="background:var(--danger);color:#fff;font-size:0.72em;">
+                                        <i class="bi bi-slash-circle"></i> Résiliation
+                                    </span>
+                                <?php endif; ?>
+                                <span class="badge <?= $account['balance'] >= 0 ? 'badge-success' : 'badge-danger' ?>">
+                                    <?= e($account['currency']) ?>
+                                </span>
+                            </div>
                         </div>
                         <div class="account-balance <?= $account['balance'] >= 0 ? 'balance-positive' : 'balance-negative' ?>">
                             <?= number_format($account['balance'], 2, ',', ' ') ?> <?= e($account['currency']) ?>
@@ -99,15 +106,22 @@
                     <div class="card-body">
                         <div class="d-flex justify-between align-center mb-1">
                             <h3 style="margin:0"><?= e($account['name']) ?></h3>
-                            <?php if (($account['_access_type'] ?? '') === 'guardian'): ?>
-                                <span class="badge" style="background:#f59e0b;color:#fff;">
-                                    <i class="bi bi-person-lock"></i> Responsable légal
-                                </span>
-                            <?php else: ?>
-                                <span class="badge badge-info">
-                                    <?= $account['_access_type'] === 'permanent' ? 'Permanent' : 'Temporaire' ?>
-                                </span>
-                            <?php endif; ?>
+                            <div style="display:flex;gap:0.3rem;align-items:center;flex-wrap:wrap;">
+                                <?php if (!empty($account['disabled_at'])): ?>
+                                    <span class="badge" style="background:var(--danger);color:#fff;font-size:0.72em;">
+                                        <i class="bi bi-slash-circle"></i> Résiliation
+                                    </span>
+                                <?php endif; ?>
+                                <?php if (($account['_access_type'] ?? '') === 'guardian'): ?>
+                                    <span class="badge" style="background:#f59e0b;color:#fff;">
+                                        <i class="bi bi-person-lock"></i> Responsable légal
+                                    </span>
+                                <?php else: ?>
+                                    <span class="badge badge-info">
+                                        <?= $account['_access_type'] === 'permanent' ? 'Permanent' : 'Temporaire' ?>
+                                    </span>
+                                <?php endif; ?>
+                            </div>
                         </div>
                         <?php if (($account['_access_type'] ?? '') === 'guardian' && !empty($account['_minor_username'])): ?>
                         <div class="text-small text-muted mb-1">
