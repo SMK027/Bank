@@ -1,6 +1,7 @@
 <?php
 $pinDigits = range(0, 9);
 shuffle($pinDigits);
+$prefilled = $prefilled ?? '';
 ?>
 <div class="auth-container">
     <div class="card">
@@ -13,9 +14,16 @@ shuffle($pinDigits);
                 <div class="form-group">
                     <label for="account_number" class="form-label">Numéro de compte</label>
                     <input type="text" id="account_number" name="account_number" class="form-control"
-                           placeholder="BKxxxxxxxx" required autofocus
+                           placeholder="BKxxxxxxxx" required
+                           <?= $prefilled === '' ? 'autofocus' : '' ?>
                            pattern="BK\d{8}" maxlength="10"
+                           value="<?= e($prefilled) ?>"
                            style="text-transform:uppercase;letter-spacing:0.08em;">
+                    <?php if ($prefilled !== ''): ?>
+                    <div class="text-muted text-small mt-1">
+                        <i class="bi bi-qr-code-scan"></i> Numéro pré-rempli via QR code — vous pouvez le modifier.
+                    </div>
+                    <?php endif; ?>
                 </div>
 
                 <!-- Affichage du PIN (points) -->
@@ -102,5 +110,11 @@ shuffle($pinDigits);
     });
 
     refresh();
+
+    // Si numéro pré-rempli via QR code, déplacer le focus sur le pavé PIN
+    <?php if ($prefilled !== ''): ?>
+    var firstKey = document.querySelector('.pin-key[data-digit]');
+    if (firstKey) firstKey.focus();
+    <?php endif; ?>
 }());
 </script>

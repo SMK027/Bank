@@ -144,10 +144,26 @@
                 Votre numéro de compte vous permet de vous connecter sans saisir votre email.
             </p>
             <?php if (!empty($user['account_number'])): ?>
-                <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem;">
-                    <code style="font-size:1.15rem;letter-spacing:0.12em;background:var(--bg-secondary,#f5f5f5);padding:0.4rem 0.75rem;border-radius:6px;">
-                        <?= e($user['account_number']) ?>
-                    </code>
+                <div style="display:flex;align-items:flex-start;gap:1.5rem;flex-wrap:wrap;margin-bottom:0.75rem;">
+                    <div>
+                        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
+                            <code style="font-size:1.15rem;letter-spacing:0.12em;background:var(--bg-secondary,#f5f5f5);padding:0.4rem 0.75rem;border-radius:6px;">
+                                <?= e($user['account_number']) ?>
+                            </code>
+                        </div>
+                        <p class="text-muted text-small" style="margin:0;">
+                            Utilisez ce numéro ou scannez le QR code pour vous connecter par PIN.
+                        </p>
+                    </div>
+                    <div style="text-align:center;">
+                        <img src="/profile/qrcode"
+                             alt="QR Code connexion PIN"
+                             width="140" height="140"
+                             style="border-radius:8px;border:1px solid var(--gray-light);display:block;">
+                        <p class="text-muted text-small mt-1" style="margin-bottom:0;">
+                            <i class="bi bi-qr-code-scan"></i> Connexion rapide
+                        </p>
+                    </div>
                 </div>
             <?php else: ?>
                 <p class="text-muted">Aucun numéro de compte attribué.</p>

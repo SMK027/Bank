@@ -93,7 +93,13 @@ class AuthController extends Controller
      */
     public function loginPinForm(): void
     {
-        $this->render('auth/login_pin', ['title' => 'Connexion par code PIN']);
+        $raw      = strtoupper(trim($_GET['account'] ?? ''));
+        $prefilled = preg_match('/^BK\d{8}$/', $raw) ? $raw : '';
+
+        $this->render('auth/login_pin', [
+            'title'     => 'Connexion par code PIN',
+            'prefilled' => $prefilled,
+        ]);
     }
 
     /**

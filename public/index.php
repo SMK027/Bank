@@ -75,6 +75,7 @@ $router->post('/profile/professional/remove', ProfileController::class, 'removeP
 $router->get('/profile/verify-siret', ProfileController::class, 'verifySiret');
 $router->post('/profile/pin', ProfileController::class, 'savePin');
 $router->post('/profile/account-number/reset', ProfileController::class, 'resetAccountNumber');
+$router->get('/profile/qrcode', ProfileController::class, 'qrCode');
 
 // --- Comptes bancaires ---
 $router->get('/accounts/create', AccountController::class, 'createForm');

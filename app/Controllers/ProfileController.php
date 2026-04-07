@@ -8,6 +8,9 @@ use App\Core\Controller;
 use App\Core\Session;
 use App\Helpers\SiretValidator;
 use App\Models\User;
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
+use chillerlan\QRCode\Common\EccLevel;
 
 class ProfileController extends Controller
 {
@@ -306,6 +309,41 @@ class ProfileController extends Controller
 
         $this->setFlash('success', 'Code PIN mis à jour avec succès.');
         $this->redirect('/profile');
+    }
+
+    /**
+     * Retourne un QR Code SVG pointant vers la page de connexion PIN
+     * avec le numéro de compte pré-rempli en paramètre GET.
+     */
+    public function qrCode(): void
+    {
+        $this->requireAuth();
+
+        $userId = $this->getCurrentUserId();
+        $user   = $this->userModel->find($userId);
+
+        if (empty($user['account_number'])) {
+            http_response_code(404);
+            exit;
+        }
+
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $url    = $scheme . '://' . $host . '/login/pin?account=' . urlencode($user['account_number']);
+
+        $options = new QROptions([
+            'outputType'    => 'svg',
+            'eccLevel'      => EccLevel::M,
+            'addQuietzone'  => true,
+            'quietzoneSize' => 4,
+        ]);
+
+        $svg = (new QRCode($options))->render($url);
+
+        header('Content-Type: image/svg+xml');
+        header('Cache-Control: private, max-age=3600');
+        echo $svg;
+        exit;
     }
 }
 
