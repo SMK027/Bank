@@ -1,65 +1,75 @@
-version: '3.8'
-
 services:
   nginx:
     image: nginx:alpine
     container_name: bankapp_nginx
-    network_mode: "host"  # Réseau de l'hôte : nginx voit les vraies IP clients
     volumes:
       - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - app
+    networks:
+      - proxy
+      - internal
+    labels:
+      - "traefik.enable=true"
+      # Routeur HTTPS
+      - "traefik.http.routers.bankapp.rule=Host(`${APP_DOMAIN}`)"
+      - "traefik.http.routers.bankapp.entrypoints=websecure"
+      - "traefik.http.routers.bankapp.tls.certresolver=letsencrypt"
+      - "traefik.http.services.bankapp.loadbalancer.server.port=80"
+      - "traefik.docker.network=proxy"
+      # Redirection HTTP → HTTPS
+      - "traefik.http.routers.bankapp-http.rule=Host(`${APP_DOMAIN}`)"
+      - "traefik.http.routers.bankapp-http.entrypoints=web"
+      - "traefik.http.routers.bankapp-http.middlewares=https-redirect@file"
     restart: unless-stopped
 
   app:
     build: .
     container_name: bankapp_web
-    ports:
-      - "127.0.0.1:8084:80"  # Accessible seulement depuis loopback (nginx)
     volumes:
       - .:/var/www/html
-    depends_on:
-      db:
-        condition: service_healthy
     environment:
-      - APP_URL=${APP_URL:-http://localhost:8083}
+      - APP_URL=https://${APP_DOMAIN}
       - APP_DEBUG=${APP_DEBUG:-false}
-      - APP_KEY=${APP_KEY:-changez_cette_cle_en_production}
-      - DB_HOST=db
-      - DB_PORT=3306
-      - DB_DATABASE=${DB_DATABASE:-bankapp}
-      - DB_USERNAME=${DB_USERNAME:-bankapp}
-      - DB_PASSWORD=${DB_PASSWORD:-bankapp_secret}
-      - MAIL_HOST=${MAIL_HOST:-mailpit}
-      - MAIL_PORT=${MAIL_PORT:-1025}
-      - MAIL_FROM=${MAIL_FROM:-noreply@bankapp.local}
+      - APP_KEY=${APP_KEY}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USERNAME=${DB_USERNAME}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - MAIL_HOST=${MAIL_HOST}
+      - MAIL_PORT=${MAIL_PORT:-587}
+      - MAIL_FROM=${MAIL_FROM}
       - MAIL_FROM_NAME=${MAIL_FROM_NAME:-BankApp}
-      - MAIL_ENCRYPTION=${MAIL_ENCRYPTION:-}
-      - MAIL_USERNAME=${MAIL_USERNAME:-}
-      - MAIL_PASSWORD=${MAIL_PASSWORD:-}
+      - MAIL_ENCRYPTION=${MAIL_ENCRYPTION:-tls}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+    networks:
+      - internal
+      - db_internal
     restart: unless-stopped
 
   mailpit:
     image: axllent/mailpit:latest
     container_name: bankapp_mailpit
-    ports:
-      - "127.0.0.1:8025:8025"  # Interface web Mailpit
+    networks:
+      - proxy
+      - internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bankapp-mail.rule=Host(`mail.${APP_DOMAIN}`)"
+      - "traefik.http.routers.bankapp-mail.entrypoints=websecure"
+      - "traefik.http.routers.bankapp-mail.tls.certresolver=letsencrypt"
+      - "traefik.http.services.bankapp-mail.loadbalancer.server.port=8025"
+      - "traefik.docker.network=proxy"
     restart: unless-stopped
 
-  db:
-    image: mariadb:11
-    container_name: bankapp_db
-    environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootsecret}
-      - MYSQL_DATABASE=${DB_DATABASE:-bankapp}
-      - MYSQL_USER=${DB_USERNAME:-bankapp}
-      - MYSQL_PASSWORD=${DB_PASSWORD:-bankapp_secret}
-    volumes:
-      - ./data/mysql:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    restart: unless-stopped
+networks:
+  proxy:
+    external: true       # Réseau Traefik partagé entre tous les projets
+  db_internal:
+    external: true       # Réseau de la base de données mutualisée
+  internal:
+    driver: bridge
+    internal: true       # Réseau isolé (nginx ↔ app ↔ mailpit, sans accès internet direct)
 
