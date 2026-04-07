@@ -38,7 +38,7 @@ class AuthController extends Controller
         $blockedUntil = $this->rateLimitModel->getBlockedUntil($ip);
         if ($blockedUntil !== null) {
             $remaining = $this->minutesRemaining($blockedUntil);
-            $this->setFlash('danger', "Trop de tentatives de connexion \u00e9chou\u00e9es. Votre acc\u00e8s est bloqu\u00e9. R\u00e9essayez dans {$remaining}\u00a0minute" . ($remaining > 1 ? 's' : '') . '.');
+            $this->setFlash('danger', "Trop de tentatives de connexion échouées. Votre accès est bloqué. Réessayez dans {$remaining} minute" . ($remaining > 1 ? 's' : '') . '.');
         }
         $this->render('auth/login', ['title' => 'Connexion']);
     }
@@ -54,7 +54,7 @@ class AuthController extends Controller
         if ($this->rateLimitModel->isBlocked($ip)) {
             AuditLog::log(null, AuditLog::ACTION_AUTH_LOGIN_FAILED, ['ip_blocked' => true]);
             $remaining = $this->minutesRemaining($this->rateLimitModel->getBlockedUntil($ip));
-            $this->setFlash('danger', "Trop de tentatives de connexion \u00e9chou\u00e9es. R\u00e9essayez dans {$remaining}\u00a0minute" . ($remaining > 1 ? 's' : '') . '.');
+            $this->setFlash('danger', "Trop de tentatives de connexion échouées. Réessayez dans {$remaining} minute" . ($remaining > 1 ? 's' : '') . '.');
             $this->redirect('/login');
             return;
         }
@@ -130,7 +130,7 @@ class AuthController extends Controller
         $blockedUntil = $this->rateLimitModel->getBlockedUntil($ip);
         if ($blockedUntil !== null) {
             $remaining = $this->minutesRemaining($blockedUntil);
-            $this->setFlash('danger', "Trop de tentatives de connexion \u00e9chou\u00e9es. Votre acc\u00e8s est bloqu\u00e9. R\u00e9essayez dans {$remaining}\u00a0minute" . ($remaining > 1 ? 's' : '') . '.');
+            $this->setFlash('danger', "Trop de tentatives de connexion échouées. Votre accès est bloqué. Réessayez dans {$remaining} minute" . ($remaining > 1 ? 's' : '') . '.');
         }
 
         $this->render('auth/login_pin', [
@@ -150,7 +150,7 @@ class AuthController extends Controller
         if ($this->rateLimitModel->isBlocked($ip)) {
             AuditLog::log(null, AuditLog::ACTION_AUTH_LOGIN_FAILED, ['ip_blocked' => true]);
             $remaining = $this->minutesRemaining($this->rateLimitModel->getBlockedUntil($ip));
-            $this->setFlash('danger', "Trop de tentatives de connexion \u00e9chou\u00e9es. R\u00e9essayez dans {$remaining}\u00a0minute" . ($remaining > 1 ? 's' : '') . '.');
+            $this->setFlash('danger', "Trop de tentatives de connexion échouées. Réessayez dans {$remaining} minute" . ($remaining > 1 ? 's' : '') . '.');
             $this->redirect('/login/pin');
             return;
         }
