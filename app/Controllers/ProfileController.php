@@ -238,4 +238,74 @@ class ProfileController extends Controller
         $result = SiretValidator::verify($siret);
         $this->json($result);
     }
+
+    // ---------------------------------------------------------------
+    // Numéro de compte et code PIN
+    // ---------------------------------------------------------------
+
+    /**
+     * Réinitialise (ou génère) le numéro de compte de l'utilisateur connecté.
+     */
+    public function resetAccountNumber(): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+
+        $userId = $this->getCurrentUserId();
+        $number = $this->userModel->resetAccountNumber($userId);
+
+        $this->setFlash('success', 'Nouveau numéro de compte : ' . $number);
+        $this->redirect('/profile');
+    }
+
+    /**
+     * Définit ou modifie le code PIN à 6 chiffres.
+     */
+    public function savePin(): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+
+        $userId = $this->getCurrentUserId();
+        $user   = $this->userModel->find($userId);
+
+        if (!$user) {
+            $this->setFlash('danger', 'Utilisateur introuvable.');
+            $this->redirect('/profile');
+            return;
+        }
+
+        $data       = $this->getPostData(['current_pin', 'new_pin', 'confirm_pin']);
+        $newPin     = $data['new_pin']     ?? '';
+        $confirmPin = $data['confirm_pin'] ?? '';
+
+        // Validation format PIN
+        if (!preg_match('/^\d{6}$/', $newPin)) {
+            $this->setFlash('danger', 'Le code PIN doit contenir exactement 6 chiffres.');
+            $this->redirect('/profile');
+            return;
+        }
+
+        if ($newPin !== $confirmPin) {
+            $this->setFlash('danger', 'Les codes PIN ne correspondent pas.');
+            $this->redirect('/profile');
+            return;
+        }
+
+        // Si un PIN existe déjà, vérifier l'ancien
+        if (!empty($user['pin_hash'])) {
+            $currentPin = $data['current_pin'] ?? '';
+            if (!password_verify($currentPin, $user['pin_hash'])) {
+                $this->setFlash('danger', 'Code PIN actuel incorrect.');
+                $this->redirect('/profile');
+                return;
+            }
+        }
+
+        $this->userModel->setPin($userId, $newPin);
+
+        $this->setFlash('success', 'Code PIN mis à jour avec succès.');
+        $this->redirect('/profile');
+    }
 }
+

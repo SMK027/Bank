@@ -16,13 +16,100 @@ class User extends Model
 
     public function register(string $username, string $email, string $password, string $birthDate): int
     {
-        return $this->create([
+        $userId = $this->create([
             'username'    => $username,
             'email'       => $email,
             'password'    => password_hash($password, PASSWORD_BCRYPT),
             'global_role' => 'user',
             'birth_date'  => $birthDate,
         ]);
+
+        $this->assignAccountNumber($userId);
+
+        return $userId;
+    }
+
+    // ---------------------------------------------------------------
+    // Numéro de compte et code PIN
+    // ---------------------------------------------------------------
+
+    /**
+     * Génère un numéro de compte unique au format BKxxxxxxxx (8 chiffres).
+     */
+    private function generateAccountNumber(): string
+    {
+        do {
+            $number = 'BK' . str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT);
+            $exists = $this->findOneBy(['account_number' => $number]);
+        } while ($exists !== null);
+
+        return $number;
+    }
+
+    /**
+     * Attribue un nouveau numéro de compte à un utilisateur.
+     * Retourne le numéro généré.
+     */
+    public function assignAccountNumber(int $userId): string
+    {
+        $number = $this->generateAccountNumber();
+        $this->update($userId, ['account_number' => $number]);
+        return $number;
+    }
+
+    /**
+     * Réinitialise le numéro de compte d'un utilisateur (génère un nouveau numéro).
+     * Retourne le nouveau numéro.
+     */
+    public function resetAccountNumber(int $userId): string
+    {
+        return $this->assignAccountNumber($userId);
+    }
+
+    /**
+     * Trouve un utilisateur par son numéro de compte.
+     */
+    public function findByAccountNumber(string $accountNumber): ?array
+    {
+        return $this->findOneBy(['account_number' => $accountNumber]);
+    }
+
+    /**
+     * Définit ou met à jour le code PIN (6 chiffres), stocké haché.
+     */
+    public function setPin(int $userId, string $pin): bool
+    {
+        return $this->update($userId, [
+            'pin_hash' => password_hash($pin, PASSWORD_BCRYPT),
+        ]);
+    }
+
+    /**
+     * Authentifie un utilisateur par numéro de compte + code PIN.
+     * Lève automatiquement une suspension expirée.
+     */
+    public function authenticateByPin(string $accountNumber, string $pin): ?array
+    {
+        $user = $this->findByAccountNumber($accountNumber);
+        if (!$user || empty($user['pin_hash'])) {
+            return null;
+        }
+
+        if (!password_verify($pin, $user['pin_hash'])) {
+            return null;
+        }
+
+        // Lever automatiquement une suspension expirée
+        $status = $user['status'] ?? self::STATUS_ACTIVE;
+        if ($status === self::STATUS_SUSPENDED && !empty($user['suspended_until'])) {
+            if (strtotime($user['suspended_until']) < time()) {
+                $this->activate((int) $user['id']);
+                $user['status']          = self::STATUS_ACTIVE;
+                $user['suspended_until'] = null;
+            }
+        }
+
+        return $user;
     }
 
     public function authenticate(string $email, string $password): ?array

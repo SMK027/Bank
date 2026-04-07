@@ -26,6 +26,9 @@
             <p class="text-center text-muted text-small mt-2">
                 Pas encore de compte ? <a href="/register">Créer un compte</a>
             </p>
+            <p class="text-center text-muted text-small">
+                <a href="/login/pin"><i class="bi bi-shield-lock"></i> Se connecter avec un numéro de compte et un code PIN</a>
+            </p>
         </div>
     </div>
 </div>

@@ -55,6 +55,8 @@ $router->get('/', HomeController::class, 'index');
 // --- Routes d'authentification ---
 $router->get('/login', AuthController::class, 'loginForm');
 $router->post('/login', AuthController::class, 'login');
+$router->get('/login/pin', AuthController::class, 'loginPinForm');
+$router->post('/login/pin', AuthController::class, 'loginPin');
 $router->get('/register', AuthController::class, 'registerForm');
 $router->post('/register', AuthController::class, 'register');
 $router->get('/logout', AuthController::class, 'logout');
@@ -71,6 +73,8 @@ $router->get('/profile/professional', ProfileController::class, 'professionalFor
 $router->post('/profile/professional', ProfileController::class, 'saveProfessional');
 $router->post('/profile/professional/remove', ProfileController::class, 'removeProfessional');
 $router->get('/profile/verify-siret', ProfileController::class, 'verifySiret');
+$router->post('/profile/pin', ProfileController::class, 'savePin');
+$router->post('/profile/account-number/reset', ProfileController::class, 'resetAccountNumber');
 
 // --- Comptes bancaires ---
 $router->get('/accounts/create', AccountController::class, 'createForm');

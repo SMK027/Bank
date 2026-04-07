@@ -89,6 +89,77 @@ class AuthController extends Controller
     }
 
     /**
+     * Formulaire de connexion par numéro de compte + code PIN.
+     */
+    public function loginPinForm(): void
+    {
+        $this->render('auth/login_pin', ['title' => 'Connexion par code PIN']);
+    }
+
+    /**
+     * Traitement de la connexion par numéro de compte + code PIN.
+     */
+    public function loginPin(): void
+    {
+        $this->validateCSRF();
+        $data = $this->getPostData(['account_number', 'pin']);
+
+        $accountNumber = trim($data['account_number'] ?? '');
+        $pin           = $data['pin'] ?? '';
+
+        if ($accountNumber === '' || $pin === '') {
+            $this->setFlash('danger', 'Tous les champs sont requis.');
+            $this->redirect('/login/pin');
+            return;
+        }
+
+        if (!preg_match('/^\d{6}$/', $pin)) {
+            $this->setFlash('danger', 'Le code PIN doit contenir exactement 6 chiffres.');
+            $this->redirect('/login/pin');
+            return;
+        }
+
+        $user = $this->userModel->authenticateByPin($accountNumber, $pin);
+
+        if (!$user) {
+            AuditLog::log(null, AuditLog::ACTION_AUTH_LOGIN_FAILED, ['account_number' => $accountNumber]);
+            $this->setFlash('danger', 'Numéro de compte ou code PIN incorrect.');
+            $this->redirect('/login/pin');
+            return;
+        }
+
+        // Vérifier que le compte n'est pas suspendu ou banni
+        $status = $user['status'] ?? 'active';
+        if ($status === 'suspended') {
+            $msg = 'Votre compte est suspendu';
+            if (!empty($user['suspended_until'])) {
+                $dt   = \DateTime::createFromFormat('Y-m-d H:i:s', $user['suspended_until']);
+                $msg .= ' jusqu\'au ' . ($dt ? $dt->format('d/m/Y') : $user['suspended_until']);
+            }
+            AuditLog::log($user['id'], AuditLog::ACTION_AUTH_LOGIN_FAILED, ['account_number' => $accountNumber, 'reason' => 'suspended']);
+            $this->setFlash('danger', $msg . '.');
+            $this->redirect('/login/pin');
+            return;
+        }
+        if ($status === 'banned') {
+            AuditLog::log($user['id'], AuditLog::ACTION_AUTH_LOGIN_FAILED, ['account_number' => $accountNumber, 'reason' => 'banned']);
+            $this->setFlash('danger', 'Votre compte a été banni de la plateforme.');
+            $this->redirect('/login/pin');
+            return;
+        }
+
+        Session::regenerate();
+        Session::set('user_id', $user['id']);
+        Session::set('username', $user['username']);
+        Session::set('global_role', $user['global_role']);
+        Session::set('birth_date_missing', empty($user['birth_date']));
+
+        $this->setFlash('success', 'Bienvenue, ' . $user['username'] . ' !');
+        AuditLog::log($user['id'], AuditLog::ACTION_AUTH_LOGIN, ['username' => $user['username']], targetUserId: $user['id']);
+        $this->redirect('/dashboard');
+    }
+
+    /**
      * Formulaire d'inscription.
      */
     public function registerForm(): void
