@@ -1,7 +1,7 @@
 <div class="page-header">
     <div>
-        <h1><i class="bi bi-percent"></i> Taux d'intérêt épargne</h1>
-        <p class="page-description">Configurez le taux annuel brut par type de compte éligible.</p>
+        <h1><i class="bi bi-percent"></i> Taux d'intérêt maximum — Épargne</h1>
+        <p class="page-description">Définissez le taux annuel brut <strong>maximum</strong> autorisé par type de compte. Les utilisateurs fixent leur propre taux dans la configuration de leur compte, dans la limite de ce plafond.</p>
     </div>
     <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
         <a href="/moderation" class="btn btn-outline btn-sm"><i class="bi bi-shield-check"></i> Comptes</a>
@@ -34,7 +34,7 @@ foreach (Account::TYPES as $key => $def) { $typeMap[$key] = $def['label']; }
             <thead>
                 <tr>
                     <th>Type de compte</th>
-                    <th>Taux actuel</th>
+                    <th>Taux maximum</th>
                     <th>Défini le</th>
                     <th>Par</th>
                     <th style="width:240px;">Nouveau taux (%)</th>
@@ -54,7 +54,7 @@ foreach (Account::TYPES as $key => $def) { $typeMap[$key] = $def['label']; }
                                 <?= number_format((float) $current['rate'] * 100, 2, ',', ' ') ?> %
                             </span>
                         <?php else: ?>
-                            <span class="text-muted"><i class="bi bi-dash"></i> Non configuré</span>
+                            <span class="text-muted"><i class="bi bi-dash"></i> Non configuré (aucune limite)</span>
                         <?php endif; ?>
                     </td>
                     <td class="text-muted" style="font-size:0.85rem;">
@@ -71,6 +71,7 @@ foreach (Account::TYPES as $key => $def) { $typeMap[$key] = $def['label']; }
                                    min="0" max="100" step="0.01" required
                                    placeholder="Ex : 3.00"
                                    value="<?= $current ? htmlspecialchars(number_format((float) $current['rate'] * 100, 2, '.', ''), ENT_QUOTES) : '' ?>">
+                            <span class="form-hint" style="font-size:0.75rem;color:var(--text-muted,#6b7280);">Plafond max des utilisateurs</span>
                             <button type="submit" class="btn btn-primary btn-sm">
                                 <i class="bi bi-check-lg"></i>
                             </button>

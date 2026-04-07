@@ -118,7 +118,7 @@ class AuditLog extends Model
         'guardianship.remove'      => 'Tutelle supprimée',
         'minor_account.create'     => 'Compte mineur créé',
         'interest.confirm'         => 'Intérêts confirmés',
-        'interest.rate_set'        => 'Taux d\'intérêt configuré',
+        'interest.rate_set'        => 'Taux d\'intérêt maximum configuré',
     ];
 
     /** Couleur Bootstrap associée à chaque catégorie. */

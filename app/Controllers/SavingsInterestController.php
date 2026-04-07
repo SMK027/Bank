@@ -61,7 +61,9 @@ class SavingsInterestController extends Controller
         $account  = $this->accountModel->find((int) $interest['account_id']);
         $balance  = $this->accountModel->getBalance((int) $interest['account_id']);
         $cap      = $this->resolveCap($account);
-        $maxNow   = SavingsInterest::computeMaxAmount($balance, (float) $interest['rate'], $cap);
+        // Le taux de référence est celui enregistré dans l'intérêt (taux du compte au moment du calcul)
+        $rate     = (float) $interest['rate'];
+        $maxNow   = SavingsInterest::computeMaxAmount($balance, $rate, $cap);
 
         $this->render('accounts/interest_confirm', [
             'title'    => 'Confirmer les intérêts ' . (int) $interest['year'],

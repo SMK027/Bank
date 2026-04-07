@@ -67,6 +67,37 @@
                            min="0" step="0.01" placeholder="Ex : 500.00">
                     <span class="form-hint">Notification envoyée lorsque le solde passe sous ce seuil. Laisser vide pour désactiver.</span>
                 </div>
+
+                <?php
+                // Prépare la map JS des types éligibles aux intérêts et du taux max courant
+                use App\Models\Account;
+                $interestTypes = Account::getInterestEligibleTypes();
+                $currentAccountType = $account['type'] ?? 'standard';
+                $currentInterestRatePct = $account['interest_rate'] !== null
+                    ? number_format((float) $account['interest_rate'] * 100, 4, '.', '')
+                    : '';
+                ?>
+                <div class="form-group" id="interest-rate-group" style="display:none;">
+                    <label for="interest_rate" class="form-label">
+                        <i class="bi bi-percent"></i> Taux d'intérêt annuel (%)
+                    </label>
+                    <input type="number" id="interest_rate" name="interest_rate" class="form-control"
+                           value="<?= e($currentInterestRatePct) ?>"
+                           min="0" step="0.0001" placeholder="Ex : 3.00"
+                           <?php if ($maxRate !== null): ?>
+                           max="<?= htmlspecialchars(number_format($maxRate * 100, 4, '.', ''), ENT_QUOTES) ?>"
+                           <?php endif; ?>>
+                    <span class="form-hint" id="interest-rate-hint">
+                        Taux appliqué lors du calcul annuel des intérêts.
+                        <?php if ($maxRate !== null): ?>
+                            Taux maximum autorisé : <strong><?= number_format($maxRate * 100, 2, ',', ' ') ?> %</strong>.
+                        <?php else: ?>
+                            Aucun taux maximum configuré par la modération pour ce type.
+                        <?php endif; ?>
+                        Laisser vide pour ne pas percevoir d'intérêts.
+                    </span>
+                </div>
+
                 <div class="form-group">
                     <button type="submit" class="btn btn-primary btn-block">
                         <i class="bi bi-check-lg"></i> Enregistrer les modifications
@@ -81,20 +112,29 @@
 </div>
 <script>
 (function () {
-    var typeEl  = document.getElementById('account_type');
-    var group   = document.getElementById('overdraft-group');
-    var notice  = document.getElementById('overdraft-blocked-notice');
-    var input   = document.getElementById('overdraft');
-    var capGrp  = document.getElementById('cap-group');
+    var typeEl      = document.getElementById('account_type');
+    var group       = document.getElementById('overdraft-group');
+    var notice      = document.getElementById('overdraft-blocked-notice');
+    var input       = document.getElementById('overdraft');
+    var capGrp      = document.getElementById('cap-group');
+    var rateGrp     = document.getElementById('interest-rate-group');
+    var rateInput   = document.getElementById('interest_rate');
+    var interestTypes = <?= json_encode($interestTypes, JSON_HEX_TAG) ?>;
+
     function toggle() {
-        var opt    = typeEl.options[typeEl.selectedIndex];
-        var noOd   = opt.dataset.noOverdraft === '1';
-        var hasCap = opt.dataset.hasCap === '1';
-        group.style.display  = noOd ? 'none' : '';
-        notice.style.display = noOd && !hasCap ? 'block' : 'none';
-        capGrp.style.display = hasCap ? '' : 'none';
+        var opt       = typeEl.options[typeEl.selectedIndex];
+        var noOd      = opt.dataset.noOverdraft === '1';
+        var hasCap    = opt.dataset.hasCap === '1';
+        var hasInterest = interestTypes.indexOf(opt.value) !== -1;
+
+        group.style.display   = noOd ? 'none' : '';
+        notice.style.display  = noOd && !hasCap ? 'block' : 'none';
+        capGrp.style.display  = hasCap ? '' : 'none';
+        rateGrp.style.display = hasInterest ? '' : 'none';
+
         if (noOd) { input.value = '0'; }
         if (!hasCap) { document.getElementById('cap').value = ''; }
+        if (!hasInterest && rateInput) { rateInput.value = ''; }
     }
     typeEl.addEventListener('change', toggle);
     toggle();

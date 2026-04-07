@@ -14,6 +14,7 @@ use App\Models\DirectDebit;
 use App\Models\Guardianship;
 use App\Models\Mandate;
 use App\Models\RecurringTransfer;
+use App\Models\SavingsRate;
 use App\Models\User;
 
 class AccountController extends Controller
@@ -24,10 +25,12 @@ class AccountController extends Controller
     private DirectDebit $directDebitModel;
     private User $userModel;
     private RecurringTransfer $recurringTransferModel;
+    private SavingsRate $rateModel;
 
     public function __construct()
     {
         $this->accountModel           = new Account();
+        $this->rateModel              = new SavingsRate();
         $this->transactionModel       = new Transaction();
         $this->accessModel            = new AccountAccess();
         $this->directDebitModel       = new DirectDebit();
@@ -272,12 +275,16 @@ class AccountController extends Controller
 
         $owner   = $this->userModel->find((int) $account['user_id']);
         $isMinor = User::isMinorFromDate($owner['birth_date'] ?? null);
+        $maxRate = Account::typeHasInterest($account['type'] ?? '')
+            ? $this->rateModel->getCurrentRate($account['type'])
+            : null;
 
         $this->render('accounts/edit', [
             'title'        => 'Modifier le compte',
             'account'      => $account,
             'accountTypes' => Account::TYPES,
             'isMinor'      => $isMinor,
+            'maxRate'      => $maxRate,
         ]);
     }
 
@@ -294,7 +301,7 @@ class AccountController extends Controller
             return;
         }
 
-        $data = $this->getPostData(['name', 'currency', 'overdraft', 'account_type', 'cap', 'balance_alert_threshold']);
+        $data = $this->getPostData(['name', 'currency', 'overdraft', 'account_type', 'cap', 'balance_alert_threshold', 'interest_rate']);
 
         if (empty($data['name']) || empty($data['currency'])) {
             $this->setFlash('danger', 'Le nom et la devise sont requis.');
@@ -316,6 +323,21 @@ class AccountController extends Controller
             ? max(0.0, (float) $data['balance_alert_threshold'])
             : null;
 
+        // Taux d'intérêt propre au compte (uniquement pour les types éligibles)
+        $interestRate = null;
+        if (Account::typeHasInterest($type) && ($data['interest_rate'] ?? '') !== '') {
+            $rawPct       = (float) str_replace(',', '.', $data['interest_rate']);
+            $interestRate = round($rawPct / 100, 6); // formulaire en %, on stocke en décimal
+            // Borner au taux maximum configuré par la modération
+            $maxRate = $this->rateModel->getCurrentRate($type);
+            if ($maxRate !== null && $interestRate > $maxRate) {
+                $interestRate = $maxRate;
+            }
+            if ($interestRate < 0) {
+                $interestRate = 0.0;
+            }
+        }
+
         $this->accountModel->update($accountId, [
             'name'                    => $data['name'],
             'currency'                => $data['currency'],
@@ -323,6 +345,7 @@ class AccountController extends Controller
             'type'                    => $type,
             'cap'                     => $cap,
             'balance_alert_threshold' => $alertThreshold,
+            'interest_rate'           => $interestRate,
         ]);
 
         $this->setFlash('success', 'Compte modifié avec succès.');
