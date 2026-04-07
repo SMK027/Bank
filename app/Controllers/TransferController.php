@@ -156,7 +156,15 @@ class TransferController extends Controller
             $this->redirect('/transfers/create?tab=' . ($modMode ? 'moderation' : 'personal'));
             return;
         }
-        $balance     = $this->accountModel->getBalance($fromId);
+        // Bloquer le virement sortant si le compte émetteur est désactivé (sauf modération)
+        if ($this->accountModel->isDisabled($fromId) && !$modMode) {
+            $this->setFlash('danger', sprintf(
+                'Virement impossible : le compte « %s » est en cours de résiliation. Les virements sortants sont bloqués.',
+                $fromAccount['name'] ?? ''
+            ));
+            $this->redirect('/transfers/create?tab=personal');
+            return;
+        }        $balance     = $this->accountModel->getBalance($fromId);
         $overdraft   = (float) ($fromAccount['overdraft'] ?? 0);
         $accountType = $fromAccount['type'] ?? 'standard';
 

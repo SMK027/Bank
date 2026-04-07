@@ -5,6 +5,9 @@
             <?php if ($isFrozen): ?>
                 <span class="badge badge-frozen" style="font-size:0.55em;vertical-align:middle;"><i class="bi bi-snow"></i> Gelé</span>
             <?php endif; ?>
+            <?php if ($isDisabled): ?>
+                <span class="badge" style="background:var(--danger);color:#fff;font-size:0.55em;vertical-align:middle;"><i class="bi bi-slash-circle"></i> En résiliation</span>
+            <?php endif; ?>
         </h1>
         <p class="page-description">
             <?php if ($isOwner): ?>
@@ -61,6 +64,23 @@
                     </button>
                 </form>
             <?php endif; ?>
+            <?php if ($isDisabled): ?>
+                <form method="POST" action="/moderation/accounts/<?= (int) $account['id'] ?>/enable" style="display:inline">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="btn btn-success btn-sm"
+                            onclick="return confirm('Réactiver ce compte et annuler la résiliation ?')">
+                        <i class="bi bi-arrow-counterclockwise"></i> Réactiver
+                    </button>
+                </form>
+            <?php else: ?>
+                <form method="POST" action="/moderation/accounts/<?= (int) $account['id'] ?>/disable" style="display:inline">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="btn btn-danger btn-sm"
+                            onclick="return confirm('Désactiver ce compte ? Il sera supprimé définitivement en fin de mois.')">
+                        <i class="bi bi-slash-circle"></i> Désactiver
+                    </button>
+                </form>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>
@@ -72,6 +92,27 @@
         <strong>Compte gelé.</strong>
         Les opérations sortantes et les virements débiteurs sont bloqués.
         Ce compte peut encore recevoir des versements.
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if ($isDisabled): ?>
+<div class="alert alert-danger" style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+    <i class="bi bi-slash-circle" style="font-size:1.4rem;"></i>
+    <div>
+        <strong>Compte en cours de résiliation.</strong>
+        Désactivé le <?= date('d/m/Y', strtotime($account['disabled_at'] ?? '')) ?>.
+        Aucune nouvelle opération ne peut être enregistrée. Les virements sortants sont bloqués.
+        La réception de virements reste possible. Ce compte sera définitivement supprimé à la fin du mois.
+        <?php if ($isOwner && !$isModerator): ?>
+        <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/enable" style="display:inline;margin-left:0.75rem;">
+            <?= csrf_field() ?>
+            <button type="submit" class="btn btn-success btn-sm"
+                    onclick="return confirm('Annuler la résiliation et réactiver ce compte ?')">
+                <i class="bi bi-arrow-counterclockwise"></i> Annuler la résiliation
+            </button>
+        </form>
+        <?php endif; ?>
     </div>
 </div>
 <?php endif; ?>
@@ -205,6 +246,18 @@
             <div class="alert alert-frozen" style="margin-bottom:1rem;">
                 <i class="bi bi-snow"></i>
                 <strong>Compte gelé.</strong> Seules les <strong>entrées</strong> sont autorisées sur ce compte.
+            </div>
+            <?php endif; ?>
+            <?php if ($isDisabled && !$isModerator): ?>
+            <div class="alert alert-danger" style="margin-bottom:0;display:flex;align-items:center;gap:0.6rem;">
+                <i class="bi bi-slash-circle" style="font-size:1.2rem;flex-shrink:0;"></i>
+                <span><strong>Compte en résiliation.</strong> L'enregistrement de nouvelles opérations est désactivé.</span>
+            </div>
+            <?php else: ?>
+            <?php if ($isDisabled && $isModerator): ?>
+            <div class="alert alert-warning" style="margin-bottom:1rem;display:flex;align-items:center;gap:0.6rem;">
+                <i class="bi bi-exclamation-triangle-fill" style="font-size:1.2rem;flex-shrink:0;"></i>
+                <span><strong>Compte en résiliation</strong> — vous agissez en tant que modérateur.</span>
             </div>
             <?php endif; ?>
             <?php if (\App\Models\Account::typeHasCap($account['type'] ?? '') && (float) ($account['cap'] ?? 0) > 0 && !$isModerator): ?>
@@ -370,6 +423,7 @@
                 amountEl.addEventListener('input', check);
             })();
             </script>
+            <?php endif; // fin du bloc conditionnel compte non désactivé (ou modérateur) ?>
         </div>
     </div>
 
@@ -1092,22 +1146,44 @@
 </div>
 
 <?php if ($isOwner || $isModerator): ?>
-<!-- Suppression du compte -->
+<!-- Zone résiliation du compte -->
 <div class="card mt-2" style="border: 1px solid var(--danger);">
     <div class="card-body">
+        <?php if ($isDisabled): ?>
         <div class="d-flex justify-between align-center flex-wrap gap-1">
             <div>
-                <h4 class="text-danger" style="margin:0">Supprimer ce compte</h4>
-                <p class="text-small text-muted" style="margin:0">Cette action est irréversible. Toutes les données seront perdues.</p>
+                <h4 style="margin:0;color:var(--danger)"><i class="bi bi-slash-circle"></i> Compte en cours de résiliation</h4>
+                <p class="text-small text-muted" style="margin:0">
+                    Désactivé le <?= date('d/m/Y à H:i', strtotime($account['disabled_at'] ?? '')) ?>.
+                    Ce compte sera définitivement supprimé à la fin du mois.
+                </p>
             </div>
-            <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/delete">
+            <form method="POST" action="/<?= $isModerator ? 'moderation/' : '' ?>accounts/<?= (int) $account['id'] ?>/enable">
                 <?= csrf_field() ?>
-                <button type="submit" class="btn btn-danger btn-sm"
-                        onclick="return confirm('Êtes-vous sûr de vouloir supprimer ce compte et toutes ses données ?')">
-                    <i class="bi bi-trash"></i> Supprimer
+                <button type="submit" class="btn btn-success btn-sm"
+                        onclick="return confirm('Annuler la résiliation et réactiver ce compte ?')">
+                    <i class="bi bi-arrow-counterclockwise"></i> Annuler la résiliation
                 </button>
             </form>
         </div>
+        <?php else: ?>
+        <div class="d-flex justify-between align-center flex-wrap gap-1">
+            <div>
+                <h4 class="text-danger" style="margin:0">Désactiver ce compte</h4>
+                <p class="text-small text-muted" style="margin:0">
+                    Le compte sera définitivement supprimé à la fin du mois calendaire.
+                    Les prélèvements en cours restent effectifs jusqu'à la fin du mois.
+                </p>
+            </div>
+            <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/disable">
+                <?= csrf_field() ?>
+                <button type="submit" class="btn btn-danger btn-sm"
+                        onclick="return confirm('Désactiver ce compte ? Il sera définitivement supprimé à la fin du mois. Cette action peut être annulée avant la fin du mois.')">
+                    <i class="bi bi-slash-circle"></i> Désactiver
+                </button>
+            </form>
+        </div>
+        <?php endif; ?>
     </div>
 </div>
 <?php endif; ?>

@@ -149,8 +149,77 @@ class ModerationController extends Controller
     }
 
     /**
-     * Liste des utilisateurs avec gestion des rôles.
+     * Désactiver un compte (modération) — POST.
+     * Le compte est marqué disabled_at = NOW() et sera définitivement supprimé en fin de mois.
      */
+    public function disableAccount(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $accountId = (int) $id;
+        $account   = $this->accountModel->find($accountId);
+
+        if (!$account) {
+            $this->setFlash('danger', 'Compte introuvable.');
+            $this->redirect('/moderation');
+            return;
+        }
+
+        if (!empty($account['disabled_at'])) {
+            $this->setFlash('info', 'Ce compte est déjà en cours de résiliation.');
+            $this->redirect(isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '/moderation');
+            return;
+        }
+
+        $this->accountModel->disableAccount($accountId);
+        AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_ACCOUNT_DISABLE, ['name' => $account['name']], targetUserId: (int) $account['user_id'], targetAccountId: $accountId);
+        $this->notifyAccountOwner(
+            (int) $account['user_id'],
+            $accountId,
+            'account_disabled',
+            'Compte « ' . $account['name'] . ' » désactivé',
+            'Votre compte a été désactivé par la modération. Il sera définitivement supprimé à la fin du mois. Les prélèvements du mois en cours restent effectifs.'
+        );
+        $this->setFlash('success', 'Compte « ' . $account['name'] . ' » désactivé. Suppression en fin de mois.');
+        $this->redirect(isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '/moderation');
+    }
+
+    /**
+     * Réactiver un compte désactivé (modération) — POST.
+     */
+    public function enableAccount(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $accountId = (int) $id;
+        $account   = $this->accountModel->find($accountId);
+
+        if (!$account) {
+            $this->setFlash('danger', 'Compte introuvable.');
+            $this->redirect('/moderation');
+            return;
+        }
+
+        if (empty($account['disabled_at'])) {
+            $this->setFlash('info', 'Ce compte n\'est pas désactivé.');
+            $this->redirect(isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '/moderation');
+            return;
+        }
+
+        $this->accountModel->enableAccount($accountId);
+        AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_ACCOUNT_ENABLE, ['name' => $account['name']], targetUserId: (int) $account['user_id'], targetAccountId: $accountId);
+        $this->notifyAccountOwner(
+            (int) $account['user_id'],
+            $accountId,
+            'account_enabled',
+            'Compte « ' . $account['name'] . ' » réactivé',
+            'La résiliation de votre compte a été annulée par la modération. Votre compte fonctionne de nouveau normalement.'
+        );
+        $this->setFlash('success', 'Compte « ' . $account['name'] . ' » réactivé avec succès.');
+        $this->redirect(isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '/moderation');
+    }
     public function users(): void
     {
         $this->requireModerator();

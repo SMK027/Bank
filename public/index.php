@@ -84,7 +84,8 @@ $router->get('/accounts/{id}/statement', AccountController::class, 'statementFor
 $router->get('/accounts/{id}/statement/pdf', AccountController::class, 'generateStatement');
 $router->get('/accounts/{id}/edit', AccountController::class, 'editForm');
 $router->post('/accounts/{id}/edit', AccountController::class, 'edit');
-$router->post('/accounts/{id}/delete', AccountController::class, 'deleteAccount');
+$router->post('/accounts/{id}/disable', AccountController::class, 'disableAccount');
+$router->post('/accounts/{id}/enable', AccountController::class, 'enableAccount');
 
 // --- Transactions ---
 $router->post('/accounts/{accountId}/transactions', TransactionController::class, 'create');
@@ -107,6 +108,8 @@ $router->post('/moderation/users/{id}/ban', ModerationController::class, 'banUse
 $router->post('/moderation/users/{id}/activate', ModerationController::class, 'activateUser');
 $router->post('/moderation/accounts/{id}/freeze', ModerationController::class, 'freeze');
 $router->post('/moderation/accounts/{id}/unfreeze', ModerationController::class, 'unfreeze');
+$router->post('/moderation/accounts/{id}/disable', ModerationController::class, 'disableAccount');
+$router->post('/moderation/accounts/{id}/enable', ModerationController::class, 'enableAccount');
 // Prélèvements
 $router->get('/moderation/direct-debits', ModerationController::class, 'directDebits');
 $router->get('/moderation/direct-debits/create', ModerationController::class, 'createDirectDebitForm');

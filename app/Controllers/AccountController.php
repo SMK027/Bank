@@ -164,6 +164,7 @@ class AccountController extends Controller
         $isOwner = $this->accountModel->isOwner($accountId, $userId);
         $isModerator = $this->isModerator();
         $isFrozen    = $this->accountModel->isFrozen($accountId);
+        $isDisabled  = $this->accountModel->isDisabled($accountId);
 
         // Récupérer les accès partagés
         $accesses = [];
@@ -261,6 +262,7 @@ class AccountController extends Controller
             'isOwner'            => $isOwner,
             'isModerator'        => $isModerator,
             'isFrozen'           => $isFrozen,
+            'isDisabled'         => $isDisabled,
             'accesses'           => $accesses,
             'owner'              => $owner,
             'guardians'          => $guardians,
@@ -360,7 +362,7 @@ class AccountController extends Controller
         $this->redirect('/accounts/' . $id);
     }
 
-    public function deleteAccount(string $id): void
+    public function disableAccount(string $id): void
     {
         $this->requireAuth();
         $this->validateCSRF();
@@ -376,23 +378,56 @@ class AccountController extends Controller
         }
 
         $account = $this->accountModel->find($accountId);
-
-        // Supprimer les transactions associées
-        $transactions = $this->transactionModel->getByAccount($accountId);
-        foreach ($transactions as $t) {
-            $this->transactionModel->delete((int) $t['id']);
+        if (!$account) {
+            $this->setFlash('danger', 'Compte introuvable.');
+            $this->redirect('/dashboard');
+            return;
         }
 
-        // Supprimer les accès partagés
-        $accesses = $this->accessModel->getAccessesForAccount($accountId);
-        foreach ($accesses as $a) {
-            $this->accessModel->delete((int) $a['id']);
+        if (!empty($account['disabled_at'])) {
+            $this->setFlash('info', 'Ce compte est déjà en cours de résiliation.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
         }
 
-        $this->accountModel->delete($accountId);
-        AuditLog::log($userId, AuditLog::ACTION_ACCOUNT_DELETE, ['name' => $account['name'] ?? '?'], targetAccountId: $accountId);
-        $this->setFlash('success', 'Compte supprimé.');
-        $this->redirect('/dashboard');
+        $this->accountModel->disableAccount($accountId);
+        AuditLog::log($userId, AuditLog::ACTION_ACCOUNT_DISABLE, ['name' => $account['name'] ?? '?'], targetAccountId: $accountId);
+        $this->setFlash('success', 'Compte désactivé. Il sera définitivement supprimé à la fin du mois.');
+        $this->redirect('/accounts/' . $accountId);
+    }
+
+    public function enableAccount(string $id): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+        $accountId   = (int) $id;
+        $userId      = $this->getCurrentUserId();
+        $isOwner     = $this->accountModel->isOwner($accountId, $userId);
+        $isModerator = $this->isModerator();
+
+        if (!$isOwner && !$isModerator) {
+            $this->setFlash('danger', 'Accès refusé.');
+            $this->redirect('/dashboard');
+            return;
+        }
+
+        $account = $this->accountModel->find($accountId);
+        if (!$account) {
+            $this->setFlash('danger', 'Compte introuvable.');
+            $this->redirect('/dashboard');
+            return;
+        }
+
+        if (empty($account['disabled_at'])) {
+            $this->setFlash('info', 'Ce compte n\'est pas désactivé.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $this->accountModel->enableAccount($accountId);
+        AuditLog::log($userId, AuditLog::ACTION_ACCOUNT_ENABLE, ['name' => $account['name'] ?? '?'], targetAccountId: $accountId);
+        $this->setFlash('success', 'Compte réactivé avec succès.');
+        $this->redirect('/accounts/' . $accountId);
     }
 
     // -----------------------------------------------------------------------

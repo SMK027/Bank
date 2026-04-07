@@ -189,6 +189,17 @@ foreach ($recurringTransferModel->getDue() as $recurring) {
         continue;
     }
 
+    // Vérifier que le compte émetteur n'est pas désactivé
+    if ($accountModel->isDisabled($fromAccountId)) {
+        echo sprintf(
+            "[%s] SKIP virement récurrent #%d : compte émetteur #%d désactivé — non exécuté ce cycle.\n",
+            date('Y-m-d H:i:s'), $recId, $fromAccountId
+        );
+        // On reprogramme (markExecuted) pour maintenir le calendrier; sera annulé en fin de mois par le cron de clôture
+        $recurringTransferModel->markExecuted($recId);
+        continue;
+    }
+
     $fromAccount = $accountModel->find($fromAccountId);
     $fromType    = $fromAccount['type'] ?? 'standard';
     $balance     = $accountModel->getBalance($fromAccountId);
@@ -302,6 +313,17 @@ foreach ($mandateModel->getDue() as $mandate) {
 
     $motif = $description !== '' ? $description : null;
 
+    // Ne pas générer de nouveau prélèvement si le compte émetteur est désactivé
+    if ($accountModel->isDisabled($emitterAccountId)) {
+        echo sprintf(
+            "[%s] SKIP mandat #%d (%s) : compte émetteur #%d désactivé — aucun prélèvement généré.\n",
+            date('Y-m-d H:i:s'), $mandateId, $number, $emitterAccountId
+        );
+        // Reprogrammer le mandat pour maintenir la cohérence; annulé en fin de mois par le cron de clôture
+        $mandateModel->markExecuted($mandateId);
+        continue;
+    }
+
     // Créer un prélèvement planifié immédiatement
     $ddId = $directDebitModel->createDirectDebit(
         $number,
@@ -341,6 +363,23 @@ foreach ($directDebitModel->getDue() as $debit) {
 
     $ok = true;
 
+    // Si le compte débité est désactivé, n'autoriser que les prélèvements du mois de désactivation
+    $toAccount = $accountModel->find($toAccountId);
+    if ($toAccount && !empty($toAccount['disabled_at'])) {
+        $disabledMonth = date('Y-m', strtotime($toAccount['disabled_at']));
+        $currentMonth  = date('Y-m');
+        if ($disabledMonth !== $currentMonth) {
+            echo sprintf(
+                "[%s] ANNULATION prélèvement #%d : compte #%d désactivé le %s (mois clôturé) — prélèvement annulé.\n",
+                date('Y-m-d H:i:s'), $debitId, $toAccountId, $toAccount['disabled_at']
+            );
+            $directDebitModel->markCancelled($debitId);
+            $errors++;
+            continue;
+        }
+        // Même mois : on laisse passer (prélèvements du mois de désactivation restent effectifs)
+    }
+
     // Vérifier que le compte destinataire (débité) n'est pas gelé
     if ($accountModel->isFrozen($toAccountId)) {
         echo sprintf(
@@ -366,8 +405,8 @@ foreach ($directDebitModel->getDue() as $debit) {
     // Rejeter automatiquement si le type de compte n'autorise pas le découvert
     // et que le prélèvement ferait basculer le solde en négatif.
     // Types concernés : minor, savings, online (overdraft: false).
-    $toAccount = $accountModel->find($toAccountId);
-    $toType    = $toAccount['type'] ?? 'standard';
+    // $toAccount est déjà chargé plus haut (vérification disabled_at)
+    $toType = $toAccount['type'] ?? 'standard';
     if (!Account::typeAllowsOverdraft($toType)) {
         $currentBalance = $accountModel->getBalance($toAccountId);
         if ($currentBalance - $amount < 0) {

@@ -35,6 +35,9 @@ class AuditLog extends Model
     public const ACTION_ACCOUNT_DELETE   = 'account.delete';
     public const ACTION_ACCOUNT_FREEZE   = 'account.freeze';
     public const ACTION_ACCOUNT_UNFREEZE = 'account.unfreeze';
+    public const ACTION_ACCOUNT_DISABLE  = 'account.disable';
+    public const ACTION_ACCOUNT_ENABLE   = 'account.enable';
+    public const ACTION_ACCOUNT_CLOSE    = 'account.close';
 
     // Transactions
     public const ACTION_TRANSACTION_CREATE = 'transaction.create';

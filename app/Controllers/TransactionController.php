@@ -82,6 +82,13 @@ class TransactionController extends Controller
             return;
         }
 
+        // Bloquer toutes les opérations manuelles si le compte est désactivé (hors modérateurs)
+        if ($this->accountModel->isDisabled($accId) && !$this->isModerator()) {
+            $this->setFlash('danger', 'Ce compte est en cours de résiliation. Aucune opération manuelle n\'est possible.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
         // Vérifier le découvert pour les dépenses (ignoré pour les modérateurs)
         // On utilise le solde futur (incl. opérations programmées) pour le contrôle
         if ($data['type'] === 'expense' && !$this->isModerator()) {

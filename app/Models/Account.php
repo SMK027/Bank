@@ -232,6 +232,36 @@ class Account extends Model
         return $this->update($accountId, ['frozen' => 0]);
     }
 
+    public function isDisabled(int $accountId): bool
+    {
+        $account = $this->find($accountId);
+        return $account !== null && !empty($account['disabled_at']);
+    }
+
+    public function disableAccount(int $accountId): bool
+    {
+        return $this->update($accountId, ['disabled_at' => date('Y-m-d H:i:s')]);
+    }
+
+    public function enableAccount(int $accountId): bool
+    {
+        return $this->update($accountId, ['disabled_at' => null]);
+    }
+
+    /**
+     * Retourne les comptes éligibles à la clôture définitive :
+     * disabled_at IS NOT NULL ET disabled_at < premier jour du mois courant.
+     */
+    public function getEligibleForClosure(): array
+    {
+        $firstOfMonth = date('Y-m-01 00:00:00');
+        $stmt = $this->getPdo()->prepare(
+            'SELECT * FROM `accounts` WHERE `disabled_at` IS NOT NULL AND `disabled_at` < ?'
+        );
+        $stmt->execute([$firstOfMonth]);
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
     public function getAccessibleAccounts(int $userId): array
     {
         $ownAccounts = $this->getByUser($userId);
