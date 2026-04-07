@@ -84,31 +84,81 @@ foreach (Account::TYPES as $key => $def) { $typeMap[$key] = $def['label']; }
     </div>
 </div>
 
-<!-- Déclencher un calcul d'intérêts -->
+<!-- Intérêts en cours — aperçu indicatif -->
 <div class="card" style="margin-bottom:1.5rem;border-left:4px solid #10b981;">
-    <div class="card-header" style="display:flex;align-items:center;gap:0.6rem;">
-        <i class="bi bi-play-circle-fill" style="color:#10b981;font-size:1.1rem;"></i>
-        <h3 style="margin:0;">Déclencher un calcul d'intérêts</h3>
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:0.6rem;">
+            <i class="bi bi-graph-up-arrow" style="color:#10b981;font-size:1.1rem;"></i>
+            <h3 style="margin:0;">Intérêts en cours <?= (int) date('Y') ?> <span style="font-size:0.7em;font-weight:400;color:var(--text-muted,#6b7280);">(aperçu indicatif)</span></h3>
+        </div>
+        <a href="/moderation/savings-rate?preview=1<?= $filterType ? '&type=' . urlencode($filterType) : '' ?>"
+           class="btn btn-outline btn-sm">
+            <i class="bi bi-arrow-clockwise"></i> Actualiser l'aperçu
+        </a>
     </div>
     <div class="card-body">
-        <p style="margin:0 0 0.8rem;color:var(--text-muted,#6b7280);font-size:0.88rem;">
-            Calcule et crée les intérêts en attente pour chaque compte éligible ayant un taux configuré.
-            Le <strong>solde actuel</strong> est utilisé directement (équivalent à considérer que le solde est présent depuis le 1<sup>er</sup> janvier).
-            Les comptes ayant déjà des intérêts enregistrés pour l'année choisie sont ignorés.
+        <p style="margin:0 0 0.8rem;color:var(--text-muted,#6b7280);font-size:0.85rem;">
+            Estimation des intérêts accumulés depuis le 1<sup>er</sup> janvier <?= (int) date('Y') ?>
+            jusqu'à aujourd'hui, calculée au prorata temporis (TWAB) pour chaque compte ayant un taux configuré.
+            <strong>Aucune écriture en base — valeur purement indicative.</strong>
         </p>
-        <form method="POST" action="/moderation/interests/run"
-              onsubmit="return confirm('Déclencher le calcul des intérêts pour ' + this.year.value + ' ?');"
-              style="display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;">
-            <?= csrf_field() ?>
-            <label for="run_year" style="font-weight:600;white-space:nowrap;">Année :</label>
-            <input type="number" id="run_year" name="year"
-                   class="form-control" style="width:110px;"
-                   min="2000" max="<?= (int) date('Y') + 1 ?>"
-                   value="<?= (int) date('Y') ?>" required>
-            <button type="submit" class="btn btn-success btn-sm">
-                <i class="bi bi-play-circle"></i> Lancer le calcul
-            </button>
-        </form>
+        <?php if ($previewResults === null): ?>
+            <p class="text-muted" style="font-size:0.88rem;margin:0;">
+                <i class="bi bi-info-circle"></i> Cliquez sur « Actualiser l'aperçu » pour calculer.
+            </p>
+        <?php elseif (empty($previewResults)): ?>
+            <p class="text-muted" style="font-size:0.88rem;margin:0;">
+                <i class="bi bi-dash-circle"></i> Aucun compte éligible avec un taux configuré.
+            </p>
+        <?php else: ?>
+            <table class="table" style="margin:0;">
+                <thead>
+                    <tr>
+                        <th>Compte</th>
+                        <th>Titulaire</th>
+                        <th>Type</th>
+                        <th>Taux</th>
+                        <th style="text-align:right;">Intérêts en cours</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($previewResults as $row): ?>
+                    <tr>
+                        <td>
+                            <a href="/accounts/<?= (int) $row['account_id'] ?>"><?= e($row['account_name']) ?></a>
+                        </td>
+                        <td class="text-muted"><?= e($row['username']) ?></td>
+                        <td><code style="font-size:0.75rem;"><?= e($row['account_type']) ?></code></td>
+                        <td><?= number_format($row['rate'] * 100, 2, ',', ' ') ?> %</td>
+                        <td style="text-align:right;font-weight:600;color:var(--success,#16a34a);">
+                            <?php if ($row['accrued'] > 0): ?>
+                                +<?= number_format($row['accrued'], 2, ',', ' ') ?> <?= e($row['currency']) ?>
+                            <?php else: ?>
+                                <span class="text-muted">0,00</span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+                <?php
+                    $total = array_sum(array_column($previewResults, 'accrued'));
+                    $currencies = array_unique(array_column($previewResults, 'currency'));
+                ?>
+                <?php if (count($currencies) === 1): ?>
+                <tfoot>
+                    <tr style="font-weight:700;border-top:2px solid var(--border-color,#e5e7eb);">
+                        <td colspan="4" style="text-align:right;">Total</td>
+                        <td style="text-align:right;color:var(--success,#16a34a);">
+                            +<?= number_format($total, 2, ',', ' ') ?> <?= e($currencies[0]) ?>
+                        </td>
+                    </tr>
+                </tfoot>
+                <?php endif; ?>
+            </table>
+            <p style="margin:0.6rem 0 0;font-size:0.78rem;color:var(--text-muted,#6b7280);">
+                <i class="bi bi-clock"></i> Calculé le <?= date('d/m/Y à H\hi') ?>
+            </p>
+        <?php endif; ?>
     </div>
 </div>
 
