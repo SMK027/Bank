@@ -1198,7 +1198,10 @@ select.form-control {
 .text-danger { color: var(--danger); }
 .text-primary { color: var(--primary); }
 .text-small { font-size: 0.85rem; }
+.text-warning { color: var(--warning, #f59e0b); }
+.text-nowrap { white-space: nowrap; }
 .font-bold { font-weight: 600; }
+.font-italic { font-style: italic; }
 .mt-1 { margin-top: 0.5rem; }
 .mt-2 { margin-top: 1rem; }
 .mt-3 { margin-top: 1.5rem; }
