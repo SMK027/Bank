@@ -19,6 +19,9 @@ class AuditLog extends Model
 {
     protected string $table = 'audit_logs';
 
+    /** La table audit_logs est append-only : pas de colonne updated_at. */
+    protected bool $hasUpdatedAt = false;
+
     // ── Constantes d'actions ────────────────────────────────────────────────
 
     // Authentification

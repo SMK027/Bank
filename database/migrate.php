@@ -36,9 +36,11 @@ foreach ($files as $file) {
         $pdo->exec($sql);
         echo "OK\n";
     } catch (\PDOException $e) {
-        // Colonne / index / table déjà existant(e) : on passe sans bloquer
-        $code = (int) $e->getCode();
-        if (in_array($code, [1060, 1061, 1050], true)) {
+        // Colonne / index / table déjà existant(e) : on passe sans bloquer.
+        // getCode() retourne le SQLSTATE (ex. "42S21"), pas le code MySQL natif ;
+        // on utilise errorInfo[1] qui contient le code MySQL numérique.
+        $mysqlCode = (int) ($e->errorInfo[1] ?? 0);
+        if (in_array($mysqlCode, [1060, 1061, 1050], true)) {
             echo "SKIP (déjà appliquée : " . $e->getMessage() . ")\n";
         } else {
             echo "ERREUR\n";

@@ -14,6 +14,9 @@ abstract class Model
 {
     protected string $table = '';
 
+    /** Mettre à false pour les tables sans colonne `updated_at` (ex. audit_logs). */
+    protected bool $hasUpdatedAt = true;
+
     protected function getPdo(): PDO
     {
         return Database::getInstance();
@@ -85,7 +88,9 @@ abstract class Model
     public function create(array $data): int
     {
         $data['created_at'] = date('Y-m-d H:i:s');
-        $data['updated_at'] = date('Y-m-d H:i:s');
+        if ($this->hasUpdatedAt) {
+            $data['updated_at'] = date('Y-m-d H:i:s');
+        }
 
         $cols   = array_map(fn($c) => '`' . $this->col($c) . '`', array_keys($data));
         $pholds = array_fill(0, count($data), '?');
@@ -102,7 +107,9 @@ abstract class Model
 
     public function update(int $id, array $data): bool
     {
-        $data['updated_at'] = date('Y-m-d H:i:s');
+        if ($this->hasUpdatedAt) {
+            $data['updated_at'] = date('Y-m-d H:i:s');
+        }
 
         $sets   = array_map(fn($c) => '`' . $this->col($c) . '` = ?', array_keys($data));
         $values = array_values($data);
