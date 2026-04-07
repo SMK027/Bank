@@ -4,8 +4,7 @@ services:
   nginx:
     image: nginx:alpine
     container_name: bankapp_nginx
-    ports:
-      - "8083:80"
+    network_mode: "host"  # Réseau de l'hôte : nginx voit les vraies IP clients
     volumes:
       - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
@@ -15,7 +14,8 @@ services:
   app:
     build: .
     container_name: bankapp_web
-    # Plus de port exposé directement : nginx fait le frontal
+    ports:
+      - "127.0.0.1:8084:80"  # Accessible seulement depuis loopback (nginx)
     volumes:
       - .:/var/www/html
     depends_on:

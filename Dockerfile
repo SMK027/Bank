@@ -29,7 +29,7 @@ RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
 RUN mv "$PHP_INI_DIR/php.ini-development" "$PHP_INI_DIR/php.ini"
 
 # Activer mod_remoteip : faire confiance au réseau interne Docker (nginx → Apache)
-RUN echo 'RemoteIPHeader X-Forwarded-For\nRemoteIPTrustedProxy 172.16.0.0/12 10.0.0.0/8 192.168.0.0/16' \
+RUN echo 'RemoteIPHeader X-Forwarded-For\nRemoteIPTrustedProxy 172.16.0.0/12 10.0.0.0/8 192.168.0.0/16 127.0.0.1' \
     > /etc/apache2/conf-enabled/remoteip.conf
 
 # Répertoire de travail
