@@ -111,5 +111,56 @@ class SavingsRate extends Model
         $stmt->execute($params);
         return $stmt->fetchAll();
     }
+
+    /**
+     * Construit les segments de taux de modération pour une année civile.
+     * Chaque segment couvre [from_ts, to_ts) avec le taux actif sur la période.
+     * 'rate' => null si aucun taux n'est configuré pour la période.
+     *
+     * @return array<int, array{from:int, to:int, rate:float|null}>
+     */
+    public function getRateSegmentsForYear(string $accountType, int $year): array
+    {
+        $yearStartDate = sprintf('%04d-01-01 00:00:00', $year);
+        $yearEndDate   = sprintf('%04d-01-01 00:00:00', $year + 1);
+        $yearStartTs   = (int) mktime(0, 0, 0, 1, 1, $year);
+        $yearEndTs     = (int) mktime(0, 0, 0, 1, 1, $year + 1);
+
+        // Taux actif au début de l'année (dernier enregistrement avant Jan 1)
+        $stmt = $this->getPdo()->prepare(
+            'SELECT `rate` FROM `savings_rates`
+             WHERE `account_type` = ? AND `created_at` < ?
+             ORDER BY `created_at` DESC, `id` DESC LIMIT 1'
+        );
+        $stmt->execute([$accountType, $yearStartDate]);
+        $initialRate = $stmt->fetchColumn();
+
+        // Changements survenus pendant l'année, triés chronologiquement
+        $stmt = $this->getPdo()->prepare(
+            'SELECT `rate`, `created_at` FROM `savings_rates`
+             WHERE `account_type` = ? AND `created_at` >= ? AND `created_at` < ?
+             ORDER BY `created_at` ASC, `id` ASC'
+        );
+        $stmt->execute([$accountType, $yearStartDate, $yearEndDate]);
+        $changes = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        $segments   = [];
+        $curRate    = $initialRate !== false ? (float) $initialRate : null;
+        $segStartTs = $yearStartTs;
+
+        foreach ($changes as $change) {
+            $changeTs = (int) strtotime($change['created_at']);
+            if ($changeTs > $segStartTs) {
+                $segments[] = ['from' => $segStartTs, 'to' => $changeTs, 'rate' => $curRate];
+            }
+            $curRate    = (float) $change['rate'];
+            $segStartTs = $changeTs;
+        }
+        if ($segStartTs < $yearEndTs) {
+            $segments[] = ['from' => $segStartTs, 'to' => $yearEndTs, 'rate' => $curRate];
+        }
+
+        return $segments;
+    }
 }
 

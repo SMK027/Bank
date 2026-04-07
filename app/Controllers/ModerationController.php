@@ -1459,6 +1459,11 @@ class ModerationController extends Controller
         $previewResults = null;
         if (isset($_GET['preview'])) {
             $previewResults = [];
+            // Pré-calcul des segments de taux par type (une seule requête par type)
+            $typeSegments = [];
+            foreach ($eligibleTypes as $t) {
+                $typeSegments[$t] = $this->rateModel->getRateSegmentsForYear($t, (int) date('Y'));
+            }
             foreach ($eligibleTypes as $accountType) {
                 foreach ($this->accountModel->findBy(['type' => $accountType]) as $account) {
                     $accountId   = (int) $account['id'];
@@ -1468,7 +1473,7 @@ class ModerationController extends Controller
                     if ($accountRate <= 0) {
                         continue;
                     }
-                    $accrued = SavingsInterest::calculateAccrued($accountId, $accountRate, $this->transactionModel);
+                    $accrued = SavingsInterest::calculateAccrued($accountId, $accountRate, $this->transactionModel, $typeSegments[$accountType] ?? []);
                     $owner   = $this->userModel->find((int) $account['user_id']);
                     $previewResults[] = [
                         'account_id'   => $accountId,

@@ -93,44 +93,41 @@ class SavingsInterest extends Model
         int         $accountId,
         int         $year,
         float       $rate,
-        Transaction $txModel
+        Transaction $txModel,
+        array       $rateSegments = []
     ): float {
         $yearStartDate = sprintf('%04d-01-01', $year);
         $yearEndDate   = sprintf('%04d-12-31', $year);
 
-        $yearStartTs = mktime(0, 0, 0, 1, 1, $year);
-        $yearEndTs   = mktime(0, 0, 0, 1, 1, $year + 1); // borne exclusive
-        $totalDays   = ($yearEndTs - $yearStartTs) / 86400; // 365 ou 366
+        $yearStartTs = (int) mktime(0, 0, 0, 1, 1, $year);
+        $yearEndTs   = (int) mktime(0, 0, 0, 1, 1, $year + 1);
+        $totalDays   = ($yearEndTs - $yearStartTs) / 86400;
 
-        // Solde au début de l'année (avant la première seconde de $year)
-        $currentBalance = $txModel->getBalanceBeforeDate($accountId, $yearStartDate);
-
-        // Toutes les transactions exécutées pendant l'année (triées par created_at ASC)
+        $startBalance = $txModel->getBalanceBeforeDate($accountId, $yearStartDate);
         $transactions = $txModel->getByAccountBetween($accountId, $yearStartDate, $yearEndDate);
 
-        $currentTs   = (float) $yearStartTs;
-        $weightedSum = 0.0;
-
-        foreach ($transactions as $t) {
-            $tTs = (float) strtotime($t['created_at']);
-            if ($tTs < $yearStartTs || $tTs >= $yearEndTs) {
-                continue;
+        if (empty($rateSegments)) {
+            // Taux unique — comportement original
+            $curTs  = (float) $yearStartTs;
+            $curBal = $startBalance;
+            $wsum   = 0.0;
+            foreach ($transactions as $t) {
+                $tTs = (float) strtotime($t['created_at']);
+                if ($tTs < $yearStartTs || $tTs >= $yearEndTs) {
+                    continue;
+                }
+                $wsum  += $curBal * max(0.0, ($tTs - $curTs) / 86400);
+                $curBal += ($t['type'] === 'income') ? (float) $t['amount'] : -(float) $t['amount'];
+                $curTs   = $tTs;
             }
-            $daysHeld     = max(0.0, ($tTs - $currentTs) / 86400);
-            $weightedSum += $currentBalance * $daysHeld;
-            $currentBalance += ($t['type'] === 'income')
-                ? (float) $t['amount']
-                : -(float) $t['amount'];
-            $currentTs = $tTs;
+            $wsum += $curBal * max(0.0, ($yearEndTs - $curTs) / 86400);
+            return round(max(0.0, ($wsum / $totalDays) * $rate), 2);
         }
 
-        // Dernier segment : de la dernière transaction jusqu'à la fin de l'année
-        $daysHeld     = max(0.0, ($yearEndTs - $currentTs) / 86400);
-        $weightedSum += $currentBalance * $daysHeld;
-
-        $twab     = $weightedSum / $totalDays;
-        $interest = max(0.0, $twab * $rate);
-        return round($interest, 2);
+        return round(self::computeMultiRate(
+            $startBalance, $transactions, $rate,
+            $rateSegments, $yearStartTs, $yearEndTs, $totalDays
+        ), 2);
     }
 
     /**
@@ -142,52 +139,142 @@ class SavingsInterest extends Model
      * - Retourne 0,00 le 1er janvier (nouveau départ de cycle).
      *
      * @param int         $accountId
-     * @param float       $rate       Taux annuel brut (ex : 0.03 = 3 %)
+     * @param float       $rate         Taux annuel brut (ex : 0.03 = 3 %)
      * @param Transaction $txModel
+     * @param array       $rateSegments Segments de modération [{from, to, rate}] (optionnel)
      */
     public static function calculateAccrued(
         int         $accountId,
         float       $rate,
-        Transaction $txModel
+        Transaction $txModel,
+        array       $rateSegments = []
     ): float {
         $year          = (int) date('Y');
         $yearStartDate = sprintf('%04d-01-01', $year);
         $todayDate     = date('Y-m-d');
 
         $yearStartTs = (int) mktime(0, 0, 0, 1, 1, $year);
-        $yearEndTs   = (int) mktime(0, 0, 0, 1, 1, $year + 1); // dénominateur
+        $yearEndTs   = (int) mktime(0, 0, 0, 1, 1, $year + 1);
         $nowTs       = min(time(), $yearEndTs);
-        $totalDays   = ($yearEndTs - $yearStartTs) / 86400; // 365 ou 366
+        $totalDays   = ($yearEndTs - $yearStartTs) / 86400;
 
         if ($nowTs <= $yearStartTs) {
             return 0.0;
         }
 
-        $currentBalance = $txModel->getBalanceBeforeDate($accountId, $yearStartDate);
-        $transactions   = $txModel->getByAccountBetween($accountId, $yearStartDate, $todayDate);
+        $startBalance = $txModel->getBalanceBeforeDate($accountId, $yearStartDate);
+        $transactions = $txModel->getByAccountBetween($accountId, $yearStartDate, $todayDate);
 
-        $currentTs   = (float) $yearStartTs;
-        $weightedSum = 0.0;
-
-        foreach ($transactions as $t) {
-            $tTs = (float) strtotime($t['created_at']);
-            if ($tTs < $yearStartTs || $tTs >= $nowTs) {
-                continue;
+        if (empty($rateSegments)) {
+            // Taux unique — comportement original
+            $curTs  = (float) $yearStartTs;
+            $curBal = $startBalance;
+            $wsum   = 0.0;
+            foreach ($transactions as $t) {
+                $tTs = (float) strtotime($t['created_at']);
+                if ($tTs < $yearStartTs || $tTs >= $nowTs) {
+                    continue;
+                }
+                $wsum  += $curBal * max(0.0, ($tTs - $curTs) / 86400);
+                $curBal += ($t['type'] === 'income') ? (float) $t['amount'] : -(float) $t['amount'];
+                $curTs   = $tTs;
             }
-            $daysHeld     = max(0.0, ($tTs - $currentTs) / 86400);
-            $weightedSum += $currentBalance * $daysHeld;
-            $currentBalance += ($t['type'] === 'income')
-                ? (float) $t['amount']
-                : -(float) $t['amount'];
-            $currentTs = $tTs;
+            $wsum += $curBal * max(0.0, ($nowTs - $curTs) / 86400);
+            return round(max(0.0, ($wsum / $totalDays) * $rate), 2);
         }
 
-        // Segment final : de la dernière transaction jusqu'à maintenant
-        $daysHeld     = max(0.0, ($nowTs - $currentTs) / 86400);
-        $weightedSum += $currentBalance * $daysHeld;
+        // Rogner les segments à [yearStartTs, nowTs)
+        $clipped = [];
+        foreach ($rateSegments as $seg) {
+            $f = max((int) $seg['from'], $yearStartTs);
+            $t = min((int) $seg['to'],   $nowTs);
+            if ($f < $t) {
+                $clipped[] = ['from' => $f, 'to' => $t, 'rate' => $seg['rate']];
+            }
+        }
 
-        $twab     = $weightedSum / $totalDays;
-        $interest = max(0.0, $twab * $rate);
-        return round($interest, 2);
+        return round(self::computeMultiRate(
+            $startBalance, $transactions, $rate,
+            $clipped, $yearStartTs, $nowTs, $totalDays
+        ), 2);
+    }
+
+    /**
+     * Moteur TWAB multi-taux.
+     *
+     * Pour chaque segment de modération, calcule la contribution pondérée des soldes
+     * et applique le taux effectif = min(accountRate, moderation_rate).
+     * Si 'rate' est null dans un segment, on utilise accountRate sans plafond.
+     *
+     * @param float  $startBalance   Solde initial de la période
+     * @param array  $transactions   Triées ASC par created_at
+     * @param float  $accountRate    Taux propre au compte
+     * @param array  $rateSegments   [{from:int, to:int, rate:float|null}], triés ASC
+     * @param int    $periodStartTs  Début de la période (borné par les segments)
+     * @param int    $periodEndTs    Fin exclusive de la période
+     * @param float  $totalYearDays  Dénominateur (jours de l'année civile)
+     */
+    private static function computeMultiRate(
+        float $startBalance,
+        array $transactions,
+        float $accountRate,
+        array $rateSegments,
+        int   $periodStartTs,
+        int   $periodEndTs,
+        float $totalYearDays
+    ): float {
+        $txIndex    = 0;
+        $txCount    = count($transactions);
+        $curBalance = $startBalance;
+        $curTs      = (float) $periodStartTs;
+        $totalInt   = 0.0;
+
+        foreach ($rateSegments as $seg) {
+            $segFrom = max((float) $seg['from'], (float) $periodStartTs);
+            $segTo   = min((float) $seg['to'],   (float) $periodEndTs);
+            if ($segFrom >= $segTo) {
+                continue;
+            }
+            $modRate = $seg['rate'];
+            $effRate = ($modRate !== null) ? min($accountRate, (float) $modRate) : $accountRate;
+
+            // Avancer curTs jusqu'à segFrom (combler un éventuel écart entre segments)
+            if ($curTs < $segFrom) {
+                while ($txIndex < $txCount) {
+                    $tTs = (float) strtotime($transactions[$txIndex]['created_at']);
+                    if ($tTs >= $segFrom) {
+                        break;
+                    }
+                    $curBalance += ($transactions[$txIndex]['type'] === 'income')
+                        ? (float) $transactions[$txIndex]['amount']
+                        : -(float) $transactions[$txIndex]['amount'];
+                    $txIndex++;
+                }
+                $curTs = $segFrom;
+            }
+
+            // Calculer la somme pondérée dans ce segment
+            $weightedSum = 0.0;
+            while ($txIndex < $txCount) {
+                $tTs = (float) strtotime($transactions[$txIndex]['created_at']);
+                if ($tTs >= $segTo) {
+                    break;
+                }
+                $weightedSum += $curBalance * max(0.0, ($tTs - $curTs) / 86400);
+                $curBalance  += ($transactions[$txIndex]['type'] === 'income')
+                    ? (float) $transactions[$txIndex]['amount']
+                    : -(float) $transactions[$txIndex]['amount'];
+                $curTs = $tTs;
+                $txIndex++;
+            }
+            $weightedSum += $curBalance * max(0.0, ($segTo - $curTs) / 86400);
+            $curTs = $segTo;
+
+            if ($effRate > 0.0) {
+                $totalInt += $weightedSum * $effRate / $totalYearDays;
+            }
+        }
+
+        return max(0.0, $totalInt);
     }
 }

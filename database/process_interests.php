@@ -20,6 +20,7 @@ use App\Models\Account;
 use App\Models\Guardianship;
 use App\Models\Notification;
 use App\Models\SavingsInterest;
+use App\Models\SavingsRate;
 use App\Models\Transaction;
 
 $accountModel      = new Account();
@@ -27,6 +28,7 @@ $interestModel     = new SavingsInterest();
 $txModel           = new Transaction();
 $notifModel        = new Notification();
 $guardianshipModel = new Guardianship();
+$rateModel         = new SavingsRate();
 
 // Année dont on calcule les intérêts.
 // Par défaut : l'année qui vient de se terminer (comportement cron).
@@ -79,7 +81,8 @@ foreach ($savings as $account) {
 
     try {
         // Calcul au prorata temporis (TWAB) avec le taux propre au compte
-        $calculatedAmount = SavingsInterest::calculateProrata($accountId, $year, $accountRate, $txModel);
+        $rateSegments     = $rateModel->getRateSegmentsForYear($accountType, $year);
+        $calculatedAmount = SavingsInterest::calculateProrata($accountId, $year, $accountRate, $txModel, $rateSegments);
 
         // Solde au moment du calcul (avant versement)
         $balanceBefore = $accountModel->getBalance($accountId);

@@ -225,10 +225,12 @@ class AccountController extends Controller
         $accruedInterest = null;
         $accountRate     = isset($account['interest_rate']) ? (float) $account['interest_rate'] : 0.0;
         if (Account::typeHasInterest($account['type'] ?? '') && $accountRate > 0) {
+            $rateSegments    = $this->rateModel->getRateSegmentsForYear($account['type'], (int) date('Y'));
             $accruedInterest = SavingsInterest::calculateAccrued(
                 $accountId,
                 $accountRate,
-                $this->transactionModel
+                $this->transactionModel,
+                $rateSegments
             );
         }
 
