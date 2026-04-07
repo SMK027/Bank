@@ -55,23 +55,17 @@ class SavingsInterest extends Model
      * Calcule le montant maximum théorique autorisé pour un versement d'intérêts.
      *
      * max = balance_avant_versement × taux
-     * Si le compte a un plafond : max = min(max, plafond − balance)
-     * Retourne 0 si le compte est déjà au plafond ou si le solde est négatif.
+     *
+     * Le plafond (cap) limite les versements manuels mais pas les intérêts :
+     * les intérêts sont toujours calculés sur le solde complet, même si le
+     * compte a atteint ou dépassé son plafond.
      */
     public static function computeMaxAmount(float $balanceBefore, float $rate, ?float $cap): float
     {
         if ($balanceBefore <= 0) {
             return 0.0;
         }
-        $max = $balanceBefore * $rate;
-        if ($cap !== null && $cap > 0) {
-            $room = $cap - $balanceBefore;
-            if ($room <= 0) {
-                return 0.0;
-            }
-            $max = min($max, $room);
-        }
-        return max(0.0, round($max, 2));
+        return max(0.0, round($balanceBefore * $rate, 2));
     }
 
     /**
@@ -112,7 +106,8 @@ class SavingsInterest extends Model
             $curBal = $startBalance;
             $wsum   = 0.0;
             foreach ($transactions as $t) {
-                $tTs = (float) strtotime($t['created_at']);
+                // Utilise scheduled_at comme date d'effet si disponible (opération planifiée backdatée)
+                $tTs = (float) strtotime($t['scheduled_at'] ?? $t['created_at']);
                 if ($tTs < $yearStartTs || $tTs >= $yearEndTs) {
                     continue;
                 }
@@ -171,7 +166,8 @@ class SavingsInterest extends Model
             $curBal = $startBalance;
             $wsum   = 0.0;
             foreach ($transactions as $t) {
-                $tTs = (float) strtotime($t['created_at']);
+                // Utilise scheduled_at comme date d'effet si disponible (opération planifiée backdatée)
+                $tTs = (float) strtotime($t['scheduled_at'] ?? $t['created_at']);
                 if ($tTs < $yearStartTs || $tTs >= $nowTs) {
                     continue;
                 }
@@ -241,7 +237,7 @@ class SavingsInterest extends Model
             // Avancer curTs jusqu'à segFrom (combler un éventuel écart entre segments)
             if ($curTs < $segFrom) {
                 while ($txIndex < $txCount) {
-                    $tTs = (float) strtotime($transactions[$txIndex]['created_at']);
+                    $tTs = (float) strtotime($transactions[$txIndex]['scheduled_at'] ?? $transactions[$txIndex]['created_at']);
                     if ($tTs >= $segFrom) {
                         break;
                     }
@@ -256,7 +252,7 @@ class SavingsInterest extends Model
             // Calculer la somme pondérée dans ce segment
             $weightedSum = 0.0;
             while ($txIndex < $txCount) {
-                $tTs = (float) strtotime($transactions[$txIndex]['created_at']);
+                $tTs = (float) strtotime($transactions[$txIndex]['scheduled_at'] ?? $transactions[$txIndex]['created_at']);
                 if ($tTs >= $segTo) {
                     break;
                 }
