@@ -34,10 +34,12 @@ foreach (Account::TYPES as $key => $def) { $typeMap[$key] = $def['label']; }
             <thead>
                 <tr>
                     <th>Type de compte</th>
-                    <th>Taux maximum</th>
-                    <th>Défini le</th>
+                    <th>Taux maximum actif</th>
+                    <th>Actif depuis</th>
                     <th>Par</th>
-                    <th style="width:240px;">Nouveau taux (%)</th>
+                    <th>Nouveau taux (%)</th>
+                    <th style="width:150px;">Date d'effet</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
@@ -63,17 +65,26 @@ foreach (Account::TYPES as $key => $def) { $typeMap[$key] = $def['label']; }
                     <td class="text-muted" style="font-size:0.85rem;">
                         <?= $current ? e($current['set_by_username'] ?? '—') : '—' ?>
                     </td>
-                    <td>
-                        <form method="POST" action="/moderation/savings-rate" style="display:flex;gap:0.4rem;align-items:center;">
+                    <td colspan="3">
+                        <form method="POST" action="/moderation/savings-rate"
+                              style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;">
                             <?= csrf_field() ?>
                             <input type="hidden" name="account_type" value="<?= e($accountType) ?>">
-                            <input type="number" name="rate" class="form-control" style="padding:0.3rem 0.5rem;font-size:0.85rem;width:110px;"
+                            <input type="number" name="rate" class="form-control"
+                                   style="padding:0.3rem 0.5rem;font-size:0.85rem;width:100px;"
                                    min="0" max="100" step="0.01" required
                                    placeholder="Ex : 3.00"
                                    value="<?= $current ? htmlspecialchars(number_format((float) $current['rate'] * 100, 2, '.', ''), ENT_QUOTES) : '' ?>">
-                            <span class="form-hint" style="font-size:0.75rem;color:var(--text-muted,#6b7280);">Plafond max des utilisateurs</span>
+                            <input type="date" name="effective_date" class="form-control"
+                                   style="padding:0.3rem 0.5rem;font-size:0.85rem;width:145px;"
+                                   min="<?= date('Y') . '-01-01' ?>"
+                                   max="<?= date('Y') . '-12-31' ?>"
+                                   title="Laisser vide pour appliquer immédiatement">
+                            <span class="form-hint" style="font-size:0.72rem;color:var(--text-muted,#6b7280);white-space:nowrap;">
+                                date vide = maintenant
+                            </span>
                             <button type="submit" class="btn btn-primary btn-sm">
-                                <i class="bi bi-check-lg"></i>
+                                <i class="bi bi-check-lg"></i> Enregistrer
                             </button>
                         </form>
                     </td>
@@ -191,8 +202,16 @@ foreach (Account::TYPES as $key => $def) { $typeMap[$key] = $def['label']; }
                 </thead>
                 <tbody>
                     <?php foreach ($history as $h): ?>
-                    <tr>
-                        <td><?= date('d/m/Y à H\hi', strtotime($h['created_at'])) ?></td>
+                    <?php $isFuture = strtotime($h['created_at']) > time(); ?>
+                    <tr <?= $isFuture ? 'style="opacity:0.75;"' : '' ?>>
+                        <td>
+                            <?= date('d/m/Y à H\hi', strtotime($h['created_at'])) ?>
+                            <?php if ($isFuture): ?>
+                                <span class="badge" style="background:var(--warning,#f59e0b);color:#fff;font-size:0.7em;margin-left:0.3rem;vertical-align:middle;">
+                                    <i class="bi bi-clock"></i> planifié
+                                </span>
+                            <?php endif; ?>
+                        </td>
                         <td>
                             <?= e($typeMap[$h['account_type']] ?? $h['account_type']) ?>
                             <code style="font-size:0.75rem;margin-left:0.3rem;color:var(--text-muted,#6b7280);"><?= e($h['account_type']) ?></code>

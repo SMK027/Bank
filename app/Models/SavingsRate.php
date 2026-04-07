@@ -23,7 +23,8 @@ class SavingsRate extends Model
 
     /**
      * Retourne l'enregistrement du taux le plus récent pour un type donné,
-     * ou null si aucun taux n'est configuré pour ce type.
+     * parmi ceux dont la date d'effet est déjà passée ou aujourd'hui.
+     * Retourne null si aucun taux n'est encore actif pour ce type.
      */
     public function getCurrent(string $accountType = 'savings'): ?array
     {
@@ -32,6 +33,7 @@ class SavingsRate extends Model
              FROM `savings_rates` sr
              LEFT JOIN `users` u ON u.id = sr.set_by
              WHERE sr.`account_type` = ?
+               AND sr.`created_at` <= NOW()
              ORDER BY sr.`created_at` DESC, sr.`id` DESC
              LIMIT 1'
         );
@@ -71,17 +73,20 @@ class SavingsRate extends Model
      * Enregistre un nouveau taux pour un type de compte donné.
      * L'ancien taux est conservé dans l'historique.
      *
-     * @param float  $rate        Taux décimal brut (ex : 0.03 pour 3 %)
-     * @param string $accountType Type de compte (ex : 'savings')
-     * @param int    $moderatorId Identifiant du modérateur
+     * @param float       $rate         Taux décimal brut (ex : 0.03 pour 3 %)
+     * @param string      $accountType  Type de compte (ex : 'savings')
+     * @param int         $moderatorId  Identifiant du modérateur
+     * @param string|null $effectiveAt  Date d'effet ISO 'YYYY-MM-DD HH:MM:SS' (null = maintenant)
      */
-    public function setRate(float $rate, string $accountType, int $moderatorId): int
+    public function setRate(float $rate, string $accountType, int $moderatorId, ?string $effectiveAt = null): int
     {
-        return $this->create([
-            'account_type' => $accountType,
-            'rate'         => round($rate, 6),
-            'set_by'       => $moderatorId,
-        ]);
+        $effectiveAt = $effectiveAt ?? date('Y-m-d H:i:s');
+        $stmt = $this->getPdo()->prepare(
+            'INSERT INTO `savings_rates` (`account_type`, `rate`, `set_by`, `created_at`)
+             VALUES (?, ?, ?, ?)'
+        );
+        $stmt->execute([$accountType, round($rate, 6), $moderatorId, $effectiveAt]);
+        return (int) $this->getPdo()->lastInsertId();
     }
 
     // ── Historique ─────────────────────────────────────────────────────────────

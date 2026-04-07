@@ -1500,7 +1500,7 @@ class ModerationController extends Controller
     {
         $this->requireModerator();
         $this->validateCSRF();
-        $data    = $this->getPostData(['rate', 'account_type']);
+        $data    = $this->getPostData(['rate', 'account_type', 'effective_date']);
         $rateRaw = (float) str_replace(',', '.', $data['rate'] ?? '');
         $rate    = round($rateRaw / 100, 6); // formulaire en %, on stocke en décimal
 
@@ -1515,17 +1515,40 @@ class ModerationController extends Controller
             $this->redirect('/moderation/savings-rate');
             return;
         }
+
+        // Date d'effet : si fournie, doit être dans l'année courante
+        $effectiveAt = null;
+        $rawDate     = trim($data['effective_date'] ?? '');
+        if ($rawDate !== '') {
+            $currentYear = (int) date('Y');
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $rawDate)
+                || (int) substr($rawDate, 0, 4) !== $currentYear
+            ) {
+                $this->setFlash('danger', sprintf(
+                    'La date d\'effet doit être dans l\'année en cours (%d).', $currentYear
+                ));
+                $this->redirect('/moderation/savings-rate');
+                return;
+            }
+            $effectiveAt = $rawDate . ' 00:00:00';
+        }
+
         $userId = $this->getCurrentUserId();
-        $this->rateModel->setRate($rate, $accountType, $userId);
+        $this->rateModel->setRate($rate, $accountType, $userId, $effectiveAt);
         AuditLog::log($userId, AuditLog::ACTION_INTEREST_RATE_SET, [
             'account_type' => $accountType,
             'rate'         => $rate,
+            'effective_at' => $effectiveAt ?? date('Y-m-d H:i:s'),
         ]);
-        $label = Account::TYPES[$accountType]['label'] ?? $accountType;
+        $label      = Account::TYPES[$accountType]['label'] ?? $accountType;
+        $dateLabel  = $effectiveAt
+            ? ' (effectif le ' . date('d/m/Y', strtotime($effectiveAt)) . ')'
+            : '';
         $this->setFlash('success', sprintf(
-            'Taux d\'intérêt « %s » mis à jour : %s %%.',
+            'Taux d\'intérêt « %s » enregistré : %s %%%s.',
             $label,
-            number_format($rateRaw, 2, ',', ' ')
+            number_format($rateRaw, 2, ',', ' '),
+            $dateLabel
         ));
         $this->redirect('/moderation/savings-rate');
     }
