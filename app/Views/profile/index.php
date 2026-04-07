@@ -183,12 +183,26 @@
 
         <!-- Code PIN -->
         <hr style="margin:0 0 1.25rem;">
+        <?php if (!empty($user['pin_must_change'])): ?>
+            <div class="alert alert-warning" role="alert"
+                 style="display:flex;align-items:flex-start;gap:0.75rem;margin-bottom:1rem;">
+                <i class="bi bi-exclamation-triangle-fill" style="font-size:1.1rem;flex-shrink:0;margin-top:0.1rem;"></i>
+                <div>
+                    <strong>Code PIN temporaire actif</strong> — Votre code PIN a été réinitialisé par la modération.
+                    Vous devez en définir un nouveau.
+                    <br><a href="/profile/pin/change" class="btn btn-warning btn-sm" style="margin-top:0.4rem;">
+                        <i class="bi bi-shield-lock"></i> Changer mon code PIN maintenant
+                    </a>
+                </div>
+            </div>
+        <?php endif; ?>
         <?php if (!empty($user['pin_hash'])): ?>
             <p class="text-muted" style="margin-bottom:0.75rem;">
                 Un code PIN est déjà défini. Vous pouvez le modifier ci-dessous.
             </p>
             <form method="POST" action="/profile/pin">
                 <?= csrf_field() ?>
+                <?php if (empty($user['pin_must_change'])): ?>
                 <div class="form-group">
                     <label for="current_pin" class="form-label">Code PIN actuel</label>
                     <div class="password-wrapper">
@@ -201,6 +215,7 @@
                         </button>
                     </div>
                 </div>
+                <?php endif; /* fin du bloc current_pin si pas temporaire */ ?>
                 <div class="form-group">
                     <label for="new_pin" class="form-label">Nouveau code PIN (6 chiffres)</label>
                     <div class="password-wrapper">

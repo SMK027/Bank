@@ -76,12 +76,29 @@ class User extends Model
 
     /**
      * Définit ou met à jour le code PIN (6 chiffres), stocké haché.
+     * Efface aussi le drapeau pin_must_change s'il était actif.
      */
     public function setPin(int $userId, string $pin): bool
     {
         return $this->update($userId, [
-            'pin_hash' => password_hash($pin, PASSWORD_BCRYPT),
+            'pin_hash'       => password_hash($pin, PASSWORD_BCRYPT),
+            'pin_must_change' => 0,
         ]);
+    }
+
+    /**
+     * Réinitialise le PIN d'un utilisateur avec un code temporaire à 6 chiffres
+     * généré aléatoirement. L'utilisateur devra le changer à sa prochaine connexion.
+     * Retourne le code temporaire en clair (à communiquer à l'utilisateur).
+     */
+    public function resetPinByModerator(int $userId): string
+    {
+        $tempPin = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $this->update($userId, [
+            'pin_hash'       => password_hash($tempPin, PASSWORD_BCRYPT),
+            'pin_must_change' => 1,
+        ]);
+        return $tempPin;
     }
 
     /**

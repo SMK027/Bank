@@ -162,6 +162,14 @@ class AuthController extends Controller
 
         $this->setFlash('success', 'Bienvenue, ' . $user['username'] . ' !');
         AuditLog::log($user['id'], AuditLog::ACTION_AUTH_LOGIN, ['username' => $user['username']], targetUserId: $user['id']);
+
+        // Si le PIN est temporaire, forcer le changement immédiat
+        if (!empty($user['pin_must_change'])) {
+            Session::set('pin_must_change', true);
+            $this->redirect('/profile/pin/change');
+            return;
+        }
+
         $this->redirect('/dashboard');
     }
 

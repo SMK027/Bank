@@ -28,6 +28,7 @@
                         <th>Statut</th>
                         <th>Modifier le rôle</th>
                         <th>Actions</th>
+                        <th>Code PIN</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -142,6 +143,24 @@
                                         <?= csrf_field() ?>
                                         <button type="submit" class="btn btn-success btn-sm" title="Réactiver le compte">
                                             <i class="bi bi-play-circle"></i> Réactiver
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if ($isSelf): ?>
+                                    <span class="text-muted text-small">—</span>
+                                <?php else: ?>
+                                    <?php if (!empty($user['pin_must_change'])): ?>
+                                        <span class="badge" style="background:#ffc107;color:#000;font-size:0.72rem;margin-bottom:0.3rem;display:inline-block;">
+                                            <i class="bi bi-clock-history"></i> Code temporaire actif
+                                        </span><br>
+                                    <?php endif; ?>
+                                    <form method="POST" action="/moderation/users/<?= (int) $user['id'] ?>/pin/reset"
+                                          onsubmit="return confirm('Réinitialiser le code PIN de « <?= e($user['username']) ?> » ? Un code temporaire sera généré.')">
+                                        <?= csrf_field() ?>
+                                        <button type="submit" class="btn btn-warning btn-sm" title="Réinitialiser le code PIN">
+                                            <i class="bi bi-shield-lock"></i> Réinitialiser le PIN
                                         </button>
                                     </form>
                                 <?php endif; ?>

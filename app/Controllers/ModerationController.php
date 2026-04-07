@@ -417,6 +417,56 @@ class ModerationController extends Controller
     }
 
     /**
+     * Réinitialise le code PIN d'un utilisateur et génère un code temporaire (POST).
+     * Le code temporaire est affiché une seule fois dans le flash de succès.
+     */
+    public function resetUserPin(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $targetId = (int) $id;
+
+        if ($targetId === $this->getCurrentUserId()) {
+            $this->setFlash('danger', 'Vous ne pouvez pas réinitialiser votre propre code PIN.');
+            $this->redirect('/moderation/users');
+            return;
+        }
+
+        $target = $this->userModel->find($targetId);
+        if (!$target) {
+            $this->setFlash('danger', 'Utilisateur introuvable.');
+            $this->redirect('/moderation/users');
+            return;
+        }
+
+        $tempPin = $this->userModel->resetPinByModerator($targetId);
+
+        AuditLog::log(
+            $this->getCurrentUserId(),
+            AuditLog::ACTION_USER_PIN_RESET,
+            ['username' => $target['username']],
+            targetUserId: $targetId
+        );
+
+        $this->notifModel->notify(
+            $targetId,
+            'pin_reset_by_moderator',
+            'Code PIN réinitialisé par la modération',
+            'Votre code PIN a été réinitialisé par la modération. Un code temporaire vous a été communiqué. Vous devrez le modifier lors de votre prochaine connexion ou depuis votre profil.',
+            null
+        );
+
+        $this->setFlash(
+            'success',
+            'Code PIN de « ' . e($target['username']) . ' » réinitialisé. '
+            . 'Code temporaire : <strong>' . e($tempPin) . '</strong>'
+            . ' — à communiquer à l\'utilisateur (visible une seule fois).'
+        );
+        $this->redirect('/moderation/users');
+    }
+
+    /**
      * Liste de tous les virements (espace modération).
      */
     public function transfers(): void

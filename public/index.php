@@ -74,6 +74,8 @@ $router->post('/profile/professional', ProfileController::class, 'saveProfession
 $router->post('/profile/professional/remove', ProfileController::class, 'removeProfessional');
 $router->get('/profile/verify-siret', ProfileController::class, 'verifySiret');
 $router->post('/profile/pin', ProfileController::class, 'savePin');
+$router->get('/profile/pin/change',  ProfileController::class, 'pinChangeForm');
+$router->post('/profile/pin/change', ProfileController::class, 'pinChange');
 $router->post('/profile/account-number/reset', ProfileController::class, 'resetAccountNumber');
 $router->get('/profile/qrcode', ProfileController::class, 'qrCode');
 
@@ -107,6 +109,7 @@ $router->post('/moderation/users/{id}/role', ModerationController::class, 'setRo
 $router->post('/moderation/users/{id}/suspend', ModerationController::class, 'suspendUser');
 $router->post('/moderation/users/{id}/ban', ModerationController::class, 'banUser');
 $router->post('/moderation/users/{id}/activate', ModerationController::class, 'activateUser');
+$router->post('/moderation/users/{id}/pin/reset', ModerationController::class, 'resetUserPin');
 $router->post('/moderation/accounts/{id}/freeze', ModerationController::class, 'freeze');
 $router->post('/moderation/accounts/{id}/unfreeze', ModerationController::class, 'unfreeze');
 $router->post('/moderation/accounts/{id}/disable', ModerationController::class, 'disableAccount');

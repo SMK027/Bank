@@ -311,8 +311,11 @@ class ProfileController extends Controller
             return;
         }
 
-        // Si un PIN existe déjà, vérifier l'ancien
-        if (!empty($user['pin_hash'])) {
+        // Si un PIN temporaire est actif, pas besoin de saisir l'ancien PIN
+        $mustChange = !empty($user['pin_must_change']);
+
+        // Si un PIN existe déjà ET qu'il n'est pas temporaire, vérifier l'ancien
+        if (!empty($user['pin_hash']) && !$mustChange) {
             $currentPin = $data['current_pin'] ?? '';
             if (!password_verify($currentPin, $user['pin_hash'])) {
                 $this->setFlash('danger', 'Code PIN actuel incorrect.');
@@ -322,9 +325,76 @@ class ProfileController extends Controller
         }
 
         $this->userModel->setPin($userId, $newPin);
+        // setPin() réinitialise pin_must_change=0 automatiquement
+        Session::set('pin_must_change', false);
 
         $this->setFlash('success', 'Code PIN mis à jour avec succès.');
         $this->redirect('/profile');
+    }
+
+    /**
+     * Page de changement forcé du code PIN temporaire (GET).
+     * Accessible depuis la connexion par PIN ou depuis le profil.
+     */
+    public function pinChangeForm(): void
+    {
+        $this->requireAuth();
+
+        $user = $this->userModel->find($this->getCurrentUserId());
+        if (!$user) {
+            $this->redirect('/dashboard');
+            return;
+        }
+
+        $this->render('profile/pin_change', [
+            'title'      => 'Changer votre code PIN',
+            'mustChange' => !empty($user['pin_must_change']),
+        ]);
+    }
+
+    /**
+     * Traitement du changement de PIN temporaire (POST).
+     */
+    public function pinChange(): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+
+        $userId = $this->getCurrentUserId();
+        $user   = $this->userModel->find($userId);
+        if (!$user) {
+            $this->redirect('/dashboard');
+            return;
+        }
+
+        $data       = $this->getPostData(['new_pin', 'confirm_pin']);
+        $newPin     = $data['new_pin']     ?? '';
+        $confirmPin = $data['confirm_pin'] ?? '';
+
+        if (!preg_match('/^\d{6}$/', $newPin)) {
+            $this->setFlash('danger', 'Le code PIN doit contenir exactement 6 chiffres.');
+            $this->redirect('/profile/pin/change');
+            return;
+        }
+
+        if ($newPin !== $confirmPin) {
+            $this->setFlash('danger', 'Les codes PIN ne correspondent pas.');
+            $this->redirect('/profile/pin/change');
+            return;
+        }
+
+        // Vérifier que le nouveau PIN diffère du code temporaire actuel
+        if (!empty($user['pin_hash']) && password_verify($newPin, $user['pin_hash'])) {
+            $this->setFlash('danger', 'Le nouveau code PIN doit être différent du code temporaire.');
+            $this->redirect('/profile/pin/change');
+            return;
+        }
+
+        $this->userModel->setPin($userId, $newPin);
+        Session::set('pin_must_change', false);
+
+        $this->setFlash('success', 'Votre nouveau code PIN a été enregistré. Connexion rétablie.');
+        $this->redirect('/dashboard');
     }
 
     /**

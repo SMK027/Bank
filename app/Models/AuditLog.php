@@ -65,6 +65,7 @@ class AuditLog extends Model
     public const ACTION_USER_SUSPEND     = 'user.suspend';
     public const ACTION_USER_BAN         = 'user.ban';
     public const ACTION_USER_ACTIVATE    = 'user.activate';
+    public const ACTION_USER_PIN_RESET   = 'user.pin_reset';
 
     // Accès partagés
     public const ACTION_ACCESS_GRANT  = 'access.grant';
@@ -116,6 +117,7 @@ class AuditLog extends Model
         'user.suspend'             => 'Utilisateur suspendu',
         'user.ban'                 => 'Utilisateur banni',
         'user.activate'            => 'Utilisateur réactivé',
+        'user.pin_reset'           => 'PIN réinitialisé (modération)',
         'access.grant'             => 'Accès accordé',
         'access.revoke'            => 'Accès révoqué',
         'guardianship.add'         => 'Tutelle ajoutée',
