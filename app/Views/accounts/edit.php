@@ -10,27 +10,15 @@
                            value="<?= e($account['name']) ?>" required autofocus>
                 </div>
                 <div class="form-group">
-                    <label for="account_type" class="form-label">Type de compte</label>
-                    <?php if ($isMinor): ?>
-                    <div class="alert alert-warning" style="margin-bottom:0.5rem;display:flex;align-items:center;gap:0.5rem;">
-                        <i class="bi bi-lock-fill"></i>
-                        <span>Le type de compte ne peut pas être modifié pour un compte mineur.</span>
+                    <label class="form-label">Type de compte</label>
+                    <input type="hidden" name="account_type" value="<?= e($account['type'] ?? 'standard') ?>">
+                    <div class="form-control" style="background:var(--gray-lighter);color:var(--dark);cursor:default;">
+                        <?php
+                        use App\Models\Account as AccountModel;
+                        echo e(AccountModel::TYPES[$account['type'] ?? 'standard']['label'] ?? $account['type']);
+                        ?>
                     </div>
-                    <input type="hidden" name="account_type" value="<?= e($account['type'] ?? 'savings') ?>">
-                    <select id="account_type" class="form-control" disabled>
-                    <?php else: ?>
-                    <select id="account_type" name="account_type" class="form-control" required>
-                    <?php endif; ?>
-                        <?php foreach ($accountTypes as $key => $info): ?>
-                            <option value="<?= e($key) ?>"
-                                    data-no-overdraft="<?= $info['overdraft'] ? '0' : '1' ?>"
-                                    data-has-cap="<?= !empty($info['cap']) ? '1' : '0' ?>"
-                                    <?= ($account['type'] ?? 'standard') === $key ? 'selected' : '' ?>>
-                                <?= e($info['label']) ?>
-                                <?= $info['overdraft'] ? '' : ' — découvert interdit' ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <span class="form-hint"><i class="bi bi-lock-fill"></i> Le type de compte ne peut pas être modifié après création.</span>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -69,10 +57,7 @@
                 </div>
 
                 <?php
-                // Prépare la map JS des types éligibles aux intérêts et du taux max courant
                 use App\Models\Account;
-                $interestTypes = Account::getInterestEligibleTypes();
-                $currentAccountType = $account['type'] ?? 'standard';
                 $currentInterestRatePct = $account['interest_rate'] !== null
                     ? number_format((float) $account['interest_rate'] * 100, 4, '.', '')
                     : '';
@@ -112,31 +97,14 @@
 </div>
 <script>
 (function () {
-    var typeEl      = document.getElementById('account_type');
-    var group       = document.getElementById('overdraft-group');
-    var notice      = document.getElementById('overdraft-blocked-notice');
-    var input       = document.getElementById('overdraft');
-    var capGrp      = document.getElementById('cap-group');
-    var rateGrp     = document.getElementById('interest-rate-group');
-    var rateInput   = document.getElementById('interest_rate');
-    var interestTypes = <?= json_encode($interestTypes, JSON_HEX_TAG) ?>;
+    // Le type est fixe — initialisation unique des sections liées
+    var noOd        = <?= json_encode(!Account::typeAllowsOverdraft($account['type'] ?? 'standard')) ?>;
+    var hasCap      = <?= json_encode(Account::typeHasCap($account['type'] ?? 'standard')) ?>;
+    var hasInterest = <?= json_encode(Account::typeHasInterest($account['type'] ?? 'standard')) ?>;
 
-    function toggle() {
-        var opt       = typeEl.options[typeEl.selectedIndex];
-        var noOd      = opt.dataset.noOverdraft === '1';
-        var hasCap    = opt.dataset.hasCap === '1';
-        var hasInterest = interestTypes.indexOf(opt.value) !== -1;
-
-        group.style.display   = noOd ? 'none' : '';
-        notice.style.display  = noOd && !hasCap ? 'block' : 'none';
-        capGrp.style.display  = hasCap ? '' : 'none';
-        rateGrp.style.display = hasInterest ? '' : 'none';
-
-        if (noOd) { input.value = '0'; }
-        if (!hasCap) { document.getElementById('cap').value = ''; }
-        if (!hasInterest && rateInput) { rateInput.value = ''; }
-    }
-    typeEl.addEventListener('change', toggle);
-    toggle();
+    document.getElementById('overdraft-group').style.display          = noOd ? 'none' : '';
+    document.getElementById('overdraft-blocked-notice').style.display = (noOd && !hasCap) ? 'block' : 'none';
+    document.getElementById('cap-group').style.display                = hasCap ? '' : 'none';
+    document.getElementById('interest-rate-group').style.display      = hasInterest ? '' : 'none';
 })();
 </script>

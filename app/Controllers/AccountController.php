@@ -295,11 +295,9 @@ class AccountController extends Controller
             : null;
 
         $this->render('accounts/edit', [
-            'title'        => 'Modifier le compte',
-            'account'      => $account,
-            'accountTypes' => Account::TYPES,
-            'isMinor'      => $isMinor,
-            'maxRate'      => $maxRate,
+            'title'   => 'Modifier le compte',
+            'account' => $account,
+            'maxRate' => $maxRate,
         ]);
     }
 
@@ -324,14 +322,9 @@ class AccountController extends Controller
             return;
         }
 
-        // Les mineurs ne peuvent pas changer le type de leur compte
+        // Le type de compte est fixe une fois créé — on ignore toute valeur POST
         $account = $this->accountModel->find($accountId);
-        $accountOwner = $this->userModel->find((int) ($account['user_id'] ?? 0));
-        if (User::isMinorFromDate($accountOwner['birth_date'] ?? null)) {
-            $data['account_type'] = $account['type'] ?? 'savings';
-        }
-
-        $type           = array_key_exists($data['account_type'], Account::TYPES) ? $data['account_type'] : 'standard';
+        $type    = $account['type'] ?? 'standard';
         $overdraft      = Account::typeAllowsOverdraft($type) ? abs((float) ($data['overdraft'] ?: 0)) : 0.0;
         $cap            = Account::typeHasCap($type) && $data['cap'] !== '' ? abs((float) $data['cap']) : null;
         $alertThreshold = ($data['balance_alert_threshold'] ?? '') !== ''
