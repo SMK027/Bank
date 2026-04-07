@@ -73,10 +73,49 @@ $errors   = 0;
    1. Traitement des virements planifiés échus
    ───────────────────────────────────────────────────────────────── */
 foreach ($transferModel->getDueScheduled() as $transfer) {
-    $transferId = (int) $transfer['id'];
-    $debitId    = (int) ($transfer['debit_tx_id']  ?? 0);
-    $creditId   = (int) ($transfer['credit_tx_id'] ?? 0);
-    $ok         = true;
+    $transferId    = (int) $transfer['id'];
+    $debitId       = (int) ($transfer['debit_tx_id']  ?? 0);
+    $creditId      = (int) ($transfer['credit_tx_id'] ?? 0);
+    $toAccountId   = (int) $transfer['to_account_id'];
+    $fromAccountId = (int) $transfer['from_account_id'];
+    $amount        = (float) $transfer['amount'];
+    $ok            = true;
+
+    // Vérifier le plafond du compte destinataire avant matérialisation.
+    // La transaction de crédit est encore 'pending' (scheduled_at != null),
+    // getBalance() l'exclut — on calcule donc le solde réel sans elle.
+    $toAccount = $accountModel->find($toAccountId);
+    $toCap = (float) ($toAccount['cap'] ?? 0);
+    if (Account::typeHasCap($toAccount['type'] ?? '') && $toCap > 0) {
+        $toBalance = $accountModel->getBalance($toAccountId);
+        if ($toBalance + $amount > $toCap) {
+            echo sprintf(
+                "[%s] ERREUR virement planifié #%d : plafond atteint sur compte destinataire #%d (%.2f + %.2f > %.2f) — virement annulé.\n",
+                date('Y-m-d H:i:s'), $transferId, $toAccountId, $toBalance, $amount, $toCap
+            );
+            $transferModel->markFailed($transferId);
+            $errors++;
+            // Notifier le propriétaire du compte émetteur
+            $fromAccount = $accountModel->find($fromAccountId);
+            if ($fromAccount) {
+                $notifyWithGuardians(
+                    (int) $fromAccount['user_id'],
+                    $fromAccountId,
+                    'transfer_failed',
+                    'Virement planifié #' . $transferId . ' non exécuté',
+                    sprintf(
+                        'Votre virement planifié de %s %s vers « %s » n\'a pas pu être exécuté : le compte destinataire a atteint son plafond de %s %s.',
+                        number_format($amount, 2, ',', ' '),
+                        $toAccount['currency'] ?? '€',
+                        $toAccount['name'] ?? ('Compte #' . $toAccountId),
+                        number_format($toCap, 2, ',', ' '),
+                        $toAccount['currency'] ?? '€'
+                    )
+                );
+            }
+            continue;
+        }
+    }
 
     // Matérialiser la transaction de débit
     if ($debitId > 0) {

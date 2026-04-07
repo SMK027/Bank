@@ -113,8 +113,8 @@ class TransactionController extends Controller
             }
         }
 
-        // Vérifier le plafond d'épargne pour les entrées (ignoré pour les modérateurs)
-        if ($data['type'] === 'income' && !$this->isModerator()) {
+        // Vérifier le plafond d'épargne pour les entrées
+        if ($data['type'] === 'income') {
             $account = $account ?? $this->accountModel->find($accId);
             if ($account && Account::typeHasCap($account['type'] ?? '')) {
                 $tCap = (float) ($account['cap'] ?? 0);

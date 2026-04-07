@@ -260,9 +260,9 @@ class TransferController extends Controller
         }
         $label = 'Virement' . ($motif !== '' ? ' — ' . $motif : '');
 
-        // Vérifier le plafond d'épargne du compte destinataire (ignoré si modérateur)
+        // Vérifier le plafond d'épargne du compte destinataire
         $toCap = (float) ($toAccount['cap'] ?? 0);
-        if (!$this->isModerator() && Account::typeHasCap($toAccount['type'] ?? '') && $toCap > 0) {
+        if (Account::typeHasCap($toAccount['type'] ?? '') && $toCap > 0) {
             $toBalance = $this->accountModel->getFutureBalance($toId);
             if ($toBalance + $amount > $toCap) {
                 $this->setFlash('danger', sprintf(
