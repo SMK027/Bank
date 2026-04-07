@@ -159,9 +159,12 @@
                         <img src="<?= e($qrDataUri) ?>"
                              alt="QR Code connexion PIN"
                              width="140" height="140"
-                             style="border-radius:8px;border:1px solid var(--gray-light);display:block;">
+                             id="qr-thumbnail"
+                             data-qr-src="<?= e($qrDataUri) ?>"
+                             style="border-radius:8px;border:1px solid var(--gray-light);display:block;cursor:zoom-in;"
+                             title="Cliquer pour agrandir">
                         <p class="text-muted text-small mt-1" style="margin-bottom:0;">
-                            <i class="bi bi-qr-code-scan"></i> Connexion rapide
+                            <i class="bi bi-zoom-in"></i> Cliquer pour agrandir
                         </p>
                     </div>
                 </div>
@@ -264,3 +267,60 @@
 
     </div>
 </div>
+
+<!-- Modal agrandissement QR code -->
+<div id="qr-modal"
+     role="dialog"
+     aria-modal="true"
+     aria-label="QR Code agrandi"
+     style="display:none;position:fixed;inset:0;z-index:9999;
+            background:rgba(0,0,0,0.75);align-items:center;justify-content:center;">
+    <div style="position:relative;background:#fff;border-radius:12px;padding:1.5rem;
+                box-shadow:0 8px 40px rgba(0,0,0,0.4);text-align:center;max-width:90vw;">
+        <button id="qr-modal-close"
+                aria-label="Fermer"
+                style="position:absolute;top:0.5rem;right:0.75rem;background:none;
+                       border:none;font-size:1.5rem;cursor:pointer;color:#666;line-height:1;"
+                title="Fermer">&times;</button>
+        <img id="qr-modal-img" src="" alt="QR Code connexion PIN agrandi"
+             style="width:280px;height:280px;display:block;border-radius:6px;">
+        <p style="margin:0.75rem 0 0;font-size:0.85rem;color:#666;">
+            <i class="bi bi-qr-code-scan"></i> Scannez ce QR code pour vous connecter par PIN
+        </p>
+    </div>
+</div>
+
+<script>
+(function () {
+    var thumb  = document.getElementById('qr-thumbnail');
+    var modal  = document.getElementById('qr-modal');
+    var img    = document.getElementById('qr-modal-img');
+    var close  = document.getElementById('qr-modal-close');
+
+    function openModal() {
+        img.src = thumb.dataset.qrSrc;
+        modal.style.display = 'flex';
+        close.focus();
+    }
+
+    function closeModal() {
+        modal.style.display = 'none';
+        thumb.focus();
+    }
+
+    thumb.addEventListener('click', openModal);
+    thumb.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openModal(); }
+    });
+
+    close.addEventListener('click', closeModal);
+
+    modal.addEventListener('click', function (e) {
+        if (e.target === modal) { closeModal(); }
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && modal.style.display === 'flex') { closeModal(); }
+    });
+}());
+</script>
