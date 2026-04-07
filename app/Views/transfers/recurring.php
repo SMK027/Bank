@@ -26,7 +26,7 @@ $items = $items ?? [];
         </div>
     <?php else: ?>
     <div class="card">
-        <div style="overflow-x:auto;">
+        <div class="table-responsive">
             <table class="table" style="margin:0;">
                 <thead>
                     <tr>

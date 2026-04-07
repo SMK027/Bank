@@ -29,7 +29,7 @@ foreach (Account::TYPES as $key => $def) { $typeMap[$key] = $def['label']; }
     <div class="card-header">
         <h3><i class="bi bi-gear"></i> Taux actuels par type de compte</h3>
     </div>
-    <div class="card-body" style="padding:0;">
+    <div class="card-body" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch;">
         <table class="table">
             <thead>
                 <tr>
@@ -169,6 +169,7 @@ foreach (Account::TYPES as $key => $def) { $typeMap[$key] = $def['label']; }
                 <i class="bi bi-dash-circle"></i> Aucun compte éligible avec un taux configuré<?= !empty($filterUserIds) ? ' pour les utilisateurs sélectionnés' : '' ?>.
             </p>
         <?php else: ?>
+            <div class="table-responsive">
             <table class="table" style="margin:0;">
                 <thead>
                     <tr>
@@ -213,6 +214,7 @@ foreach (Account::TYPES as $key => $def) { $typeMap[$key] = $def['label']; }
                 </tfoot>
                 <?php endif; ?>
             </table>
+            </div>
             <p style="margin:0.6rem 0 0;font-size:0.78rem;color:var(--text-muted,#6b7280);">
                 <i class="bi bi-clock"></i> Calculé le <?= date('d/m/Y à H\hi') ?>
                 <?php if (!empty($filterUserIds)): ?>
@@ -317,7 +319,7 @@ foreach (Account::TYPES as $key => $def) { $typeMap[$key] = $def['label']; }
             <?php endforeach; ?>
         </div>
     </div>
-    <div class="card-body" style="padding:0;">
+    <div class="card-body" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch;">
         <?php if (empty($history)): ?>
             <p class="text-muted" style="padding:1rem;">Aucun historique disponible.</p>
         <?php else: ?>

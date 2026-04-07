@@ -19,7 +19,7 @@
     <div class="card-header">
         <h3><i class="bi bi-clock-history"></i> En attente de confirmation</h3>
     </div>
-    <div class="card-body" style="padding:0;">
+    <div class="card-body" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch;">
         <table class="table">
             <thead>
                 <tr>

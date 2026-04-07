@@ -119,7 +119,7 @@ foreach ($guardianships as $g) {
         </form>
         <?php endif; ?>
     </div>
-    <div class="card-body" style="padding:0">
+    <div class="card-body" style="padding:0;overflow-x:auto;-webkit-overflow-scrolling:touch;">
         <table class="table" style="margin:0">
             <thead>
                 <tr>

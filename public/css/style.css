@@ -1313,6 +1313,8 @@ select.form-control {
         box-shadow: var(--shadow);
         gap: 0.5rem;
         z-index: 999;
+        max-height: calc(100vh - var(--navbar-height));
+        overflow-y: auto;
     }
 
     .navbar-menu.open {
@@ -1364,13 +1366,12 @@ select.form-control {
         text-align: center;
     }
 
-    .btn-group {
-        width: 100%;
-        justify-content: stretch;
+    .stat-card .stat-value {
+        font-size: 1.5rem;
     }
 
-    .btn-group .btn {
-        flex: 1;
+    .btn-group {
+        width: 100%;
     }
 }
 
@@ -1392,6 +1393,10 @@ select.form-control {
 
     .stats-grid {
         grid-template-columns: 1fr;
+    }
+
+    .toast {
+        max-width: calc(100vw - 2rem);
     }
 }
 
