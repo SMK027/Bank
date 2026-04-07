@@ -1619,4 +1619,104 @@ class ModerationController extends Controller
             $this->notifModel->notify((int) $g['guardian_user_id'], $type, $title, $body, $link);
         }
     }
+
+    // =========================================================
+    // CRÉATION DE COMPTE POUR UN UTILISATEUR DÉFINI
+    // =========================================================
+
+    /**
+     * Formulaire de création d'un compte pour un utilisateur défini (GET).
+     * Le modérateur peut choisir n'importe quel type, sans les restrictions utilisateur.
+     */
+    public function createAccountForm(): void
+    {
+        $this->requireModerator();
+
+        $maxRates = [];
+        foreach (Account::getInterestEligibleTypes() as $iType) {
+            $maxRates[$iType] = $this->rateModel->getCurrentRate($iType);
+        }
+
+        $this->render('moderation/account_create', [
+            'title'        => 'Modération — Créer un compte',
+            'accountTypes' => Account::TYPES,
+            'maxRates'     => $maxRates,
+            'csrfToken'    => csrf_token(),
+        ]);
+    }
+
+    /**
+     * Création du compte pour l'utilisateur sélectionné (POST).
+     */
+    public function createAccountForUser(): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $data = $this->getPostData(['target_user_id', 'name', 'currency', 'account_type', 'overdraft', 'cap', 'interest_rate']);
+
+        $targetUserId = (int) ($data['target_user_id'] ?? 0);
+        $targetUser   = $targetUserId > 0 ? $this->userModel->find($targetUserId) : null;
+
+        if (!$targetUser) {
+            $this->setFlash('danger', 'Utilisateur introuvable. Veuillez sélectionner un utilisateur valide.');
+            $this->redirect('/moderation/accounts/create');
+            return;
+        }
+
+        $name = trim($data['name'] ?? '');
+        if ($name === '') {
+            $this->setFlash('danger', 'Le nom du compte est obligatoire.');
+            $this->redirect('/moderation/accounts/create');
+            return;
+        }
+
+        $allowedCurrencies = ['EUR', 'USD', 'GBP', 'CHF', 'CAD', 'JPY', 'XOF', 'MAD'];
+        $currency = in_array($data['currency'] ?? '', $allowedCurrencies, true) ? $data['currency'] : 'EUR';
+
+        $type = $data['account_type'] ?? 'standard';
+        if (!array_key_exists($type, Account::TYPES)) {
+            $this->setFlash('danger', 'Type de compte invalide.');
+            $this->redirect('/moderation/accounts/create');
+            return;
+        }
+
+        $overdraft = Account::typeAllowsOverdraft($type) ? abs((float) ($data['overdraft'] ?: 0)) : 0.0;
+        $cap       = Account::typeHasCap($type) && ($data['cap'] ?? '') !== '' ? abs((float) $data['cap']) : null;
+
+        $interestRate = null;
+        if (Account::typeHasInterest($type) && ($data['interest_rate'] ?? '') !== '') {
+            $rawPct       = (float) str_replace(',', '.', $data['interest_rate']);
+            $interestRate = round($rawPct / 100, 6);
+            $maxRate      = $this->rateModel->getCurrentRate($type);
+            if ($maxRate !== null && $interestRate > $maxRate) {
+                $interestRate = $maxRate;
+            }
+            if ($interestRate < 0) {
+                $interestRate = 0.0;
+            }
+        }
+
+        $moderatorId = $this->getCurrentUserId();
+        $accountId   = $this->accountModel->createAccount($targetUserId, $name, $currency, $overdraft, $type, $cap);
+
+        if ($interestRate !== null) {
+            $this->accountModel->update($accountId, ['interest_rate' => $interestRate]);
+        }
+
+        AuditLog::log($moderatorId, AuditLog::ACTION_ACCOUNT_CREATE, [
+            'name' => $name,
+            'type' => $type,
+            'for'  => $targetUser['username'],
+        ], targetUserId: $targetUserId, targetAccountId: $accountId);
+
+        $this->setFlash('success', sprintf(
+            'Compte « %s » (%s) créé pour %s avec succès.',
+            $name,
+            Account::TYPES[$type]['label'],
+            $targetUser['username']
+        ));
+        $this->redirect('/moderation');
+    }
 }
+
