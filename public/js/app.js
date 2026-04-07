@@ -93,6 +93,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /* ----- Toast notifications ----- */
     window.showToast = function (message, type) {
+
         type = type || 'info';
         let container = document.querySelector('.toast-container');
         if (!container) {
@@ -110,4 +111,78 @@ document.addEventListener('DOMContentLoaded', function () {
             setTimeout(function () { toast.remove(); }, 300);
         }, 4000);
     };
+});
+
+/* ----- Collapse de sections (jQuery) ----- */
+$(function () {
+    // Toutes les cartes ayant un card-header + card-body, sauf celles marquées .card-static
+    var $collapsible = $('.card:not(.card-static)').filter(function () {
+        return $(this).children('.card-header').length > 0 &&
+               $(this).children('.card-body').length > 0;
+    });
+
+    $collapsible.each(function (i) {
+        var $card   = $(this);
+        var $header = $card.children('.card-header');
+        var $body   = $card.children('.card-body');
+        var $footer = $card.children('.card-footer');
+
+        // Clé localStorage unique par page + position
+        var key = 'tbx_collapse_' + location.pathname.replace(/\//g, '-') + '_' + i;
+
+        // Injecter le bouton chevron (une seule fois)
+        if ($header.find('.card-collapse-btn').length === 0) {
+            $header.append(
+                '<button class="card-collapse-btn" type="button" ' +
+                'title="Replier / D\u00e9plier" aria-expanded="true">' +
+                '<i class="bi bi-chevron-up"></i></button>'
+            );
+        }
+        $header.addClass('is-collapsible');
+        var $btn = $header.find('.card-collapse-btn');
+
+        function collapse(animate) {
+            if (animate) {
+                $body.slideUp(180);
+                if ($footer.length) $footer.slideUp(180);
+            } else {
+                $body.hide();
+                if ($footer.length) $footer.hide();
+            }
+            $btn.attr('aria-expanded', 'false').find('i').css('transform', 'rotate(180deg)');
+            $header.addClass('card-header--collapsed');
+        }
+
+        function expand(animate) {
+            if (animate) {
+                $body.slideDown(180);
+                if ($footer.length) $footer.slideDown(180);
+            } else {
+                $body.show();
+                if ($footer.length) $footer.show();
+            }
+            $btn.attr('aria-expanded', 'true').find('i').css('transform', '');
+            $header.removeClass('card-header--collapsed');
+        }
+
+        // Restaurer l'état sauvegardé (sans animation)
+        if (localStorage.getItem(key) === '1') {
+            collapse(false);
+        }
+
+        // Clic sur le header — ignorer les liens, formulaires et boutons d'action
+        $header.on('click', function (e) {
+            if ($(e.target).closest(
+                'a, input, select, textarea, form, button:not(.card-collapse-btn)'
+            ).length) return;
+
+            if ($body.is(':hidden')) {
+                expand(true);
+                localStorage.setItem(key, '0');
+            } else {
+                collapse(true);
+                localStorage.setItem(key, '1');
+            }
+        });
+    });
 });
