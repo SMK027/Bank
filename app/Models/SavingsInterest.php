@@ -132,4 +132,62 @@ class SavingsInterest extends Model
         $interest = max(0.0, $twab * $rate);
         return round($interest, 2);
     }
+
+    /**
+     * Calcule les intérêts accumulés (en cours) depuis le 1er janvier de l'année
+     * courante jusqu'à maintenant, au prorata temporis (TWAB).
+     *
+     * - Le dénominateur est toujours 365 ou 366 jours (année civile complète),
+     *   ce qui assure la cohérence avec calculateProrata().
+     * - Retourne 0,00 le 1er janvier (nouveau départ de cycle).
+     *
+     * @param int         $accountId
+     * @param float       $rate       Taux annuel brut (ex : 0.03 = 3 %)
+     * @param Transaction $txModel
+     */
+    public static function calculateAccrued(
+        int         $accountId,
+        float       $rate,
+        Transaction $txModel
+    ): float {
+        $year          = (int) date('Y');
+        $yearStartDate = sprintf('%04d-01-01', $year);
+        $todayDate     = date('Y-m-d');
+
+        $yearStartTs = (int) mktime(0, 0, 0, 1, 1, $year);
+        $yearEndTs   = (int) mktime(0, 0, 0, 1, 1, $year + 1); // dénominateur
+        $nowTs       = min(time(), $yearEndTs);
+        $totalDays   = ($yearEndTs - $yearStartTs) / 86400; // 365 ou 366
+
+        if ($nowTs <= $yearStartTs) {
+            return 0.0;
+        }
+
+        $currentBalance = $txModel->getBalanceBeforeDate($accountId, $yearStartDate);
+        $transactions   = $txModel->getByAccountBetween($accountId, $yearStartDate, $todayDate);
+
+        $currentTs   = (float) $yearStartTs;
+        $weightedSum = 0.0;
+
+        foreach ($transactions as $t) {
+            $tTs = (float) strtotime($t['created_at']);
+            if ($tTs < $yearStartTs || $tTs >= $nowTs) {
+                continue;
+            }
+            $daysHeld     = max(0.0, ($tTs - $currentTs) / 86400);
+            $weightedSum += $currentBalance * $daysHeld;
+            $currentBalance += ($t['type'] === 'income')
+                ? (float) $t['amount']
+                : -(float) $t['amount'];
+            $currentTs = $tTs;
+        }
+
+        // Segment final : de la dernière transaction jusqu'à maintenant
+        $daysHeld     = max(0.0, ($nowTs - $currentTs) / 86400);
+        $weightedSum += $currentBalance * $daysHeld;
+
+        $twab     = $weightedSum / $totalDays;
+        $interest = max(0.0, $twab * $rate);
+        return round($interest, 2);
+    }
 }

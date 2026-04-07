@@ -14,6 +14,7 @@ use App\Models\DirectDebit;
 use App\Models\Guardianship;
 use App\Models\Mandate;
 use App\Models\RecurringTransfer;
+use App\Models\SavingsInterest;
 use App\Models\SavingsRate;
 use App\Models\User;
 
@@ -220,6 +221,17 @@ class AccountController extends Controller
         // Mandats à venir (prochaine exécution planifiée) — tous types de comptes
         $upcomingMandates = $mandateModel->getUpcomingByAccount($accountId);
 
+        // Intérêts accumulés en cours d'année (TWAB Jan 1 → aujourd'hui)
+        $accruedInterest = null;
+        $accountRate     = isset($account['interest_rate']) ? (float) $account['interest_rate'] : 0.0;
+        if (Account::typeHasInterest($account['type'] ?? '') && $accountRate > 0) {
+            $accruedInterest = SavingsInterest::calculateAccrued(
+                $accountId,
+                $accountRate,
+                $this->transactionModel
+            );
+        }
+
         // Virements récurrents liés à ce compte (émetteur ou destinataire)
         $recurringTransfers = $this->recurringTransferModel->getByAccount($accountId);
         foreach ($recurringTransfers as &$r) {
@@ -257,6 +269,7 @@ class AccountController extends Controller
             'upcomingMandates'   => $upcomingMandates,
             'linkedTxIds'        => $linkedTxIds,
             'recurringTransfers' => $recurringTransfers,
+            'accruedInterest'    => $accruedInterest,
         ]);
     }
 

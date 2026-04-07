@@ -126,6 +126,20 @@
             <div class="stat-label">Plafond d'épargne (<?= e($account['currency']) ?>)</div>
         </div>
     <?php endif; ?>
+    <?php if ($accruedInterest !== null): ?>
+        <div class="stat-card" style="border-left:3px solid #10b981;" title="Intérêts calculés au prorata temporis depuis le 1er janvier. Remis à zéro chaque 1er janvier.">
+            <div class="stat-value text-success" style="display:flex;align-items:center;gap:0.4rem;">
+                +<?= number_format($accruedInterest, 2, ',', ' ') ?>
+                <i class="bi bi-graph-up-arrow" style="font-size:0.7em;opacity:0.7;"></i>
+            </div>
+            <div class="stat-label">
+                Intérêts en cours <?= date('Y') ?> (<?= e($account['currency']) ?>)
+                <span style="font-size:0.7em;opacity:0.65;display:block;">
+                    Taux : <?= number_format((float) $account['interest_rate'] * 100, 2, ',', ' ') ?> % — remis à zéro le 1<sup>er</sup> janv.
+                </span>
+            </div>
+        </div>
+    <?php endif; ?>
     <?php if (!empty($account['balance_alert_threshold'])): ?>
         <div class="stat-card" style="border-left:3px solid var(--warning, #f59e0b)">
             <div class="stat-value" style="font-size:1.1rem;"><?= number_format((float) $account['balance_alert_threshold'], 2, ',', ' ') ?></div>
