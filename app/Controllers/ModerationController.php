@@ -682,13 +682,13 @@ class ModerationController extends Controller
         }
 
         // Validation de la date d'exécution
-        $ts = strtotime($data['scheduled_at'] ?? '');
-        if ($ts === false || $ts <= 0) {
-            $this->setFlash('danger', 'La date d\'exécution est invalide.');
+        $dt = parse_datetime_input($data['scheduled_at'] ?? '');
+        if (!$dt) {
+            $this->setFlash('danger', 'La date d\'exécution est invalide (format attendu : jj/mm/aaaa hh:mm).');
             $this->redirect('/moderation/direct-debits/create');
             return;
         }
-        $scheduledAt = date('Y-m-d H:i:s', $ts);
+        $scheduledAt = $dt->format('Y-m-d H:i:s');
 
         // Validation du montant
         $amount = (float) ($data['amount'] ?? 0);
@@ -889,11 +889,9 @@ class ModerationController extends Controller
         $scheduledAt  = null;
         $rawRetryDate = trim($retryData['scheduled_at'] ?? '');
         if ($rawRetryDate !== '') {
-            $dt = \DateTime::createFromFormat('Y-m-d\TH:i', $rawRetryDate)
-               ?: \DateTime::createFromFormat('Y-m-d H:i:s', $rawRetryDate)
-               ?: \DateTime::createFromFormat('Y-m-d H:i', $rawRetryDate);
+            $dt = parse_datetime_input($rawRetryDate);
             if (!$dt) {
-                $this->setFlash('danger', 'Date de planification invalide.');
+                $this->setFlash('danger', 'Date de planification invalide (format attendu : jj/mm/aaaa hh:mm).');
                 $this->redirect('/moderation/direct-debits');
                 return;
             }
@@ -1472,11 +1470,9 @@ class ModerationController extends Controller
         $firstExecutionAt = null;
         $rawDate = trim($data['first_execution_at'] ?? '');
         if ($rawDate !== '') {
-            $dt = \DateTime::createFromFormat('Y-m-d\TH:i', $rawDate)
-               ?: \DateTime::createFromFormat('Y-m-d H:i:s', $rawDate)
-               ?: \DateTime::createFromFormat('Y-m-d H:i', $rawDate);
+            $dt = parse_datetime_input($rawDate);
             if (!$dt) {
-                $this->setFlash('danger', 'Date de première exécution invalide.');
+                $this->setFlash('danger', 'Date de première exécution invalide (format attendu : jj/mm/aaaa hh:mm).');
                 $this->redirect('/moderation/mandates/create');
                 return;
             }

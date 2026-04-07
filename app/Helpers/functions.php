@@ -135,6 +135,36 @@ function format_date(?string $date, string $format = 'd/m/Y H:i'): string
 }
 
 /**
+ * Parse une saisie de date flexible (formats multiples).
+ * Accepte : d/m/Y H:i, d/m/Y, Y-m-d\TH:i, Y-m-d H:i:s, Y-m-d H:i
+ * Retourne un DateTime ou null si le parsing échoue.
+ */
+function parse_datetime_input(?string $raw): ?DateTime
+{
+    $raw = trim($raw ?? '');
+    if ($raw === '') {
+        return null;
+    }
+
+    $formats = [
+        'd/m/Y H:i',
+        'd/m/Y',
+        'Y-m-d\TH:i',
+        'Y-m-d H:i:s',
+        'Y-m-d H:i',
+    ];
+
+    foreach ($formats as $fmt) {
+        $dt = DateTime::createFromFormat($fmt, $raw);
+        if ($dt !== false) {
+            return $dt;
+        }
+    }
+
+    return null;
+}
+
+/**
  * Formate une date relative (il y a X minutes, etc.).
  */
 function time_ago(?string $date): string

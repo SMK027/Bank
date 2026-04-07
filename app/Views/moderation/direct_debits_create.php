@@ -38,8 +38,8 @@
                 <label for="scheduled_at" class="form-label">
                     <i class="bi bi-calendar-event"></i> Date et heure d'exécution <span style="color:var(--danger)">*</span>
                 </label>
-                <input type="datetime-local" id="scheduled_at" name="scheduled_at"
-                       class="form-control" required>
+                <input type="text" id="scheduled_at" name="scheduled_at"
+                       class="form-control" required placeholder="jj/mm/aaaa hh:mm">
             </div>
 
             <!-- Montant -->

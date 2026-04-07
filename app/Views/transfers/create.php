@@ -177,8 +177,8 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                             <label for="scheduled_at-p" class="form-label" style="font-size:0.85rem; color:var(--text-muted);">
                                 <i class="bi bi-clock"></i> Date d'exécution
                             </label>
-                            <input type="datetime-local" id="scheduled_at-p" name="scheduled_at"
-                                   class="form-control">
+                            <input type="text" id="scheduled_at-p" name="scheduled_at"
+                                   class="form-control" placeholder="jj/mm/aaaa hh:mm">
                             <div id="warn-p-date" class="alert alert-warning" style="display:none; margin-top:0.4rem; padding:0.5rem 0.75rem;">
                                 <i class="bi bi-exclamation-triangle-fill"></i>
                                 <span id="warn-p-date-text"></span>
@@ -190,9 +190,9 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                                     <label for="first_execution_at-p" class="form-label" style="font-size:0.85rem; color:var(--text-muted);">
                                         <i class="bi bi-calendar-plus"></i> Date du premier virement
                                     </label>
-                                    <input type="datetime-local" id="first_execution_at-p" name="first_execution_at"
+                                    <input type="text" id="first_execution_at-p" name="first_execution_at"
                                            class="form-control"
-                                           min="<?= date('Y-m-d\TH:i', strtotime('+1 minute')) ?>">
+                                           placeholder="jj/mm/aaaa hh:mm">
                                 </div>
                                 <div style="width:140px;">
                                     <label for="interval_days-p" class="form-label" style="font-size:0.85rem; color:var(--text-muted);">
@@ -329,8 +329,8 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                             <label for="scheduled_at-m" class="form-label" style="font-size:0.85rem; color:var(--text-muted);">
                                 <i class="bi bi-clock"></i> Date d'exécution
                             </label>
-                            <input type="datetime-local" id="scheduled_at-m" name="scheduled_at"
-                                   class="form-control">
+                            <input type="text" id="scheduled_at-m" name="scheduled_at"
+                                   class="form-control" placeholder="jj/mm/aaaa hh:mm">
                             <div id="warn-m-date" class="alert alert-warning" style="display:none; margin-top:0.4rem; padding:0.5rem 0.75rem;">
                                 <i class="bi bi-exclamation-triangle-fill"></i>
                                 <span id="warn-m-date-text"></span>
@@ -342,9 +342,9 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                                     <label for="first_execution_at-m" class="form-label" style="font-size:0.85rem; color:var(--text-muted);">
                                         <i class="bi bi-calendar-plus"></i> Date du premier virement
                                     </label>
-                                    <input type="datetime-local" id="first_execution_at-m" name="first_execution_at"
+                                    <input type="text" id="first_execution_at-m" name="first_execution_at"
                                            class="form-control"
-                                           min="<?= date('Y-m-d\TH:i', strtotime('+1 minute')) ?>">
+                                           placeholder="jj/mm/aaaa hh:mm">
                                 </div>
                                 <div style="width:140px;">
                                     <label for="interval_days-m" class="form-label" style="font-size:0.85rem; color:var(--text-muted);">
@@ -742,6 +742,23 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
     };
 
     // Validation date dans checkPersonal et checkMod (ajoutée via patch)
+    /**
+     * Parse une date au format jj/mm/aaaa hh:mm ou ISO (Y-m-dTH:i).
+     * Retourne un timestamp (ms) ou NaN.
+     */
+    function parseDateInput(val) {
+        if (!val) return NaN;
+        // Format jj/mm/aaaa hh:mm
+        var m = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/);
+        if (m) return new Date(parseInt(m[3]), parseInt(m[2]) - 1, parseInt(m[1]), parseInt(m[4]), parseInt(m[5])).getTime();
+        // Format jj/mm/aaaa (sans heure)
+        var m2 = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (m2) return new Date(parseInt(m2[3]), parseInt(m2[2]) - 1, parseInt(m2[1])).getTime();
+        // Format ISO (datetime-local fallback)
+        var ts = new Date(val).getTime();
+        return ts;
+    }
+
     function checkSchedDate(form) {
         var inp     = document.getElementById('scheduled_at-' + form);
         var warnDiv = document.getElementById('warn-' + form + '-date');
@@ -756,10 +773,10 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
             warnTxt.textContent   = 'Veuillez saisir une date d\'exécution.';
             return false;
         }
-        var ts = new Date(inp.value).getTime();
-        if (ts <= Date.now()) {
+        var ts = parseDateInput(inp.value);
+        if (isNaN(ts)) {
             warnDiv.style.display = 'block';
-            warnTxt.textContent   = 'La date doit être dans le futur.';
+            warnTxt.textContent   = 'Format de date invalide (attendu : jj/mm/aaaa hh:mm).';
             return false;
         }
         warnDiv.style.display = 'none';

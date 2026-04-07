@@ -310,7 +310,8 @@
                         <label for="scheduled_at" class="form-label">
                             <i class="bi bi-clock"></i> Date programmée <span class="text-muted" style="font-weight:400;font-size:0.85em;">(optionnel — laisser vide pour maintenant)</span>
                         </label>
-                        <input type="datetime-local" id="scheduled_at" name="scheduled_at" class="form-control">
+                        <input type="text" id="scheduled_at" name="scheduled_at" class="form-control"
+                               placeholder="jj/mm/aaaa hh:mm">
                     </div>
                 </div>
 

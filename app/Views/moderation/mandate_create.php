@@ -71,9 +71,9 @@
                         Date de première exécution
                         <span class="text-muted" style="font-weight:normal;font-size:0.88em;">(optionnelle — immédiate si vide)</span>
                     </label>
-                    <input type="datetime-local" id="first_execution_at" name="first_execution_at"
+                    <input type="text" id="first_execution_at" name="first_execution_at"
                            class="form-control"
-                           min="<?= date('Y-m-d\TH:i', strtotime('+1 minute')) ?>">
+                           placeholder="jj/mm/aaaa hh:mm">
                     <span class="form-hint">Laissez vide pour une exécution dès le prochain traitement.</span>
                 </div>
 

@@ -202,10 +202,13 @@ class TransferController extends Controller
                 return;
             }
             $rawFirst = trim($data['first_execution_at'] ?? '');
-            $dtFirst  = \DateTime::createFromFormat('Y-m-d\TH:i', $rawFirst)
-                     ?: \DateTime::createFromFormat('Y-m-d H:i:s', $rawFirst)
-                     ?: \DateTime::createFromFormat('Y-m-d H:i', $rawFirst);
-            if (!$dtFirst || $dtFirst->getTimestamp() <= time()) {
+            $dtFirst  = parse_datetime_input($rawFirst);
+            if (!$dtFirst) {
+                $this->setFlash('danger', 'La date du premier virement est invalide (format attendu : jj/mm/aaaa hh:mm).');
+                $this->redirect('/transfers/create' . ($modMode ? '?tab=moderation' : ''));
+                return;
+            }
+            if (!$this->isModerator() && $dtFirst->getTimestamp() <= time()) {
                 $this->setFlash('danger', 'La date du premier virement doit être dans le futur.');
                 $this->redirect('/transfers/create' . ($modMode ? '?tab=moderation' : ''));
                 return;
@@ -261,9 +264,11 @@ class TransferController extends Controller
 
         $scheduledAt = null;
         if (!empty($data['scheduled_at'])) {
-            $ts = strtotime($data['scheduled_at']);
-            if ($ts !== false && $ts > time()) {
-                $scheduledAt = date('Y-m-d H:i:s', $ts);
+            $dt = parse_datetime_input($data['scheduled_at']);
+            if ($dt) {
+                if ($this->isModerator() || $dt->getTimestamp() > time()) {
+                    $scheduledAt = $dt->format('Y-m-d H:i:s');
+                }
             }
         }
         $label = 'Virement' . ($motif !== '' ? ' — ' . $motif : '');

@@ -63,16 +63,21 @@ class TransactionController extends Controller
             return;
         }
 
-        // Traiter la date programmée (dépenses à venir uniquement)
+        // Traiter la date programmée
         $scheduledAt = null;
         if (!empty($data['scheduled_at'])) {
-            $ts = strtotime($data['scheduled_at']);
-            if ($ts === false || $ts <= time()) {
+            $dt = parse_datetime_input($data['scheduled_at']);
+            if (!$dt) {
+                $this->setFlash('danger', 'La date programmée est invalide (format attendu : jj/mm/aaaa hh:mm).');
+                $this->redirect('/accounts/' . $accountId);
+                return;
+            }
+            if (!$this->isModerator() && $dt->getTimestamp() <= time()) {
                 $this->setFlash('danger', 'La date programmée doit être dans le futur.');
                 $this->redirect('/accounts/' . $accountId);
                 return;
             }
-            $scheduledAt = date('Y-m-d H:i:s', $ts);
+            $scheduledAt = $dt->format('Y-m-d H:i:s');
         }
 
         // Bloquer les opérations sortantes si le compte est gelé
