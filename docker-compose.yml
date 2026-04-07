@@ -49,21 +49,6 @@ services:
       - db_internal
     restart: unless-stopped
 
-  mailpit:
-    image: axllent/mailpit:latest
-    container_name: bankapp_mailpit
-    networks:
-      - proxy
-      - internal
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.bankapp-mail.rule=Host(`mail.${APP_DOMAIN}`)"
-      - "traefik.http.routers.bankapp-mail.entrypoints=websecure"
-      - "traefik.http.routers.bankapp-mail.tls.certresolver=letsencrypt"
-      - "traefik.http.services.bankapp-mail.loadbalancer.server.port=8025"
-      - "traefik.docker.network=proxy"
-    restart: unless-stopped
-
 networks:
   proxy:
     external: true       # Réseau Traefik partagé entre tous les projets
@@ -71,5 +56,5 @@ networks:
     external: true       # Réseau de la base de données mutualisée
   internal:
     driver: bridge
-    internal: true       # Réseau isolé (nginx ↔ app ↔ mailpit, sans accès internet direct)
+    internal: true       # Réseau isolé (nginx ↔ app, sans accès internet direct)
 
