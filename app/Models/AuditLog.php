@@ -74,6 +74,10 @@ class AuditLog extends Model
     // Comptes mineurs (création par modération)
     public const ACTION_MINOR_ACCOUNT_CREATE = 'minor_account.create';
 
+    // Intérêts épargne
+    public const ACTION_INTEREST_CONFIRM  = 'interest.confirm';
+    public const ACTION_INTEREST_RATE_SET = 'interest.rate_set';
+
     // Virements récurrents (cron)
     public const ACTION_TRANSFER_RECURRING_EXEC = 'transfer_recurring.execute';
     public const ACTION_TRANSFER_RECURRING_FAIL = 'transfer_recurring.fail';
@@ -113,6 +117,8 @@ class AuditLog extends Model
         'guardianship.add'         => 'Tutelle ajoutée',
         'guardianship.remove'      => 'Tutelle supprimée',
         'minor_account.create'     => 'Compte mineur créé',
+        'interest.confirm'         => 'Intérêts confirmés',
+        'interest.rate_set'        => 'Taux d\'intérêt configuré',
     ];
 
     /** Couleur Bootstrap associée à chaque catégorie. */

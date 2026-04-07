@@ -59,6 +59,7 @@ class Notification extends Model
         'mod_new_ticket'             => 'bi-ticket-perforated-fill text-warning',
         'mod_transfer_pending'  => 'bi-arrow-left-right text-primary',
         'mod_direct_debit_due'  => 'bi-file-earmark-arrow-down text-warning',
+        'interest_pending'      => 'bi-percent text-success',
     ];
 
     // ── Création ─────────────────────────────────────────────────────────────

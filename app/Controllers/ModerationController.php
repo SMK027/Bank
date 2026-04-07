@@ -17,6 +17,7 @@ use App\Models\TicketMessage;
 use App\Models\Transaction;
 use App\Models\Transfer;
 use App\Models\User;
+use App\Models\SavingsRate;
 
 class ModerationController extends Controller
 {
@@ -31,6 +32,7 @@ class ModerationController extends Controller
     private TicketMessage  $ticketMessageModel;
     private Mandate        $mandateModel;
     private Notification   $notifModel;
+    private SavingsRate     $rateModel;
 
     public function __construct()
     {
@@ -45,6 +47,7 @@ class ModerationController extends Controller
         $this->ticketMessageModel = new TicketMessage();
         $this->mandateModel       = new Mandate();
         $this->notifModel         = new Notification();
+        $this->rateModel          = new SavingsRate();
     }
 
     /**
@@ -1430,6 +1433,50 @@ class ModerationController extends Controller
         }
         $this->setFlash('success', 'Mandat ' . $mandate['number'] . ' révoqué.');
         $this->redirect('/moderation/mandates');
+    }
+
+    // =========================================================
+    // TAUX D'INTÉRÊT ÉPARGNE
+    // =========================================================
+
+    /**
+     * Affiche le taux d'intérêt actuel et l'historique (GET).
+     */
+    public function savingsRate(): void
+    {
+        $this->requireModerator();
+        $currentRate = $this->rateModel->getCurrent();
+        $history     = $this->rateModel->getHistory();
+        $this->render('moderation/savings_rate', [
+            'title'       => 'Modération — Taux d\'intérêt épargne',
+            'currentRate' => $currentRate,
+            'history'     => $history,
+        ]);
+    }
+
+    /**
+     * Met à jour le taux d'intérêt annuel (POST).
+     */
+    public function setSavingsRate(): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+        $data    = $this->getPostData(['rate']);
+        $rateRaw = (float) str_replace(',', '.', $data['rate'] ?? '');
+        $rate    = round($rateRaw / 100, 6); // formulaire en %, on stocke en décimal
+        if ($rate < 0 || $rate > 1) {
+            $this->setFlash('danger', 'Le taux doit être compris entre 0 et 100 %.');
+            $this->redirect('/moderation/savings-rate');
+            return;
+        }
+        $userId = $this->getCurrentUserId();
+        $this->rateModel->setRate($rate, $userId);
+        AuditLog::log($userId, AuditLog::ACTION_INTEREST_RATE_SET, ['rate' => $rate]);
+        $this->setFlash('success', sprintf(
+            'Taux d\'intérêt mis à jour : %s %%.',
+            number_format($rateRaw, 2, ',', ' ')
+        ));
+        $this->redirect('/moderation/savings-rate');
     }
 
     // =========================================================

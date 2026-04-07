@@ -1,3 +1,7 @@
 # Exécution des transactions programmées échues – toutes les minutes
 PATH=/usr/local/bin:/usr/bin:/bin
 * * * * * www-data /usr/local/bin/php /var/www/html/database/process_scheduled.php >> /var/www/html/data/scheduled-cron.log 2>&1
+
+# Calcul des intérêts annuels sur les comptes épargne – 1er janvier à minuit
+0 0 1 1 * www-data /usr/local/bin/php /var/www/html/database/process_interests.php >> /var/www/html/data/interests-cron.log 2>&1
+

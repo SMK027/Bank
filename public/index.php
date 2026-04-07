@@ -27,6 +27,7 @@ use App\Controllers\ProfileController;
 use App\Controllers\TicketController;
 use App\Controllers\NotificationController;
 use App\Controllers\AuditLogController;
+use App\Controllers\SavingsInterestController;
 
 // Démarrer la session
 Session::start();
@@ -145,6 +146,15 @@ $router->post('/moderation/tickets/{id}/status', ModerationController::class, 't
 
 // --- Notifications ---
 $router->get('/notifications', NotificationController::class, 'index');
+
+// --- Intérêts épargne ---
+$router->get('/interests', SavingsInterestController::class, 'index');
+$router->get('/interests/{id}/confirm', SavingsInterestController::class, 'confirmForm');
+$router->post('/interests/{id}/confirm', SavingsInterestController::class, 'confirm');
+
+// --- Modération : taux d'intérêt épargne ---
+$router->get('/moderation/savings-rate', ModerationController::class, 'savingsRate');
+$router->post('/moderation/savings-rate', ModerationController::class, 'setSavingsRate');
 $router->get('/notifications/count', NotificationController::class, 'unreadCount');
 $router->post('/notifications/read-all', NotificationController::class, 'markAllRead');
 $router->post('/notifications/delete-read', NotificationController::class, 'deleteRead');
