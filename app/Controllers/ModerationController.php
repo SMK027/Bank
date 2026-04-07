@@ -1440,40 +1440,59 @@ class ModerationController extends Controller
     // =========================================================
 
     /**
-     * Affiche le taux d'intérêt actuel et l'historique (GET).
+     * Affiche les taux d'intérêt actuels par type de compte et l'historique (GET).
      */
     public function savingsRate(): void
     {
         $this->requireModerator();
-        $currentRate = $this->rateModel->getCurrent();
-        $history     = $this->rateModel->getHistory();
+
+        // Filtre optionnel par type pour l'historique
+        $filterType   = isset($_GET['type']) && $_GET['type'] !== '' ? $_GET['type'] : null;
+        $allRates     = $this->rateModel->getAllCurrentRates();
+        $history      = $this->rateModel->getHistory(30, $filterType);
+        $eligibleTypes = Account::getInterestEligibleTypes();
+
         $this->render('moderation/savings_rate', [
-            'title'       => 'Modération — Taux d\'intérêt épargne',
-            'currentRate' => $currentRate,
-            'history'     => $history,
+            'title'         => 'Modération — Taux d\'intérêt épargne',
+            'allRates'      => $allRates,
+            'history'       => $history,
+            'eligibleTypes' => $eligibleTypes,
+            'filterType'    => $filterType,
         ]);
     }
 
     /**
-     * Met à jour le taux d'intérêt annuel (POST).
+     * Met à jour le taux d'intérêt pour un type de compte donné (POST).
      */
     public function setSavingsRate(): void
     {
         $this->requireModerator();
         $this->validateCSRF();
-        $data    = $this->getPostData(['rate']);
+        $data    = $this->getPostData(['rate', 'account_type']);
         $rateRaw = (float) str_replace(',', '.', $data['rate'] ?? '');
         $rate    = round($rateRaw / 100, 6); // formulaire en %, on stocke en décimal
+
+        $accountType = $data['account_type'] ?? '';
+        if (!Account::typeHasInterest($accountType)) {
+            $this->setFlash('danger', 'Type de compte invalide ou non éligible aux intérêts.');
+            $this->redirect('/moderation/savings-rate');
+            return;
+        }
         if ($rate < 0 || $rate > 1) {
             $this->setFlash('danger', 'Le taux doit être compris entre 0 et 100 %.');
             $this->redirect('/moderation/savings-rate');
             return;
         }
         $userId = $this->getCurrentUserId();
-        $this->rateModel->setRate($rate, $userId);
-        AuditLog::log($userId, AuditLog::ACTION_INTEREST_RATE_SET, ['rate' => $rate]);
+        $this->rateModel->setRate($rate, $accountType, $userId);
+        AuditLog::log($userId, AuditLog::ACTION_INTEREST_RATE_SET, [
+            'account_type' => $accountType,
+            'rate'         => $rate,
+        ]);
+        $label = Account::TYPES[$accountType]['label'] ?? $accountType;
         $this->setFlash('success', sprintf(
-            'Taux d\'intérêt mis à jour : %s %%.',
+            'Taux d\'intérêt « %s » mis à jour : %s %%.',
+            $label,
             number_format($rateRaw, 2, ',', ' ')
         ));
         $this->redirect('/moderation/savings-rate');

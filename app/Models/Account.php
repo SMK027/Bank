@@ -17,13 +17,28 @@ class Account extends Model
      * Types de comptes : label + droit au découvert.
      */
     public const TYPES = [
-        'standard' => ['label' => 'Compte courant',       'overdraft' => true,  'cap' => false],
-        'pro'      => ['label' => 'Compte professionnel', 'overdraft' => true,  'cap' => false],
-        'joint'    => ['label' => 'Compte joint',         'overdraft' => true,  'cap' => false],
-        'savings'  => ['label' => 'Compte épargne',       'overdraft' => false, 'cap' => true],
-        'online'   => ['label' => 'Banque en ligne',      'overdraft' => false, 'cap' => false],
-        'minor'    => ['label' => 'Compte mineur',        'overdraft' => false, 'cap' => false],
+        'standard' => ['label' => 'Compte courant',       'overdraft' => true,  'cap' => false, 'interest' => false],
+        'pro'      => ['label' => 'Compte professionnel', 'overdraft' => true,  'cap' => false, 'interest' => false],
+        'joint'    => ['label' => 'Compte joint',         'overdraft' => true,  'cap' => false, 'interest' => false],
+        'savings'  => ['label' => 'Compte épargne',       'overdraft' => false, 'cap' => true,  'interest' => true],
+        'online'   => ['label' => 'Banque en ligne',      'overdraft' => false, 'cap' => false, 'interest' => true],
+        'minor'    => ['label' => 'Compte mineur',        'overdraft' => false, 'cap' => false, 'interest' => false],
     ];
+
+    /** Retourne les types de comptes éligibles aux intérêts. */
+    public static function getInterestEligibleTypes(): array
+    {
+        return array_keys(array_filter(
+            self::TYPES,
+            fn(array $def) => $def['interest'] ?? false
+        ));
+    }
+
+    /** Indique si un type de compte peut recevoir des intérêts. */
+    public static function typeHasInterest(string $type): bool
+    {
+        return (bool) (self::TYPES[$type]['interest'] ?? false);
+    }
 
     /**
      * Types créables par un mineur via le formulaire standard.
