@@ -79,11 +79,10 @@ foreach ($accounts as $account) {
             echo sprintf("  → Mandat #%d (%s) révoqué.\n", (int) $m['id'], $m['number'] ?? '?');
         }
 
-        /* ── 2. Annuler les virements récurrents actifs liés à ce compte ───── */
+        /* ── 2. Supprimer tous les virements récurrents liés à ce compte ───── */
         foreach ($recurringTransferModel->getByAccount($accountId) as $rt) {
-            if (($rt['status'] ?? '') !== RecurringTransfer::STATUS_ACTIVE) continue;
-            $recurringTransferModel->cancel((int) $rt['id']);
-            echo sprintf("  → Virement récurrent #%d annulé.\n", (int) $rt['id']);
+            $recurringTransferModel->delete((int) $rt['id']);
+            echo sprintf("  → Virement récurrent #%d supprimé.\n", (int) $rt['id']);
         }
 
         /* ── 3. Annuler les prélèvements planifiés restants (to_account) ───── */
