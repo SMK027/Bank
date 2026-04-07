@@ -6,7 +6,7 @@ printenv | grep -E '^(APP_|DB_)' >> /etc/environment
 
 # ── Attendre que MariaDB soit disponible ──────────────────────────────────
 echo "Attente de MariaDB (${DB_HOST:-db}:${DB_PORT:-3306})…"
-MAX_TRIES=30
+MAX_TRIES=60
 i=0
 until mysql -h"${DB_HOST:-db}" -P"${DB_PORT:-3306}" \
             -u"${DB_USERNAME:-bankapp}" -p"${DB_PASSWORD:-bankapp_secret}" \
