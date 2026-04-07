@@ -1724,3 +1724,98 @@ select.form-control {
         justify-content: flex-end;
     }
 }
+
+/* -----------------------------------------------------------
+   Pavé numérique PIN
+   ----------------------------------------------------------- */
+.pin-display {
+    display: flex;
+    justify-content: center;
+    gap: 0.875rem;
+    margin: 0.5rem 0 1.5rem;
+}
+
+.pin-display span {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    border: 2px solid var(--gray);
+    background: transparent;
+    transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+.pin-display span.filled {
+    background: var(--primary);
+    border-color: var(--primary);
+    transform: scale(1.15);
+}
+
+.pin-pad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    max-width: 252px;
+    margin: 0 auto 1.25rem;
+}
+
+.pin-key {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 58px;
+    font-size: 1.35rem;
+    font-weight: 600;
+    background: var(--white);
+    border: 2px solid var(--gray-light);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s, box-shadow 0.15s;
+    color: var(--dark);
+    font-family: var(--font-family);
+    user-select: none;
+    -webkit-user-select: none;
+    box-shadow: var(--shadow-sm);
+}
+
+.pin-key:hover {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--white);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+}
+
+.pin-key:active {
+    transform: translateY(0);
+    background: var(--primary-dark);
+    border-color: var(--primary-dark);
+    color: var(--white);
+    box-shadow: none;
+}
+
+.pin-key-del {
+    color: var(--danger);
+    border-color: rgba(239, 71, 111, 0.3);
+    background: rgba(239, 71, 111, 0.04);
+}
+
+.pin-key-del:hover {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: var(--white);
+}
+
+.pin-key-del:active {
+    background: var(--danger-dark);
+    border-color: var(--danger-dark);
+}
+
+@media (max-width: 420px) {
+    .pin-pad {
+        max-width: 100%;
+    }
+    .pin-key {
+        height: 52px;
+        font-size: 1.2rem;
+    }
+}
