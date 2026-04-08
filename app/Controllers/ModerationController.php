@@ -1464,6 +1464,93 @@ class ModerationController extends Controller
     }
 
     /**
+     * Reprogrammer la date de prochaine exécution d'un mandat actif (POST).
+     */
+    public function rescheduleMandate(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $mandateId = (int) $id;
+        $mandate   = $this->mandateModel->find($mandateId);
+
+        if (!$mandate || $mandate['status'] !== Mandate::STATUS_ACTIVE) {
+            $this->setFlash('danger', 'Mandat introuvable ou non actif.');
+            $this->redirect('/moderation/mandates');
+            return;
+        }
+
+        $data    = $this->getPostData(['next_execution_at']);
+        $rawDate = trim($data['next_execution_at'] ?? '');
+        $dt      = parse_datetime_input($rawDate);
+        if (!$dt) {
+            $this->setFlash('danger', 'Date invalide (format attendu : jj/mm/aaaa hh:mm).');
+            $this->redirect('/moderation/mandates');
+            return;
+        }
+
+        $nextExecutionAt = $dt->format('Y-m-d H:i:s');
+        $this->mandateModel->updateNextExecution($mandateId, $nextExecutionAt);
+
+        AuditLog::log(
+            $this->getCurrentUserId(),
+            AuditLog::ACTION_MANDATE_RESCHEDULE,
+            ['number' => $mandate['number'], 'new_date' => $nextExecutionAt],
+            targetAccountId: (int) $mandate['recipient_account_id']
+        );
+        $this->setFlash('success', sprintf(
+            'Mandat %s reprogrammé au %s.',
+            $mandate['number'],
+            $dt->format('d/m/Y à H\\hi')
+        ));
+        $this->redirect('/moderation/mandates');
+    }
+
+    /**
+     * Reprogrammer la date d’exécution d’un prélèvement planifié (POST).
+     */
+    public function rescheduleDirectDebit(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $debitId     = (int) $id;
+        $directDebit = $this->directDebitModel->find($debitId);
+
+        if (!$directDebit || $directDebit['status'] !== DirectDebit::STATUS_SCHEDULED) {
+            $this->setFlash('danger', 'Prélèvement introuvable ou non planifié.');
+            $this->redirect('/moderation/direct-debits');
+            return;
+        }
+
+        $data        = $this->getPostData(['scheduled_at']);
+        $rawDate     = trim($data['scheduled_at'] ?? '');
+        $dt          = parse_datetime_input($rawDate);
+        if (!$dt) {
+            $this->setFlash('danger', 'Date invalide (format attendu : jj/mm/aaaa hh:mm).');
+            $this->redirect('/moderation/direct-debits');
+            return;
+        }
+
+        $scheduledAt = $dt->format('Y-m-d H:i:s');
+        $this->directDebitModel->reschedule($debitId, $scheduledAt);
+
+        AuditLog::log(
+            $this->getCurrentUserId(),
+            AuditLog::ACTION_DIRECT_DEBIT_RESCHEDULE,
+            ['id' => $debitId, 'mandate' => $directDebit['mandate_number'], 'new_date' => $scheduledAt],
+            targetAccountId: (int) $directDebit['to_account_id']
+        );
+        $this->setFlash('success', sprintf(
+            'Prélèvement #%d (mandat %s) reprogrammé au %s.',
+            $debitId,
+            $directDebit['mandate_number'],
+            $dt->format('d/m/Y à H\\hi')
+        ));
+        $this->redirect('/moderation/direct-debits');
+    }
+
+    /**
      * Révoquer un mandat (POST).
      */
     public function revokeMandate(string $id): void

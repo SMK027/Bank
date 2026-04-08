@@ -198,13 +198,27 @@ function renderTable() {
         var d = ddVisible[i];
         var actionCell = '';
         if (d.status === 'scheduled') {
+            var curDate = d.scheduled_at ? fmtDate(d.scheduled_at) : '';
             actionCell =
-                '<form method="POST" action="/moderation/direct-debits/' + esc(String(d.id)) + '/cancel"'
+                '<div style="display:flex;flex-direction:column;gap:0.3rem;align-items:center">'
+                + '<form method="POST" action="/moderation/direct-debits/' + esc(String(d.id)) + '/reschedule"'
+                + ' style="display:flex;align-items:center;gap:0.3rem;">'
+                + '<input type="hidden" name="csrf_token" value="' + esc(DD_CSRF) + '">'
+                + '<input type="text" name="scheduled_at"'
+                + ' value="' + esc(curDate) + '"'
+                + ' placeholder="jj/mm/aaaa hh:mm"'
+                + ' title="Nouvelle date d\'exécution"'
+                + ' style="font-size:0.76rem;padding:0.2rem 0.4rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);width:130px">'
+                + '<button type="submit" class="btn btn-outline btn-sm" style="padding:0.25rem 0.5rem;font-size:0.76rem;" title="Reprogrammer l\'échéance">'
+                + '<i class="bi bi-calendar2-event"></i></button>'
+                + '</form>'
+                + '<form method="POST" action="/moderation/direct-debits/' + esc(String(d.id)) + '/cancel"'
                 + ' style="display:inline" onsubmit="return confirm(\'Annuler le prélèvement #' + d.id + ' (mandat ' + esc(d.mandate_number) + ') ?\');">'
                 + '<input type="hidden" name="csrf_token" value="' + esc(DD_CSRF) + '">'
                 + '<button type="submit" class="btn btn-danger btn-sm" style="padding:0.25rem 0.6rem;font-size:0.76rem;" title="Annuler ce prélèvement">'
                 + '<i class="bi bi-x-circle"></i> Annuler</button>'
-                + '</form>';
+                + '</form>'
+                + '</div>';
         } else if (d.status === 'success') {
             var now        = Date.now();
             var executedMs = d.executed_at ? new Date(d.executed_at.replace(' ', 'T')).getTime() : 0;

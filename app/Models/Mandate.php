@@ -181,6 +181,14 @@ class Mandate extends Model
     }
 
     /**
+     * Met à jour la date de prochaine exécution d'un mandat actif.
+     */
+    public function updateNextExecution(int $id, string $nextExecutionAt): bool
+    {
+        return $this->update($id, ['next_execution_at' => $nextExecutionAt]);
+    }
+
+    /**
      * Vérifie si un numéro de mandat existe déjà.
      */
     public function numberExists(string $number): bool

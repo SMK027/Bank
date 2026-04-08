@@ -122,14 +122,31 @@
                 </td>
                 <td>
                     <?php if ($m['status'] === 'active'): ?>
-                        <form method="POST" action="/moderation/mandates/<?= (int) $m['id'] ?>/revoke"
-                              style="display:inline;"
-                              onsubmit="return confirm('Révoquer ce mandat ?');">
-                            <?= csrf_field() ?>
-                            <button type="submit" class="btn btn-danger btn-sm">
-                                <i class="bi bi-x-circle"></i> Révoquer
-                            </button>
-                        </form>
+                        <div style="display:flex;flex-direction:column;gap:0.3rem;align-items:flex-start;">
+                            <form method="POST" action="/moderation/mandates/<?= (int) $m['id'] ?>/reschedule"
+                                  style="display:flex;align-items:center;gap:0.3rem;">
+                                <?= csrf_field() ?>
+                                <input type="text" name="next_execution_at"
+                                       value="<?= $m['next_execution_at'] ? e(date('d/m/Y H:i', strtotime($m['next_execution_at']))) : '' ?>"
+                                       placeholder="jj/mm/aaaa hh:mm"
+                                       title="Nouvelle date de prochaine exécution"
+                                       style="font-size:0.76rem;padding:0.2rem 0.4rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);width:130px">
+                                <button type="submit" class="btn btn-outline btn-sm"
+                                        style="padding:0.25rem 0.5rem;font-size:0.76rem;"
+                                        title="Reprogrammer la prochaine exécution">
+                                    <i class="bi bi-calendar2-event"></i>
+                                </button>
+                            </form>
+                            <form method="POST" action="/moderation/mandates/<?= (int) $m['id'] ?>/revoke"
+                                  style="display:inline;"
+                                  onsubmit="return confirm('Révoquer ce mandat ?');">
+                                <?= csrf_field() ?>
+                                <button type="submit" class="btn btn-danger btn-sm"
+                                        style="padding:0.25rem 0.6rem;font-size:0.76rem;">
+                                    <i class="bi bi-x-circle"></i> Révoquer
+                                </button>
+                            </form>
+                        </div>
                     <?php else: ?>
                         <span class="text-muted">—</span>
                     <?php endif; ?>

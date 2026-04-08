@@ -133,6 +133,8 @@ $router->get('/moderation/mandates', ModerationController::class, 'mandates');
 $router->get('/moderation/mandates/create', ModerationController::class, 'createMandateForm');
 $router->post('/moderation/mandates', ModerationController::class, 'createMandate');
 $router->post('/moderation/mandates/{id}/revoke', ModerationController::class, 'revokeMandate');
+$router->post('/moderation/mandates/{id}/reschedule', ModerationController::class, 'rescheduleMandate');
+$router->post('/moderation/direct-debits/{id}/reschedule', ModerationController::class, 'rescheduleDirectDebit');
 // Journal d'audit
 $router->get('/moderation/audit-log', AuditLogController::class, 'index');
 // Comptes mineurs & tutelles légales

@@ -200,4 +200,12 @@ class DirectDebit extends Model
             1 // retry_count = 1 : ce nouveau prélèvement n'est lui-même pas réexécutable
         );
     }
+
+    /**
+     * Modifie la date d'exécution planifiée d'un prélèvement en statut 'scheduled'.
+     */
+    public function reschedule(int $id, string $scheduledAt): bool
+    {
+        return $this->update($id, ['scheduled_at' => $scheduledAt]);
+    }
 }

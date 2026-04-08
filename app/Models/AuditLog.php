@@ -62,8 +62,11 @@ class AuditLog extends Model
     public const ACTION_DIRECT_DEBIT_FAIL   = 'direct_debit.fail';
 
     // Mandats
-    public const ACTION_MANDATE_CREATE = 'mandate.create';
-    public const ACTION_MANDATE_REVOKE = 'mandate.revoke';
+    public const ACTION_MANDATE_CREATE     = 'mandate.create';
+    public const ACTION_MANDATE_REVOKE     = 'mandate.revoke';
+    public const ACTION_MANDATE_RESCHEDULE = 'mandate.reschedule';
+
+    public const ACTION_DIRECT_DEBIT_RESCHEDULE = 'direct_debit.reschedule';
 
     // Utilisateurs (modération)
     public const ACTION_USER_ROLE_CHANGE = 'user.role_change';
