@@ -17,8 +17,16 @@
                            placeholder="Ex : MAND-2026-001" required autofocus maxlength="35">
                 </div>
 
-                <!-- Compte émetteur (professionnel) -->
-                <div class="form-group" style="position:relative;">
+                <!-- Toggle mandat bancaire -->
+                <div class="form-group">
+                    <label class="form-label" style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+                        <input type="checkbox" id="bank_mandate" name="bank_mandate" value="1" style="width:1rem;height:1rem;">
+                        <span>Mandat émis par la banque <small class="text-muted">(aucun compte émetteur — seul le destinataire est débité)</small></span>
+                    </label>
+                </div>
+
+                <!-- Compte émetteur (professionnel) — caché si mandat bancaire -->
+                <div class="form-group" id="emitter-group" style="position:relative;">
                     <label for="emitter-search" class="form-label">Compte émetteur (professionnel — à créditer)</label>
                     <input type="text" id="emitter-search" class="form-control"
                            placeholder="Rechercher un compte pro…" autocomplete="off">
@@ -100,6 +108,23 @@
     }
     typeEl.addEventListener('change', toggleInterval);
     toggleInterval();
+
+    // Toggle mandat bancaire
+    var bankCheckbox   = document.getElementById('bank_mandate');
+    var emitterGroup   = document.getElementById('emitter-group');
+    var emitterHidden  = document.getElementById('emitter_account_id');
+    var emitterSearch  = document.getElementById('emitter-search');
+    function toggleBankMandate() {
+        var isBank = bankCheckbox.checked;
+        emitterGroup.style.display = isBank ? 'none' : '';
+        emitterHidden.required = !isBank;
+        if (isBank) {
+            emitterHidden.value = '';
+            emitterSearch.value = '';
+        }
+    }
+    bankCheckbox.addEventListener('change', toggleBankMandate);
+    toggleBankMandate();
 
     // Autocomplet comptes
     function setupAccountSearch(inputId, hiddenId, suggestionsId, filterType) {

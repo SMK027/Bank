@@ -1347,7 +1347,7 @@ class ModerationController extends Controller
         $this->validateCSRF();
 
         $data = $this->getPostData([
-            'number', 'emitter_account_id', 'recipient_account_id',
+            'number', 'bank_mandate', 'emitter_account_id', 'recipient_account_id',
             'description', 'amount', 'type', 'interval_days', 'first_execution_at',
         ]);
 
@@ -1364,18 +1364,25 @@ class ModerationController extends Controller
             return;
         }
 
-        // Compte émetteur (pro à créditer)
-        $emitterAccountId = (int) ($data['emitter_account_id'] ?? 0);
-        $emitterAccount = $emitterAccountId > 0 ? $this->accountModel->find($emitterAccountId) : null;
-        if (!$emitterAccount) {
-            $this->setFlash('danger', 'Compte émetteur (professionnel) invalide.');
-            $this->redirect('/moderation/mandates/create');
-            return;
-        }
-        if (($emitterAccount['type'] ?? '') !== 'pro') {
-            $this->setFlash('danger', 'Le compte émetteur doit être un compte professionnel.');
-            $this->redirect('/moderation/mandates/create');
-            return;
+        // Mandat émis par la banque : pas de compte émetteur, aucun crédit lors de l'exécution
+        $isBankMandate = !empty($data['bank_mandate']);
+
+        // Compte émetteur (pro à créditer) — facultatif si mandat bancaire
+        $emitterAccountId = null;
+        $emitterAccount   = null;
+        if (!$isBankMandate) {
+            $emitterAccountId = (int) ($data['emitter_account_id'] ?? 0);
+            $emitterAccount   = $emitterAccountId > 0 ? $this->accountModel->find($emitterAccountId) : null;
+            if (!$emitterAccount) {
+                $this->setFlash('danger', 'Compte émetteur (professionnel) invalide.');
+                $this->redirect('/moderation/mandates/create');
+                return;
+            }
+            if (($emitterAccount['type'] ?? '') !== 'pro') {
+                $this->setFlash('danger', 'Le compte émetteur doit être un compte professionnel.');
+                $this->redirect('/moderation/mandates/create');
+                return;
+            }
         }
 
         // Compte destinataire (à débiter)
@@ -1387,7 +1394,7 @@ class ModerationController extends Controller
             return;
         }
 
-        if ($emitterAccountId === $recipientAccountId) {
+        if ($emitterAccountId !== null && $emitterAccountId === $recipientAccountId) {
             $this->setFlash('danger', 'Le compte émetteur et le compte destinataire doivent être différents.');
             $this->redirect('/moderation/mandates/create');
             return;
@@ -1443,13 +1450,14 @@ class ModerationController extends Controller
             $firstExecutionAt
         );
 
-        AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_MANDATE_CREATE, ['number' => $number, 'amount' => $amount, 'type' => $type], targetAccountId: $emitterAccountId);
+        AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_MANDATE_CREATE, ['number' => $number, 'amount' => $amount, 'type' => $type, 'bank_mandate' => $isBankMandate], targetAccountId: $recipientAccountId);
+        $emitterLabel = $emitterAccount ? $emitterAccount['name'] : 'Banque';
         $this->setFlash('success', sprintf(
             'Mandat %s créé — %s € %s, émetteur « %s », destinataire « %s ».',
             $number,
             number_format($amount, 2, ',', ' '),
             Mandate::TYPES[$type],
-            $emitterAccount['name'],
+            $emitterLabel,
             $recipientAccount['name']
         ));
         $this->redirect('/moderation/mandates');

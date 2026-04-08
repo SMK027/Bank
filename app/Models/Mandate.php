@@ -31,10 +31,12 @@ class Mandate extends Model
 
     /**
      * Crée un nouveau mandat.
+     * Quand $emitterAccountId est null, le mandat est émis par la banque :
+     * seul le compte destinataire sera débité, aucun compte n'est crédité.
      */
     public function createMandate(
         string  $number,
-        int     $emitterAccountId,
+        ?int    $emitterAccountId,
         int     $recipientAccountId,
         string  $description,
         float   $amount,
@@ -68,8 +70,8 @@ class Mandate extends Model
                        ra.name AS recipient_name,
                        ru.username AS recipient_owner
                   FROM mandates m
-                  JOIN accounts ea ON ea.id = m.emitter_account_id
-                  JOIN users    eu ON eu.id = ea.user_id
+             LEFT JOIN accounts ea ON ea.id = m.emitter_account_id
+             LEFT JOIN users    eu ON eu.id = ea.user_id
                   JOIN accounts ra ON ra.id = m.recipient_account_id
                   JOIN users    ru ON ru.id = ra.user_id
                  ORDER BY m.created_at DESC';
@@ -88,8 +90,8 @@ class Mandate extends Model
                        ra.name AS recipient_name,
                        ru.username AS recipient_owner
                   FROM mandates m
-                  JOIN accounts ea ON ea.id = m.emitter_account_id
-                  JOIN users    eu ON eu.id = ea.user_id
+             LEFT JOIN accounts ea ON ea.id = m.emitter_account_id
+             LEFT JOIN users    eu ON eu.id = ea.user_id
                   JOIN accounts ra ON ra.id = m.recipient_account_id
                   JOIN users    ru ON ru.id = ra.user_id
                  WHERE m.emitter_account_id = :id OR m.recipient_account_id = :id2
@@ -161,8 +163,8 @@ class Mandate extends Model
                        ra.name AS recipient_name,
                        ru.username AS recipient_owner
                   FROM mandates m
-                  JOIN accounts ea ON ea.id = m.emitter_account_id
-                  JOIN users    eu ON eu.id = ea.user_id
+             LEFT JOIN accounts ea ON ea.id = m.emitter_account_id
+             LEFT JOIN users    eu ON eu.id = ea.user_id
                   JOIN accounts ra ON ra.id = m.recipient_account_id
                   JOIN users    ru ON ru.id = ra.user_id
                  WHERE m.status = :status

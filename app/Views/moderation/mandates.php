@@ -63,7 +63,7 @@
             <tr class="mandate-row"
                 data-status="<?= e($m['status']) ?>"
                 data-type="<?= e($m['type']) ?>"
-                data-search="<?= e(strtolower($m['number'] . ' ' . $m['emitter_name'] . ' ' . $m['emitter_owner'] . ' ' . $m['recipient_name'] . ' ' . $m['recipient_owner'] . ' ' . $m['description'])) ?>">
+                data-search="<?= e(strtolower($m['number'] . ' ' . ($m['emitter_name'] ?? 'banque') . ' ' . ($m['emitter_owner'] ?? '') . ' ' . $m['recipient_name'] . ' ' . $m['recipient_owner'] . ' ' . $m['description'])) ?>">
                 <td>
                     <strong><?= e($m['number']) ?></strong>
                     <?php if ($m['description']): ?>
@@ -71,8 +71,12 @@
                     <?php endif; ?>
                 </td>
                 <td>
-                    <a href="/accounts/<?= (int) $m['emitter_account_id'] ?>"><?= e($m['emitter_name']) ?></a>
-                    <br><small class="text-muted"><?= e($m['emitter_owner']) ?></small>
+                    <?php if ($m['emitter_account_id'] !== null): ?>
+                        <a href="/accounts/<?= (int) $m['emitter_account_id'] ?>"><?= e($m['emitter_name']) ?></a>
+                        <br><small class="text-muted"><?= e($m['emitter_owner']) ?></small>
+                    <?php else: ?>
+                        <span class="badge badge-secondary"><i class="bi bi-bank"></i> Banque</span>
+                    <?php endif; ?>
                 </td>
                 <td>
                     <a href="/accounts/<?= (int) $m['recipient_account_id'] ?>"><?= e($m['recipient_name']) ?></a>

@@ -305,7 +305,7 @@ foreach ($recurringTransferModel->getDue() as $recurring) {
    ───────────────────────────────────────────────────────────────── */
 foreach ($mandateModel->getDue() as $mandate) {
     $mandateId          = (int) $mandate['id'];
-    $emitterAccountId   = (int) $mandate['emitter_account_id'];
+    $emitterAccountId   = $mandate['emitter_account_id'] !== null ? (int) $mandate['emitter_account_id'] : null;
     $recipientAccountId = (int) $mandate['recipient_account_id'];
     $amount             = (float) $mandate['amount'];
     $number             = $mandate['number'];
@@ -314,7 +314,8 @@ foreach ($mandateModel->getDue() as $mandate) {
     $motif = $description !== '' ? $description : null;
 
     // Ne pas générer de nouveau prélèvement si le compte émetteur est désactivé
-    if ($accountModel->isDisabled($emitterAccountId)) {
+    // (les mandats bancaires n'ont pas de compte émetteur, ce contrôle est ignoré)
+    if ($emitterAccountId !== null && $accountModel->isDisabled($emitterAccountId)) {
         echo sprintf(
             "[%s] SKIP mandat #%d (%s) : compte émetteur #%d désactivé — aucun prélèvement généré.\n",
             date('Y-m-d H:i:s'), $mandateId, $number, $emitterAccountId
