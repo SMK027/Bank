@@ -740,7 +740,7 @@ class ModerationController extends Controller
         $this->setFlash('success', sprintf(
             'Prélèvement de %s € planifié pour le %s sur « %s » (mandat %s).',
             number_format($amount, 2, ',', ' '),
-            date('d/m/Y à H\hi', $ts),
+            date('d/m/Y à H\hi', $dt->getTimestamp()),
             $toAccount['name'],
             $mandateNumber
         ));
