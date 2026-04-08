@@ -113,4 +113,9 @@ class RecurringTransfer extends Model
     {
         return ($recurringTransfer['status'] ?? '') === self::STATUS_ACTIVE;
     }
+
+    public function updateNextExecution(int $id, string $nextExecutionAt): bool
+    {
+        return $this->update($id, ['next_execution_at' => $nextExecutionAt]);
+    }
 }

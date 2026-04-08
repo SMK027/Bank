@@ -7,6 +7,7 @@
         <a href="/moderation/mandates/create" class="btn btn-primary btn-sm"><i class="bi bi-plus-circle"></i> Nouveau mandat</a>
         <a href="/moderation" class="btn btn-outline btn-sm"><i class="bi bi-shield-check"></i> Comptes</a>
         <a href="/moderation/transfers" class="btn btn-outline btn-sm"><i class="bi bi-arrow-left-right"></i> Virements</a>
+        <a href="/moderation/recurring-transfers" class="btn btn-outline btn-sm"><i class="bi bi-arrow-repeat"></i> Virements récurrents</a>
         <a href="/moderation/direct-debits" class="btn btn-outline btn-sm"><i class="bi bi-file-earmark-arrow-down"></i> Prélèvements</a>
         <span class="btn btn-outline btn-sm disabled" aria-current="page"><i class="bi bi-file-earmark-text"></i> Mandats</span>
         <a href="/moderation/guardianships" class="btn btn-outline btn-sm"><i class="bi bi-person-lock"></i> Tutelles légales</a>

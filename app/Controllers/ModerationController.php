@@ -19,6 +19,7 @@ use App\Models\Transfer;
 use App\Models\User;
 use App\Models\SavingsInterest;
 use App\Models\SavingsRate;
+use App\Models\RecurringTransfer;
 
 class ModerationController extends Controller
 {
@@ -35,6 +36,7 @@ class ModerationController extends Controller
     private Notification   $notifModel;
     private SavingsRate     $rateModel;
     private SavingsInterest $interestModel;
+    private RecurringTransfer $recurringTransferModel;
 
     public function __construct()
     {
@@ -51,6 +53,7 @@ class ModerationController extends Controller
         $this->notifModel         = new Notification();
         $this->rateModel          = new SavingsRate();
         $this->interestModel      = new SavingsInterest();
+        $this->recurringTransferModel = new RecurringTransfer();
     }
 
     /**
@@ -1879,6 +1882,104 @@ class ModerationController extends Controller
             $targetUser['username']
         ));
         $this->redirect('/moderation');
+    }
+
+    // ── VIREMENTS RÉCURRENTS ─────────────────────────────────────────────────
+
+    /**
+     * Liste tous les virements récurrents (modération).
+     */
+    public function recurringTransfers(): void
+    {
+        $this->requireModerator();
+
+        $accountsMap = array_column($this->accountModel->findAll('id', 'ASC'), null, 'id');
+        $usersMap    = array_column($this->userModel->findAll('username', 'ASC'), null, 'id');
+
+        $rawList  = $this->recurringTransferModel->findAll('created_at', 'DESC');
+        $enriched = [];
+        foreach ($rawList as $rt) {
+            $uid     = (int) ($rt['user_id'] ?? 0);
+            $fromAcc = $accountsMap[$rt['from_account_id']] ?? null;
+            $toAcc   = $accountsMap[$rt['to_account_id']]   ?? null;
+            $user    = $usersMap[$uid] ?? null;
+            $enriched[] = [
+                'id'                => (int)   $rt['id'],
+                'user_name'         => $user    ? ($user['username']    ?? 'Utilisateur #' . $uid)              : 'Utilisateur #' . $uid,
+                'from_account'      => $fromAcc ? ($fromAcc['name']     ?? 'Compte #' . $rt['from_account_id']) : 'Compte #' . $rt['from_account_id'],
+                'to_account'        => $toAcc   ? ($toAcc['name']       ?? 'Compte #' . $rt['to_account_id'])   : 'Compte #' . $rt['to_account_id'],
+                'amount'            => (float)  $rt['amount'],
+                'motif'             => $rt['motif']             ?? '',
+                'status'            => $rt['status']            ?? RecurringTransfer::STATUS_ACTIVE,
+                'interval_days'     => (int)    ($rt['interval_days']     ?? 0),
+                'next_execution_at' => $rt['next_execution_at']  ?? null,
+                'last_executed_at'  => $rt['last_executed_at']   ?? null,
+                'created_at'        => $rt['created_at']         ?? null,
+            ];
+        }
+
+        $rtJson    = json_encode(
+            $enriched,
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE
+        );
+        $rtAuthors = [];
+        foreach ($enriched as $rt) {
+            if (!empty($rt['user_name']) && !in_array($rt['user_name'], $rtAuthors, true)) {
+                $rtAuthors[] = $rt['user_name'];
+            }
+        }
+        sort($rtAuthors);
+
+        $this->render('moderation/recurring_transfers', [
+            'title'      => 'Modération — Virements récurrents',
+            'rtJson'     => $rtJson,
+            'rtAuthors'  => $rtAuthors,
+            'totalCount' => count($enriched),
+            'csrfToken'  => csrf_token(),
+        ]);
+    }
+
+    /**
+     * Reprogrammer la prochaine exécution d'un virement récurrent (POST).
+     */
+    public function rescheduleRecurringTransfer(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $rtId = (int) $id;
+        $rt   = $this->recurringTransferModel->find($rtId);
+
+        if (!$rt || $rt['status'] !== RecurringTransfer::STATUS_ACTIVE) {
+            $this->setFlash('danger', 'Virement récurrent introuvable ou non actif.');
+            $this->redirect('/moderation/recurring-transfers');
+            return;
+        }
+
+        $data    = $this->getPostData(['next_execution_at']);
+        $rawDate = trim($data['next_execution_at'] ?? '');
+        $dt      = parse_datetime_input($rawDate);
+        if (!$dt) {
+            $this->setFlash('danger', 'Date invalide (format attendu : jj/mm/aaaa hh:mm).');
+            $this->redirect('/moderation/recurring-transfers');
+            return;
+        }
+
+        $nextExecutionAt = $dt->format('Y-m-d H:i:s');
+        $this->recurringTransferModel->updateNextExecution($rtId, $nextExecutionAt);
+
+        AuditLog::log(
+            $this->getCurrentUserId(),
+            AuditLog::ACTION_RECURRING_TRANSFER_RESCHEDULE,
+            ['id' => $rtId, 'new_date' => $nextExecutionAt],
+            targetAccountId: (int) $rt['from_account_id']
+        );
+        $this->setFlash('success', sprintf(
+            'Virement récurrent #%d reprogrammé au %s.',
+            $rtId,
+            $dt->format('d/m/Y à H\\hi')
+        ));
+        $this->redirect('/moderation/recurring-transfers');
     }
 }
 

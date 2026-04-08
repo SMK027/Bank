@@ -135,6 +135,8 @@ $router->post('/moderation/mandates', ModerationController::class, 'createMandat
 $router->post('/moderation/mandates/{id}/revoke', ModerationController::class, 'revokeMandate');
 $router->post('/moderation/mandates/{id}/reschedule', ModerationController::class, 'rescheduleMandate');
 $router->post('/moderation/direct-debits/{id}/reschedule', ModerationController::class, 'rescheduleDirectDebit');
+$router->get('/moderation/recurring-transfers', ModerationController::class, 'recurringTransfers');
+$router->post('/moderation/recurring-transfers/{id}/reschedule', ModerationController::class, 'rescheduleRecurringTransfer');
 // Journal d'audit
 $router->get('/moderation/audit-log', AuditLogController::class, 'index');
 // Comptes mineurs & tutelles légales
