@@ -1,8 +1,21 @@
 #!/bin/bash
 set -e
 
-# ── Exporter les variables d'environnement pour cron ──────────────────────
-printenv | grep -E '^(APP_|DB_)' >> /etc/environment
+# ── Variables d'environnement pour cron ───────────────────────────────────
+# Le daemon cron ne hérite pas de l'environnement du container Docker.
+# PAM (/etc/environment) est absent ou non configuré dans les images Docker
+# minimales — on génère un fichier source explicite pour chaque job cron.
+#
+# /etc/environment : conservé pour compatibilité (remplacé à chaque démarrage)
+printenv | grep -E '^(APP_|DB_|MAIL_)' > /etc/environment
+
+# /etc/cron.env : sourceé explicitement par chaque job cron (format bash export)
+{
+    while IFS= read -r var; do
+        printf 'export %s=%q\n' "${var%%=*}" "${var#*=}"
+    done < <(printenv | grep -E '^(APP_|DB_|MAIL_)')
+} > /etc/cron.env
+chmod 644 /etc/cron.env
 
 # ── Attendre que MariaDB soit disponible ──────────────────────────────────
 echo "Attente de MariaDB (${DB_HOST:-db}:${DB_PORT:-3306})…"

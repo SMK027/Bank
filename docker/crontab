@@ -1,10 +1,17 @@
-# Exécution des transactions programmées échues – toutes les minutes
+# Cron jobs — BankApp
+# SHELL=bash requis pour que `. /etc/cron.env` fonctionne correctement.
+# /etc/cron.env est généré au démarrage du container par docker-entrypoint.sh
+# et contient les variables d'environnement Docker (DB_HOST, DB_PASSWORD, etc.)
+# que le daemon cron n'hérite pas nativement dans les images Docker minimales.
+SHELL=/bin/bash
 PATH=/usr/local/bin:/usr/bin:/bin
-* * * * * www-data /usr/local/bin/php /var/www/html/database/process_scheduled.php >> /var/www/html/data/scheduled-cron.log 2>&1
+
+# Exécution des transactions programmées échues – toutes les minutes
+* * * * * www-data . /etc/cron.env; /usr/local/bin/php /var/www/html/database/process_scheduled.php >> /var/www/html/data/scheduled-cron.log 2>&1
 
 # Calcul des intérêts annuels sur les comptes épargne – 1er janvier à minuit
-0 0 1 1 * www-data /usr/local/bin/php /var/www/html/database/process_interests.php >> /var/www/html/data/interests-cron.log 2>&1
+0 0 1 1 * www-data . /etc/cron.env; /usr/local/bin/php /var/www/html/database/process_interests.php >> /var/www/html/data/interests-cron.log 2>&1
 
 # Clôture des comptes désactivés (suppression définitive en fin de mois) – tous les jours à 02h00
-0 2 * * * www-data /usr/local/bin/php /var/www/html/database/process_account_closures.php >> /var/www/html/data/closures-cron.log 2>&1
+0 2 * * * www-data . /etc/cron.env; /usr/local/bin/php /var/www/html/database/process_account_closures.php >> /var/www/html/data/closures-cron.log 2>&1
 
