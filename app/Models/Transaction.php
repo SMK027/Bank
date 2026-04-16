@@ -10,6 +10,41 @@ class Transaction extends Model
 {
     protected string $table = 'transactions';
 
+    /** Catégories spécifiques aux dépenses */
+    public const EXPENSE_CATEGORIES = [
+        'Alimentation'       => '🛒',
+        'Transport'          => '🚗',
+        'Logement'           => '🏠',
+        'Santé'              => '💊',
+        'Loisirs'            => '🎮',
+        'Vêtements'          => '👕',
+        'Éducation'          => '📚',
+        'Factures'           => '📄',
+        'Abonnements'        => '🔄',
+        'Restaurants'        => '🍽️',
+        'Voyages'            => '✈️',
+        'Animaux'            => '🐾',
+        'Cadeaux'            => '🎁',
+        'Impôts & taxes'     => '🏛️',
+        'Épargne'            => '🏦',
+        'Autre'              => '📌',
+    ];
+
+    /** Catégories spécifiques aux entrées */
+    public const INCOME_CATEGORIES = [
+        'Salaire'            => '💰',
+        'Freelance'          => '💻',
+        'Investissement'     => '📈',
+        'Remboursement'      => '🔙',
+        'Allocations'        => '🏛️',
+        'Vente'              => '🏷️',
+        'Cadeaux'            => '🎁',
+        'Intérêts'           => '🏦',
+        'Loyer perçu'        => '🔑',
+        'Autre'              => '📌',
+    ];
+
+    /** Toutes les catégories (rétro-compatibilité) */
     public const CATEGORIES = [
         'Alimentation',
         'Transport',
@@ -24,8 +59,34 @@ class Transaction extends Model
         'Investissement',
         'Cadeaux',
         'Factures',
+        'Abonnements',
+        'Restaurants',
+        'Voyages',
+        'Animaux',
+        'Impôts & taxes',
+        'Remboursement',
+        'Allocations',
+        'Vente',
+        'Intérêts',
+        'Loyer perçu',
         'Autre',
     ];
+
+    /**
+     * Retourne les catégories (clé => emoji) pour un type donné.
+     */
+    public static function getCategoriesForType(string $type): array
+    {
+        return $type === 'income' ? self::INCOME_CATEGORIES : self::EXPENSE_CATEGORIES;
+    }
+
+    /**
+     * Vérifie si une catégorie est valide pour un type donné.
+     */
+    public static function isValidCategory(string $category, string $type): bool
+    {
+        return array_key_exists($category, self::getCategoriesForType($type));
+    }
 
     public function addTransaction(int $accountId, string $type, float $amount, string $category, string $comment = '', int $userId = 0, ?string $scheduledAt = null): int
     {

@@ -325,6 +325,8 @@ class AccountController extends Controller
             'isMinorAccount'     => $isMinorAccount,
             'isGuardian'         => $isGuardian,
             'categories'         => Transaction::CATEGORIES,
+            'expenseCategories'  => Transaction::EXPENSE_CATEGORIES,
+            'incomeCategories'   => Transaction::INCOME_CATEGORIES,
             'mandates'           => $mandates,
             'upcomingMandates'   => $upcomingMandates,
             'linkedTxIds'        => $linkedTxIds,

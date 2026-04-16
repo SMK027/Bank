@@ -78,6 +78,39 @@ class TransactionTest extends TestCase
         $this->assertContains('Transport', Transaction::CATEGORIES);
     }
 
+    public function testExpenseCategories(): void
+    {
+        $this->assertIsArray(Transaction::EXPENSE_CATEGORIES);
+        $this->assertArrayHasKey('Alimentation', Transaction::EXPENSE_CATEGORIES);
+        $this->assertArrayHasKey('Transport', Transaction::EXPENSE_CATEGORIES);
+        $this->assertArrayHasKey('Factures', Transaction::EXPENSE_CATEGORIES);
+        $this->assertArrayHasKey('Autre', Transaction::EXPENSE_CATEGORIES);
+    }
+
+    public function testIncomeCategories(): void
+    {
+        $this->assertIsArray(Transaction::INCOME_CATEGORIES);
+        $this->assertArrayHasKey('Salaire', Transaction::INCOME_CATEGORIES);
+        $this->assertArrayHasKey('Freelance', Transaction::INCOME_CATEGORIES);
+        $this->assertArrayHasKey('Investissement', Transaction::INCOME_CATEGORIES);
+        $this->assertArrayHasKey('Autre', Transaction::INCOME_CATEGORIES);
+    }
+
+    public function testGetCategoriesForType(): void
+    {
+        $this->assertSame(Transaction::EXPENSE_CATEGORIES, Transaction::getCategoriesForType('expense'));
+        $this->assertSame(Transaction::INCOME_CATEGORIES, Transaction::getCategoriesForType('income'));
+    }
+
+    public function testIsValidCategory(): void
+    {
+        $this->assertTrue(Transaction::isValidCategory('Alimentation', 'expense'));
+        $this->assertFalse(Transaction::isValidCategory('Salaire', 'expense'));
+        $this->assertTrue(Transaction::isValidCategory('Salaire', 'income'));
+        $this->assertFalse(Transaction::isValidCategory('Alimentation', 'income'));
+        $this->assertFalse(Transaction::isValidCategory('Inexistante', 'expense'));
+    }
+
     public function testGetTotalIncomeWithNoTransactions(): void
     {
         $total = $this->transaction->getTotalIncome(999);

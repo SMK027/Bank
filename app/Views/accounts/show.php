@@ -314,9 +314,6 @@
                         <label for="category" class="form-label">Catégorie</label>
                         <select id="category" name="category" class="form-control" required>
                             <option value="">-- Choisir --</option>
-                            <?php foreach ($categories as $cat): ?>
-                                <option value="<?= e($cat) ?>"><?= e($cat) ?></option>
-                            <?php endforeach; ?>
                         </select>
                     </div>
                     <div class="form-group">
@@ -440,6 +437,26 @@
                     if (canForce) submitBtn.disabled = !this.checked;
                 });
 
+                // Catégories dynamiques par type
+                var expenseCategories = <?= json_encode($expenseCategories, JSON_UNESCAPED_UNICODE) ?>;
+                var incomeCategories  = <?= json_encode($incomeCategories, JSON_UNESCAPED_UNICODE) ?>;
+                var categoryEl = document.getElementById('category');
+
+                function updateCategories() {
+                    var cats = typeEl.value === 'income' ? incomeCategories : expenseCategories;
+                    var current = categoryEl.value;
+                    categoryEl.innerHTML = '<option value="">-- Choisir --</option>';
+                    for (var name in cats) {
+                        var opt = document.createElement('option');
+                        opt.value = name;
+                        opt.textContent = cats[name] + ' ' + name;
+                        if (name === current) opt.selected = true;
+                        categoryEl.appendChild(opt);
+                    }
+                }
+                typeEl.addEventListener('change', updateCategories);
+                updateCategories();
+
                 typeEl.addEventListener('change', check);
                 amountEl.addEventListener('input', check);
             })();
@@ -482,8 +499,8 @@
                         <label for="dd-category" class="form-label">Catégorie</label>
                         <select id="dd-category" name="category" class="form-control" required>
                             <option value="">-- Choisir --</option>
-                            <?php foreach ($categories as $cat): ?>
-                                <option value="<?= e($cat) ?>"><?= e($cat) ?></option>
+                            <?php foreach ($expenseCategories as $cat => $emoji): ?>
+                                <option value="<?= e($cat) ?>"><?= $emoji ?> <?= e($cat) ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>

@@ -59,6 +59,12 @@ class TransactionController extends Controller
             return;
         }
 
+        if (!Transaction::isValidCategory($data['category'], $data['type'])) {
+            $this->setFlash('danger', 'Catégorie invalide pour ce type d\'opération.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
         $amount = abs((float) $data['amount']);
         if ($amount <= 0) {
             $this->setFlash('danger', 'Le montant doit être positif.');
@@ -341,6 +347,12 @@ class TransactionController extends Controller
 
         if (empty($data['amount']) || empty($data['category'])) {
             $this->setFlash('danger', 'Le montant et la catégorie sont requis.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        if (!Transaction::isValidCategory($data['category'], 'expense')) {
+            $this->setFlash('danger', 'Catégorie invalide.');
             $this->redirect('/accounts/' . $accountId);
             return;
         }
