@@ -530,6 +530,17 @@ class AccountController extends Controller
             return;
         }
 
+        // Bloquer la résiliation si des débits différés sont en attente
+        $pendingDD = $this->deferredDebitModel->getPendingByAccount($accountId);
+        if (!empty($pendingDD)) {
+            $this->setFlash('danger', sprintf(
+                'Impossible de résilier ce compte : %d opération(s) à débit différé en attente d\'encaissement.',
+                count($pendingDD)
+            ));
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
         $this->accountModel->disableAccount($accountId);
         AuditLog::log($userId, AuditLog::ACTION_ACCOUNT_DISABLE, ['name' => $account['name'] ?? '?'], targetAccountId: $accountId);
         $this->setFlash('success', 'Compte désactivé. Il sera définitivement supprimé à la fin du mois.');

@@ -19,6 +19,7 @@ use App\Models\Transfer;
 use App\Models\User;
 use App\Models\SavingsInterest;
 use App\Models\SavingsRate;
+use App\Models\DeferredDebit;
 use App\Models\RecurringTransfer;
 
 class ModerationController extends Controller
@@ -213,6 +214,18 @@ class ModerationController extends Controller
 
         if (!empty($account['disabled_at'])) {
             $this->setFlash('info', 'Ce compte est déjà en cours de résiliation.');
+            $this->redirect(isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '/moderation');
+            return;
+        }
+
+        // Bloquer la résiliation si des débits différés sont en attente
+        $deferredDebitModel = new DeferredDebit();
+        $pendingDD = $deferredDebitModel->getPendingByAccount($accountId);
+        if (!empty($pendingDD)) {
+            $this->setFlash('danger', sprintf(
+                'Impossible de résilier ce compte : %d opération(s) à débit différé en attente d\'encaissement.',
+                count($pendingDD)
+            ));
             $this->redirect(isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '/moderation');
             return;
         }
