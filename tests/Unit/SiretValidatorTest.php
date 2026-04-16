@@ -45,4 +45,18 @@ class SiretValidatorTest extends TestCase
     {
         $this->assertFalse(SiretValidator::isValidFormat(''));
     }
+
+    public function testVerifyInvalidFormatReturnsActiveNull(): void
+    {
+        $result = SiretValidator::verify('123');
+        $this->assertFalse($result['valid']);
+        $this->assertNull($result['active']);
+        $this->assertNotNull($result['error']);
+    }
+
+    public function testVerifyResponseContainsActiveKey(): void
+    {
+        $result = SiretValidator::verify('00000000000000');
+        $this->assertArrayHasKey('active', $result);
+    }
 }

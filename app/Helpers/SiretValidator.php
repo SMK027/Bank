@@ -48,16 +48,17 @@ class SiretValidator
     }
 
     /**
-     * Interroge l'API gouvernementale pour vérifier l'existence du SIRET.
+     * Interroge l'API gouvernementale pour vérifier l'existence du SIRET
+     * et l'activité de l'entreprise / établissement.
      *
-     * @return array{valid: bool, company_name: string|null, error: string|null}
+     * @return array{valid: bool, company_name: string|null, active: bool|null, error: string|null}
      */
     public static function verify(string $siret): array
     {
         $siret = preg_replace('/\s+/', '', $siret);
 
         if (!self::isValidFormat($siret)) {
-            return ['valid' => false, 'company_name' => null, 'error' => 'Format SIRET invalide (14 chiffres requis).'];
+            return ['valid' => false, 'company_name' => null, 'active' => null, 'error' => 'Format SIRET invalide (14 chiffres requis).'];
         }
 
         $url = self::API_URL . '?' . http_build_query(['q' => $siret]);
@@ -73,37 +74,63 @@ class SiretValidator
         $response = @file_get_contents($url, false, $context);
 
         if ($response === false) {
-            return ['valid' => false, 'company_name' => null, 'error' => 'Impossible de contacter le service de vérification SIRET. Réessayez ultérieurement.'];
+            return ['valid' => false, 'company_name' => null, 'active' => null, 'error' => 'Impossible de contacter le service de vérification SIRET. Réessayez ultérieurement.'];
         }
 
         $data = json_decode($response, true);
 
         if (!is_array($data) || empty($data['results'])) {
-            return ['valid' => false, 'company_name' => null, 'error' => 'SIRET introuvable dans le répertoire SIRENE.'];
+            return ['valid' => false, 'company_name' => null, 'active' => null, 'error' => 'SIRET introuvable dans le répertoire SIRENE.'];
         }
 
         // Chercher l'établissement correspondant exactement au SIRET
         foreach ($data['results'] as $enterprise) {
+            $companyName = $enterprise['nom_complet']
+                ?? $enterprise['nom_raison_sociale']
+                ?? null;
+
+            // Statut administratif de l'entreprise (unité légale)
+            $enterpriseActive = ($enterprise['etat_administratif'] ?? '') === 'A';
+
+            // Chercher dans les établissements correspondants
             $matchingEtab = $enterprise['matching_etablissements'] ?? [];
             foreach ($matchingEtab as $etab) {
                 if (($etab['siret'] ?? '') === $siret) {
-                    $companyName = $enterprise['nom_complet']
-                        ?? $enterprise['nom_raison_sociale']
-                        ?? null;
-                    return ['valid' => true, 'company_name' => $companyName, 'error' => null];
+                    $etabActive = ($etab['etat_administratif'] ?? '') === 'A';
+                    $isActive   = $enterpriseActive && $etabActive;
+
+                    if (!$isActive) {
+                        return [
+                            'valid'        => false,
+                            'company_name' => $companyName,
+                            'active'       => false,
+                            'error'        => 'L\'entreprise ou l\'établissement n\'est plus en activité (statut : cessé).',
+                        ];
+                    }
+
+                    return ['valid' => true, 'company_name' => $companyName, 'active' => true, 'error' => null];
                 }
             }
 
             // Vérifier aussi le siège
             $siege = $enterprise['siege'] ?? [];
             if (($siege['siret'] ?? '') === $siret) {
-                $companyName = $enterprise['nom_complet']
-                    ?? $enterprise['nom_raison_sociale']
-                    ?? null;
-                return ['valid' => true, 'company_name' => $companyName, 'error' => null];
+                $siegeActive = ($siege['etat_administratif'] ?? '') === 'A';
+                $isActive    = $enterpriseActive && $siegeActive;
+
+                if (!$isActive) {
+                    return [
+                        'valid'        => false,
+                        'company_name' => $companyName,
+                        'active'       => false,
+                        'error'        => 'L\'entreprise ou l\'établissement n\'est plus en activité (statut : cessé).',
+                    ];
+                }
+
+                return ['valid' => true, 'company_name' => $companyName, 'active' => true, 'error' => null];
             }
         }
 
-        return ['valid' => false, 'company_name' => null, 'error' => 'SIRET introuvable dans le répertoire SIRENE.'];
+        return ['valid' => false, 'company_name' => null, 'active' => null, 'error' => 'SIRET introuvable dans le répertoire SIRENE.'];
     }
 }

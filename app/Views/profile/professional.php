@@ -93,10 +93,12 @@
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (data.valid) {
-                    resultDiv.innerHTML = '<span style="color:var(--success)"><i class="bi bi-check-circle"></i> SIRET valide — ' + (data.company_name || '') + '</span>';
+                    resultDiv.innerHTML = '<span style="color:var(--success)"><i class="bi bi-check-circle"></i> SIRET valide — ' + (data.company_name || '') + ' <span style="font-size:0.85em;opacity:0.8;">(entreprise active)</span></span>';
                     if (data.company_name && !companyInput.value) {
                         companyInput.value = data.company_name;
                     }
+                } else if (data.active === false && data.company_name) {
+                    resultDiv.innerHTML = '<span style="color:var(--danger)"><i class="bi bi-x-circle"></i> ' + (data.company_name) + ' — <strong>entreprise cessée</strong>. Seules les entreprises en activité sont acceptées.</span>';
                 } else {
                     resultDiv.innerHTML = '<span style="color:var(--danger)"><i class="bi bi-x-circle"></i> ' + (data.error || 'SIRET introuvable') + '</span>';
                 }
