@@ -1006,79 +1006,6 @@
             </div>
             <?php endif; ?>
 
-            <?php if (!empty($executedDeferredDebits)): ?>
-            <!-- Débits différés exécutés (modifiables) -->
-            <h4 style="margin-bottom:0.6rem;margin-top:1rem;font-size:0.95rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">
-                <i class="bi bi-credit-card-2-back"></i> Débits différés exécutés
-                <span class="badge badge-secondary"><?= count($executedDeferredDebits) ?></span>
-                <?php if (!$isModerator): ?>
-                    <span style="font-size:0.75rem;font-weight:400;color:var(--text-muted);margin-left:0.4rem;">(&lt; 7 jours)</span>
-                <?php endif; ?>
-            </h4>
-            <div class="table-responsive" style="margin-bottom:1.25rem;">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Date opération</th>
-                            <th>Fin de période</th>
-                            <th>Catégorie</th>
-                            <th>Par</th>
-                            <th>Commentaire</th>
-                            <th class="text-right">Montant</th>
-                            <th>Exécuté le</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($executedDeferredDebits as $dd): ?>
-                            <tr>
-                                <td>
-                                    <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/deferred-debits/<?= (int) $dd['id'] ?>/edit"
-                                          style="display:flex;align-items:center;gap:0.3rem;">
-                                        <?= csrf_field() ?>
-                                        <i class="bi bi-credit-card-2-back" style="color:var(--success,#22c55e);flex-shrink:0;"></i>
-                                        <input type="text" name="operation_date"
-                                               value="<?= e(date('d/m/Y H:i', strtotime($dd['operation_date']))) ?>"
-                                               placeholder="jj/mm/aaaa hh:mm"
-                                               style="font-size:0.78rem;padding:0.2rem 0.4rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);width:125px">
-                                        <button type="submit" class="btn btn-outline btn-sm" style="padding:0.15rem 0.35rem;font-size:0.72rem;" title="Modifier la date d'opération">
-                                            <i class="bi bi-check-lg"></i>
-                                        </button>
-                                    </form>
-                                </td>
-                                <td>
-                                    <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/deferred-debits/<?= (int) $dd['id'] ?>/edit"
-                                          style="display:flex;align-items:center;gap:0.3rem;">
-                                        <?= csrf_field() ?>
-                                        <i class="bi bi-check-circle" style="color:var(--success,#22c55e);flex-shrink:0;"></i>
-                                        <input type="text" name="period_end_date"
-                                               value="<?= e(date('d/m/Y', strtotime($dd['period_end_date']))) ?>"
-                                               placeholder="jj/mm/aaaa"
-                                               style="font-size:0.78rem;padding:0.2rem 0.4rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);width:95px">
-                                        <button type="submit" class="btn btn-outline btn-sm" style="padding:0.15rem 0.35rem;font-size:0.72rem;" title="Modifier la date de fin de période">
-                                            <i class="bi bi-check-lg"></i>
-                                        </button>
-                                    </form>
-                                </td>
-                                <td><?= e($dd['category']) ?></td>
-                                <td>
-                                    <span class="badge badge-secondary">
-                                        <i class="bi bi-person"></i> <?= e($dd['author_name']) ?>
-                                    </span>
-                                </td>
-                                <td><?= e($dd['comment'] ?? '') ?: '<span style="color:var(--text-muted)">—</span>' ?></td>
-                                <td class="text-right font-bold text-danger">
-                                    -<?= number_format((float) $dd['amount'], 2, ',', ' ') ?>
-                                </td>
-                                <td style="font-size:0.8rem;color:var(--text-muted);">
-                                    <?= $dd['executed_at'] ? date('d/m/Y H:i', strtotime($dd['executed_at'])) : '—' ?>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-            <?php endif; ?>
-
         <?php endif; ?>
     </div>
 </div>
@@ -1091,12 +1018,86 @@
         <h3><i class="bi bi-clock-history"></i> Opérations effectuées</h3>
     </div>
     <div class="card-body">
-        <?php if (empty($executedTransactions)): ?>
+        <?php if (!empty($executedDeferredDebits)): ?>
+        <!-- Débits différés exécutés (modifiables) -->
+        <h4 style="margin-bottom:0.6rem;font-size:0.95rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">
+            <i class="bi bi-credit-card-2-back"></i> Débits différés exécutés
+            <span class="badge badge-secondary"><?= count($executedDeferredDebits) ?></span>
+            <?php if (!$isModerator): ?>
+                <span style="font-size:0.75rem;font-weight:400;color:var(--text-muted);margin-left:0.4rem;">(&lt; 7 jours)</span>
+            <?php endif; ?>
+        </h4>
+        <div class="table-responsive" style="margin-bottom:1.25rem;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Date opération</th>
+                        <th>Fin de période</th>
+                        <th>Catégorie</th>
+                        <th>Par</th>
+                        <th>Commentaire</th>
+                        <th class="text-right">Montant</th>
+                        <th>Exécuté le</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($executedDeferredDebits as $dd): ?>
+                        <tr>
+                            <td>
+                                <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/deferred-debits/<?= (int) $dd['id'] ?>/edit"
+                                      style="display:flex;align-items:center;gap:0.3rem;">
+                                    <?= csrf_field() ?>
+                                    <i class="bi bi-credit-card-2-back" style="color:var(--success,#22c55e);flex-shrink:0;"></i>
+                                    <input type="text" name="operation_date"
+                                           value="<?= e(date('d/m/Y H:i', strtotime($dd['operation_date']))) ?>"
+                                           placeholder="jj/mm/aaaa hh:mm"
+                                           style="font-size:0.78rem;padding:0.2rem 0.4rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);width:125px">
+                                    <button type="submit" class="btn btn-outline btn-sm" style="padding:0.15rem 0.35rem;font-size:0.72rem;" title="Modifier la date d'opération">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
+                                </form>
+                            </td>
+                            <td>
+                                <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/deferred-debits/<?= (int) $dd['id'] ?>/edit"
+                                      style="display:flex;align-items:center;gap:0.3rem;">
+                                    <?= csrf_field() ?>
+                                    <i class="bi bi-check-circle" style="color:var(--success,#22c55e);flex-shrink:0;"></i>
+                                    <input type="text" name="period_end_date"
+                                           value="<?= e(date('d/m/Y', strtotime($dd['period_end_date']))) ?>"
+                                           placeholder="jj/mm/aaaa"
+                                           style="font-size:0.78rem;padding:0.2rem 0.4rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);width:95px">
+                                    <button type="submit" class="btn btn-outline btn-sm" style="padding:0.15rem 0.35rem;font-size:0.72rem;" title="Modifier la date de fin de période">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
+                                </form>
+                            </td>
+                            <td><?= e($dd['category']) ?></td>
+                            <td>
+                                <span class="badge badge-secondary">
+                                    <i class="bi bi-person"></i> <?= e($dd['author_name']) ?>
+                                </span>
+                            </td>
+                            <td><?= e($dd['comment'] ?? '') ?: '<span style="color:var(--text-muted)">—</span>' ?></td>
+                            <td class="text-right font-bold text-danger">
+                                -<?= number_format((float) $dd['amount'], 2, ',', ' ') ?>
+                            </td>
+                            <td style="font-size:0.8rem;color:var(--text-muted);">
+                                <?= $dd['executed_at'] ? date('d/m/Y H:i', strtotime($dd['executed_at'])) : '—' ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
+
+        <?php if (empty($executedTransactions) && empty($executedDeferredDebits)): ?>
             <div class="empty-state">
                 <div class="empty-icon">📊</div>
                 <p>Aucune opération effectuée pour le moment.</p>
             </div>
         <?php else: ?>
+        <?php if (!empty($executedTransactions)): ?>
             <?php
                 $txAuthors = array_values(array_unique(array_column($executedTransactions, 'author_name')));
                 sort($txAuthors);
@@ -1376,6 +1377,7 @@
                 });
             })();
             </script>
+        <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>
