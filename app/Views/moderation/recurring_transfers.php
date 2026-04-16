@@ -214,6 +214,7 @@
                 + '</tr>';
         });
         tbody.innerHTML = html;
+        if (typeof initFlatpickrs === 'function') initFlatpickrs();
     }
 
     // Autocomplete auteur

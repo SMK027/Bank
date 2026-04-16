@@ -293,6 +293,7 @@ function renderTable() {
             + '</tr>';
     }
     tbody.innerHTML = html;
+    if (typeof initFlatpickrs === 'function') initFlatpickrs();
 }
 
 function applyDdFilters() {

@@ -186,3 +186,27 @@ $(function () {
         });
     });
 });
+
+/* ───────────────────────────────────────────────────────────
+   Flatpickr — initialisation automatique des champs date/heure
+   ─────────────────────────────────────────────────────────── */
+window.initFlatpickrs = function () {
+    if (typeof flatpickr === 'undefined') return;
+
+    // Tous les inputs avec placeholder "jj/mm/aaaa hh:mm" → datetime picker
+    document.querySelectorAll('input[placeholder="jj/mm/aaaa hh:mm"]').forEach(function (el) {
+        if (el._flatpickr) return;
+        flatpickr(el, {
+            locale: 'fr',
+            enableTime: true,
+            time_24hr: true,
+            dateFormat: 'd/m/Y H:i',
+            allowInput: true,
+            minuteIncrement: 1
+        });
+    });
+};
+
+document.addEventListener('DOMContentLoaded', function () {
+    window.initFlatpickrs();
+});
