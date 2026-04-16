@@ -168,6 +168,25 @@
                                             </button>
                                         </form>
                                     <?php endif; ?>
+
+                                    <?php if (\App\Models\Account::typeAllowsDeferredDebit($acc['type'] ?? 'standard')): ?>
+                                        <form method="POST" action="/moderation/accounts/<?= (int) $acc['id'] ?>/toggle-deferred-debit" style="display:inline">
+                                            <?= csrf_field() ?>
+                                            <?php if (!empty($acc['deferred_debit_enabled'])): ?>
+                                                <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                        title="Désactiver le débit différé"
+                                                        onclick="return confirm('Désactiver le débit différé pour « <?= e(addslashes($acc['name'])) ?> » ?')">
+                                                    <i class="bi bi-credit-card"></i> DD ✗
+                                                </button>
+                                            <?php else: ?>
+                                                <button type="submit" class="btn btn-sm btn-outline"
+                                                        title="Activer le débit différé"
+                                                        onclick="return confirm('Activer le débit différé pour « <?= e(addslashes($acc['name'])) ?> » ?')">
+                                                    <i class="bi bi-credit-card"></i> DD ✓
+                                                </button>
+                                            <?php endif; ?>
+                                        </form>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                         </tr>

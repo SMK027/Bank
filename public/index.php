@@ -99,6 +99,10 @@ $router->post('/accounts/{id}/toggle-hidden', AccountController::class, 'toggleH
 $router->post('/accounts/{accountId}/transactions', TransactionController::class, 'create');
 $router->post('/accounts/{accountId}/transactions/{transactionId}/delete', TransactionController::class, 'deleteTransaction');
 
+// --- Débits différés ---
+$router->post('/accounts/{accountId}/deferred-debits', TransactionController::class, 'createDeferredDebit');
+$router->post('/accounts/{accountId}/deferred-debits/{debitId}/cancel', TransactionController::class, 'cancelDeferredDebit');
+
 // --- Virements ---
 $router->get('/transfers/create', TransferController::class, 'createForm');
 $router->post('/transfers/create', TransferController::class, 'create');
@@ -119,6 +123,7 @@ $router->post('/moderation/accounts/{id}/freeze', ModerationController::class, '
 $router->post('/moderation/accounts/{id}/unfreeze', ModerationController::class, 'unfreeze');
 $router->post('/moderation/accounts/{id}/disable', ModerationController::class, 'disableAccount');
 $router->post('/moderation/accounts/{id}/enable', ModerationController::class, 'enableAccount');
+$router->post('/moderation/accounts/{id}/toggle-deferred-debit', ModerationController::class, 'toggleDeferredDebit');
 // Prélèvements
 $router->get('/moderation/direct-debits', ModerationController::class, 'directDebits');
 $router->get('/moderation/direct-debits/create', ModerationController::class, 'createDirectDebitForm');

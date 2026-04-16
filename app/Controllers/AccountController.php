@@ -8,6 +8,7 @@ use App\Core\Controller;
 use App\Core\Session;
 use App\Models\Account;
 use App\Models\AuditLog;
+use App\Models\DeferredDebit;
 use App\Models\Transaction;
 use App\Models\AccountAccess;
 use App\Models\DirectDebit;
@@ -24,6 +25,7 @@ class AccountController extends Controller
     private Transaction $transactionModel;
     private AccountAccess $accessModel;
     private DirectDebit $directDebitModel;
+    private DeferredDebit $deferredDebitModel;
     private User $userModel;
     private RecurringTransfer $recurringTransferModel;
     private SavingsRate $rateModel;
@@ -35,6 +37,7 @@ class AccountController extends Controller
         $this->transactionModel       = new Transaction();
         $this->accessModel            = new AccountAccess();
         $this->directDebitModel       = new DirectDebit();
+        $this->deferredDebitModel     = new DeferredDebit();
         $this->userModel              = new User();
         $this->recurringTransferModel = new RecurringTransfer();
     }
@@ -246,6 +249,19 @@ class AccountController extends Controller
         // Mandats à venir (prochaine exécution planifiée) — tous types de comptes
         $upcomingMandates = $mandateModel->getUpcomingByAccount($accountId);
 
+        // Débits différés en attente (encours carte)
+        $pendingDeferredDebits = [];
+        $deferredDebitEnabled  = !empty($account['deferred_debit_enabled']);
+        if ($deferredDebitEnabled) {
+            $pendingDeferredDebits = $this->deferredDebitModel->getPendingByAccount($accountId);
+            foreach ($pendingDeferredDebits as &$dd) {
+                $authorId = (int) ($dd['user_id'] ?? 0);
+                $author   = $this->userModel->find($authorId);
+                $dd['author_name'] = $author ? $author['username'] : 'Inconnu';
+            }
+            unset($dd);
+        }
+
         // Intérêts accumulés en cours d'année (TWAB Jan 1 → aujourd'hui)
         $accruedInterest = null;
         $accountRate     = isset($account['interest_rate']) ? (float) $account['interest_rate'] : 0.0;
@@ -302,6 +318,8 @@ class AccountController extends Controller
             'linkedTxIds'        => $linkedTxIds,
             'recurringTransfers' => $recurringTransfers,
             'accruedInterest'    => $accruedInterest,
+            'deferredDebitEnabled'  => $deferredDebitEnabled,
+            'pendingDeferredDebits' => $pendingDeferredDebits,
         ]);
     }
 

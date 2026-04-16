@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Core\Model;
+use App\Models\DeferredDebit;
 use App\Models\DirectDebit;
 use App\Models\Guardianship;
 use App\Models\User;
@@ -111,6 +112,12 @@ class Account extends Model
         return (bool) (self::TYPES[$type]['cap'] ?? false);
     }
 
+    /** Types de comptes éligibles au débit différé (comptes majeurs, hors épargne). */
+    public static function typeAllowsDeferredDebit(string $type): bool
+    {
+        return in_array($type, ['standard', 'pro', 'joint', 'online'], true);
+    }
+
     /**
      * Indique si une opération vient de faire franchir le seuil d'alerte à la baisse.
      * Retourne true uniquement si le solde était >= seuil avant et < seuil après l'opération.
@@ -186,6 +193,10 @@ class Account extends Model
         foreach ($upcomingDebits as $d) {
             $balance -= (float) $d['amount'];
         }
+
+        // Déduire les débits différés en attente
+        $deferredDebitModel = new DeferredDebit();
+        $balance -= $deferredDebitModel->getPendingTotalByAccount($accountId);
 
         return $balance;
     }

@@ -31,6 +31,7 @@ use App\Models\DirectDebit;
 use App\Models\Guardianship;
 use App\Models\Mandate;
 use App\Models\Notification;
+use App\Models\DeferredDebit;
 use App\Models\RecurringTransfer;
 use App\Models\Transaction;
 use App\Models\Transfer;
@@ -38,6 +39,7 @@ use App\Models\Transfer;
 $transferModel          = new Transfer();
 $transactionModel       = new Transaction();
 $directDebitModel       = new DirectDebit();
+$deferredDebitModel     = new DeferredDebit();
 $accountModel           = new Account();
 $mandateModel           = new Mandate();
 $recurringTransferModel = new RecurringTransfer();
@@ -534,7 +536,126 @@ foreach ($directDebitModel->getDue() as $debit) {
 }
 
 /* ─────────────────────────────────────────────────────────────────
-   5. Rétro-compatibilité : transactions planifiées sans virement
+   5. Débits différés — exécution en fin de période
+   ───────────────────────────────────────────────────────────────── */
+$dueDeferredDebits = $deferredDebitModel->getDue();
+foreach ($dueDeferredDebits as $dd) {
+    $ddId        = (int) $dd['id'];
+    $ddAccountId = (int) $dd['account_id'];
+    $ddUserId    = (int) $dd['user_id'];
+    $ddAmount    = (float) $dd['amount'];
+    $ddCategory  = $dd['category'];
+    $ddComment   = $dd['comment'] ?? '';
+
+    $ddAccount = $accountModel->find($ddAccountId);
+    if (!$ddAccount) {
+        echo sprintf("[%s] ERREUR débit différé #%d : compte #%d introuvable.\n",
+            date('Y-m-d H:i:s'), $ddId, $ddAccountId);
+        $deferredDebitModel->cancel($ddId);
+        $errors++;
+        continue;
+    }
+
+    // Compte gelé → annulation
+    if ($accountModel->isFrozen($ddAccountId)) {
+        echo sprintf("[%s] ERREUR débit différé #%d : compte #%d gelé.\n",
+            date('Y-m-d H:i:s'), $ddId, $ddAccountId);
+        $deferredDebitModel->cancel($ddId);
+        AuditLog::log(null, 'deferred_debit.cancel', ['deferred_debit_id' => $ddId, 'reason' => 'frozen'], targetAccountId: $ddAccountId);
+        $notifyWithGuardians(
+            (int) $ddAccount['user_id'], $ddAccountId, 'deferred_debit_failed',
+            'Débit différé #' . $ddId . ' annulé',
+            'Le débit différé de ' . number_format($ddAmount, 2, ',', ' ') . ' € n\'a pas pu être exécuté : votre compte « ' . ($ddAccount['name'] ?? 'Compte #' . $ddAccountId) . ' » est gelé.'
+        );
+        $errors++;
+        continue;
+    }
+
+    // Compte désactivé → annulation
+    if (!empty($ddAccount['disabled_at'])) {
+        echo sprintf("[%s] ERREUR débit différé #%d : compte #%d désactivé.\n",
+            date('Y-m-d H:i:s'), $ddId, $ddAccountId);
+        $deferredDebitModel->cancel($ddId);
+        AuditLog::log(null, 'deferred_debit.cancel', ['deferred_debit_id' => $ddId, 'reason' => 'disabled'], targetAccountId: $ddAccountId);
+        $errors++;
+        continue;
+    }
+
+    // Rejet si le type de compte n'autorise pas le découvert et solde insuffisant
+    $ddType = $ddAccount['type'] ?? 'standard';
+    if (!Account::typeAllowsOverdraft($ddType)) {
+        $currentBalance = $accountModel->getBalance($ddAccountId);
+        if ($currentBalance - $ddAmount < 0) {
+            echo sprintf(
+                "[%s] REJET débit différé #%d : compte #%d (type '%s') solde insuffisant (%.2f < %.2f).\n",
+                date('Y-m-d H:i:s'), $ddId, $ddAccountId, $ddType, $currentBalance, $ddAmount
+            );
+            $deferredDebitModel->cancel($ddId);
+            AuditLog::log(null, 'deferred_debit.reject', ['deferred_debit_id' => $ddId, 'amount' => $ddAmount, 'reason' => 'insufficient_balance'], targetAccountId: $ddAccountId);
+            $notifyWithGuardians(
+                (int) $ddAccount['user_id'], $ddAccountId, 'deferred_debit_rejected',
+                'Débit différé #' . $ddId . ' rejeté',
+                'Le débit différé de ' . number_format($ddAmount, 2, ',', ' ') . ' € a été rejeté : solde insuffisant sur votre compte « ' . ($ddAccount['name'] ?? 'Compte #' . $ddAccountId) . ' » (compte sans autorisation de découvert).'
+            );
+            $errors++;
+            continue;
+        }
+    }
+
+    // Créer la transaction de dépense
+    $commentFull = 'Débit différé — ' . $ddCategory . ($ddComment !== '' ? ' — ' . $ddComment : '');
+    $balanceBefore = $accountModel->getBalance($ddAccountId);
+    $txId = $transactionModel->addTransaction(
+        $ddAccountId,
+        'expense',
+        $ddAmount,
+        $ddCategory,
+        $commentFull,
+        $ddUserId
+    );
+
+    if ($txId) {
+        $deferredDebitModel->markExecuted($ddId, $txId);
+        AuditLog::log(null, 'deferred_debit.exec', ['deferred_debit_id' => $ddId, 'amount' => $ddAmount, 'tx_id' => $txId], targetAccountId: $ddAccountId);
+
+        // Seuil d'alerte
+        if (\App\Models\Account::crossedAlertThreshold($ddAccount, $balanceBefore, $balanceBefore - $ddAmount)) {
+            $notifyWithGuardians(
+                (int) $ddAccount['user_id'], $ddAccountId, 'balance_alert',
+                'Seuil d\'alerte atteint — ' . ($ddAccount['name'] ?? ''),
+                sprintf(
+                    'Le solde de votre compte « %s » est passé sous le seuil d\'alerte de %s %s. Solde actuel : %s %s.',
+                    $ddAccount['name'] ?? '',
+                    number_format((float) $ddAccount['balance_alert_threshold'], 2, ',', ' '),
+                    $ddAccount['currency'] ?? '',
+                    number_format($balanceBefore - $ddAmount, 2, ',', ' '),
+                    $ddAccount['currency'] ?? ''
+                )
+            );
+        }
+
+        $notifyWithGuardians(
+            (int) $ddAccount['user_id'], $ddAccountId, 'deferred_debit_executed',
+            'Débit différé #' . $ddId . ' exécuté',
+            'Le débit différé de ' . number_format($ddAmount, 2, ',', ' ') . ' € (' . $ddCategory . ') a été exécuté sur votre compte « ' . ($ddAccount['name'] ?? 'Compte #' . $ddAccountId) . ' ».'
+        );
+
+        $executed++;
+        echo sprintf(
+            "[%s] Débit différé #%d exécuté : compte #%d — %.2f — %s\n",
+            date('Y-m-d H:i:s'), $ddId, $ddAccountId, $ddAmount, $ddCategory
+        );
+    } else {
+        $deferredDebitModel->cancel($ddId);
+        AuditLog::log(null, 'deferred_debit.fail', ['deferred_debit_id' => $ddId, 'amount' => $ddAmount, 'reason' => 'tx_creation_failed'], targetAccountId: $ddAccountId);
+        $errors++;
+        echo sprintf("[%s] ERREUR débit différé #%d : création transaction échouée.\n",
+            date('Y-m-d H:i:s'), $ddId);
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   6. Rétro-compatibilité : transactions planifiées sans virement
    ───────────────────────────────────────────────────────────────── */
 // Collecter les IDs de transactions déjà traitées via les virements et prélèvements
 $processedTxIds = [];

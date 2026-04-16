@@ -152,6 +152,48 @@ class ModerationController extends Controller
     }
 
     /**
+     * Activer / désactiver le débit différé sur un compte (POST).
+     */
+    public function toggleDeferredDebit(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $accountId = (int) $id;
+        $account   = $this->accountModel->find($accountId);
+
+        if (!$account) {
+            $this->setFlash('danger', 'Compte introuvable.');
+            $this->redirect('/moderation');
+            return;
+        }
+
+        if (!Account::typeAllowsDeferredDebit($account['type'] ?? '')) {
+            $this->setFlash('danger', 'Ce type de compte ne peut pas disposer du débit différé.');
+            $this->redirect(isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '/moderation');
+            return;
+        }
+
+        $current = !empty($account['deferred_debit_enabled']);
+        $this->accountModel->update($accountId, ['deferred_debit_enabled' => $current ? 0 : 1]);
+
+        $action = $current ? 'désactivé' : 'activé';
+        AuditLog::log(
+            $this->getCurrentUserId(),
+            'account.deferred_debit_toggle',
+            ['name' => $account['name'], 'enabled' => !$current],
+            targetUserId: (int) $account['user_id'],
+            targetAccountId: $accountId
+        );
+        $this->setFlash('success', sprintf(
+            'Débit différé %s sur le compte « %s ».',
+            $action,
+            $account['name']
+        ));
+        $this->redirect(isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '/moderation');
+    }
+
+    /**
      * Désactiver un compte (modération) — POST.
      * Le compte est marqué disabled_at = NOW() et sera définitivement supprimé en fin de mois.
      */

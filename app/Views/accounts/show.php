@@ -448,6 +448,80 @@
         </div>
     </div>
 
+    <!-- Formulaire débit différé (si activé sur le compte) -->
+    <?php if (!empty($deferredDebitEnabled)): ?>
+    <div class="card mb-2" style="border-left:3px solid var(--info, #3b82f6);">
+        <div class="card-header">
+            <h3><i class="bi bi-credit-card"></i> Opération à débit différé</h3>
+        </div>
+        <div class="card-body">
+            <?php if ($isFrozen): ?>
+            <div class="alert alert-frozen" style="margin-bottom:0;">
+                <i class="bi bi-snow"></i>
+                <strong>Compte gelé.</strong> Les opérations sortantes sont bloquées.
+            </div>
+            <?php elseif ($isDisabled && !$isModerator): ?>
+            <div class="alert alert-danger" style="margin-bottom:0;display:flex;align-items:center;gap:0.6rem;">
+                <i class="bi bi-slash-circle" style="font-size:1.2rem;flex-shrink:0;"></i>
+                <span><strong>Compte en résiliation.</strong> L'enregistrement de nouvelles opérations est désactivé.</span>
+            </div>
+            <?php else: ?>
+            <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.8rem;">
+                <i class="bi bi-info-circle"></i>
+                Enregistrez une dépense par carte de crédit. Le débit sera effectué à la date de fin de période.
+            </p>
+            <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/deferred-debits" id="deferred-debit-form">
+                <?= csrf_field() ?>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="dd-amount" class="form-label">Montant</label>
+                        <input type="number" id="dd-amount" name="amount" class="form-control"
+                               placeholder="0.00" min="0.01" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="dd-category" class="form-label">Catégorie</label>
+                        <select id="dd-category" name="category" class="form-control" required>
+                            <option value="">-- Choisir --</option>
+                            <?php foreach ($categories as $cat): ?>
+                                <option value="<?= e($cat) ?>"><?= e($cat) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="dd-comment" class="form-label">Commentaire</label>
+                        <input type="text" id="dd-comment" name="comment" class="form-control"
+                               placeholder="Ex : Achat en magasin">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="dd-operation-date" class="form-label">
+                            <i class="bi bi-clock"></i> Date de l'opération
+                            <span class="text-muted" style="font-weight:400;font-size:0.85em;">(laisser vide pour maintenant)</span>
+                        </label>
+                        <input type="text" id="dd-operation-date" name="operation_date" class="form-control"
+                               placeholder="jj/mm/aaaa hh:mm">
+                    </div>
+                    <div class="form-group">
+                        <label for="dd-period-end" class="form-label">
+                            <i class="bi bi-calendar-event"></i> Date de fin de période <span style="color:var(--danger);">*</span>
+                        </label>
+                        <input type="date" id="dd-period-end" name="period_end_date" class="form-control"
+                               min="<?= date('Y-m-d') ?>" required>
+                        <span class="form-hint">Date à laquelle l'opération sera débitée.</span>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">
+                    <i class="bi bi-credit-card"></i> Enregistrer le débit différé
+                </button>
+            </form>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <!-- Partage de compte (propriétaire ou modérateur, interdit pour comptes mineurs sauf modérateur) -->
     <?php if ($isMinorAccount && $isOwner && !$isModerator): ?>
     <div class="card mb-2" style="border-left:4px solid #f59e0b;">
@@ -605,13 +679,13 @@
 <!-- ======================================================= -->
 <!-- Section : Opérations à venir                          -->
 <!-- ======================================================= -->
-<?php $hasUpcoming = !empty($pendingTransactions) || !empty($upcomingDebits) || !empty($upcomingMandates); ?>
+<?php $hasUpcoming = !empty($pendingTransactions) || !empty($upcomingDebits) || !empty($upcomingMandates) || !empty($pendingDeferredDebits); ?>
 <div class="card mt-2" style="border-left: 3px solid var(--warning, #f59e0b);">
     <div class="card-header" style="display:flex;align-items:center;gap:0.6rem;">
         <h3 style="margin:0;"><i class="bi bi-clock" style="color:var(--warning,#f59e0b);"></i> Opérations à venir</h3>
         <?php if ($hasUpcoming): ?>
             <span class="badge" style="background:var(--warning,#f59e0b);color:#fff;">
-                <?= count($pendingTransactions) + count($upcomingDebits) + count($upcomingMandates) ?>
+                <?= count($pendingTransactions) + count($upcomingDebits) + count($upcomingMandates) + count($pendingDeferredDebits ?? []) ?>
             </span>
         <?php endif; ?>
     </div>
@@ -792,6 +866,78 @@
                                 <td><?= e($um['description'] ?: '—') ?></td>
                                 <td class="text-right font-bold <?= $isEmitter ? 'text-success' : 'text-danger' ?>">
                                     <?= $isEmitter ? '+' : '-' ?><?= number_format((float) $um['amount'], 2, ',', ' ') ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+
+            <?php if (!empty($pendingDeferredDebits)): ?>
+            <!-- Encours — Débits différés -->
+            <h4 style="margin-bottom:0.6rem;margin-top:1rem;font-size:0.95rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">
+                <i class="bi bi-credit-card"></i> Encours
+                <span class="badge badge-secondary"><?= count($pendingDeferredDebits) ?></span>
+                <?php
+                    $totalEncours = 0;
+                    foreach ($pendingDeferredDebits as $dd) $totalEncours += (float) $dd['amount'];
+                ?>
+                <span style="font-size:0.8rem;font-weight:400;color:var(--danger);margin-left:0.4rem;">
+                    Total : <?= number_format($totalEncours, 2, ',', ' ') ?> <?= e($account['currency']) ?>
+                </span>
+            </h4>
+            <div class="table-responsive" style="margin-bottom:1.25rem;">
+                <table class="table" id="deferred-debits-table">
+                    <thead>
+                        <tr>
+                            <th>Date opération</th>
+                            <th>Fin de période</th>
+                            <th>Catégorie</th>
+                            <th>Par</th>
+                            <th>Commentaire</th>
+                            <th class="text-right">Montant</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($pendingDeferredDebits as $dd): ?>
+                            <?php $isDue = $dd['period_end_date'] <= date('Y-m-d'); ?>
+                            <tr style="opacity:0.85;font-style:italic;">
+                                <td>
+                                    <i class="bi bi-credit-card" style="color:var(--info,#3b82f6);"></i>
+                                    <?= date('d/m/Y H:i', strtotime($dd['operation_date'])) ?>
+                                </td>
+                                <td>
+                                    <?php if ($isDue): ?>
+                                        <i class="bi bi-hourglass-split" style="color:var(--danger);"></i>
+                                        <strong style="color:var(--danger);"><?= date('d/m/Y', strtotime($dd['period_end_date'])) ?></strong>
+                                        <br><small class="text-danger" style="font-style:normal;">En attente d'exécution</small>
+                                    <?php else: ?>
+                                        <i class="bi bi-clock" style="color:var(--warning,#f59e0b);"></i>
+                                        <?= date('d/m/Y', strtotime($dd['period_end_date'])) ?>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?= e($dd['category']) ?></td>
+                                <td>
+                                    <span class="badge badge-secondary">
+                                        <i class="bi bi-person"></i> <?= e($dd['author_name']) ?>
+                                    </span>
+                                </td>
+                                <td><?= e($dd['comment'] ?? '') ?: '<span style="color:var(--text-muted)">—</span>' ?></td>
+                                <td class="text-right font-bold text-danger">
+                                    -<?= number_format((float) $dd['amount'], 2, ',', ' ') ?>
+                                </td>
+                                <td>
+                                    <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/deferred-debits/<?= (int) $dd['id'] ?>/cancel"
+                                          style="display:inline">
+                                        <?= csrf_field() ?>
+                                        <button type="submit" class="btn btn-outline-danger btn-sm"
+                                                onclick="return confirm('Annuler cette opération à débit différé ?')"
+                                                title="Annuler">
+                                            <i class="bi bi-x-circle"></i>
+                                        </button>
+                                    </form>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
