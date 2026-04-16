@@ -205,6 +205,17 @@ window.initFlatpickrs = function () {
             minuteIncrement: 1
         });
     });
+
+    // Inputs avec placeholder "jj/mm/aaaa" → date picker (sans heure)
+    document.querySelectorAll('input[placeholder="jj/mm/aaaa"]').forEach(function (el) {
+        if (el._flatpickr) return;
+        flatpickr(el, {
+            locale: 'fr',
+            dateFormat: 'd/m/Y',
+            allowInput: true,
+            minDate: 'today'
+        });
+    });
 };
 
 document.addEventListener('DOMContentLoaded', function () {

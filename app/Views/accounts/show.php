@@ -508,8 +508,8 @@
                         <label for="dd-period-end" class="form-label">
                             <i class="bi bi-calendar-event"></i> Date de fin de période <span style="color:var(--danger);">*</span>
                         </label>
-                        <input type="date" id="dd-period-end" name="period_end_date" class="form-control"
-                               min="<?= date('Y-m-d') ?>" required>
+                        <input type="text" id="dd-period-end" name="period_end_date" class="form-control"
+                               placeholder="jj/mm/aaaa" required>
                         <span class="form-hint">Date à laquelle l'opération sera débitée.</span>
                     </div>
                 </div>
