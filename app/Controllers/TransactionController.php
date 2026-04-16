@@ -343,7 +343,7 @@ class TransactionController extends Controller
             return;
         }
 
-        $data = $this->getPostData(['amount', 'category', 'comment', 'operation_date', 'period_end_date']);
+        $data = $this->getPostData(['amount', 'category', 'comment', 'operation_date', 'period_end_date', 'force_override']);
 
         if (empty($data['amount']) || empty($data['category'])) {
             $this->setFlash('danger', 'Le montant et la catégorie sont requis.');
@@ -362,6 +362,22 @@ class TransactionController extends Controller
             $this->setFlash('danger', 'Le montant doit être positif.');
             $this->redirect('/accounts/' . $accountId);
             return;
+        }
+
+        // Vérification des fonds disponibles (solde + découvert autorisé)
+        $currentBalance = $this->accountModel->getBalance($accId);
+        $overdraft      = (float) ($account['overdraft'] ?? 0);
+        $available      = $currentBalance + $overdraft;
+
+        if ($amount > $available) {
+            if (!$this->isModerator() || empty($data['force_override'])) {
+                $this->setFlash('danger', sprintf(
+                    'Fonds insuffisants. Solde disponible : %.2f € (solde %.2f € + découvert %.2f €). Montant demandé : %.2f €.',
+                    $available, $currentBalance, $overdraft, $amount
+                ));
+                $this->redirect('/accounts/' . $accountId);
+                return;
+            }
         }
 
         // Date de l'opération

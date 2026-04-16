@@ -552,6 +552,15 @@
                         </span>
                     </div>
                 </div>
+                <?php if ($isModerator): ?>
+                <div class="form-group" style="margin-top:0.5rem;">
+                    <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.88rem;cursor:pointer;">
+                        <input type="checkbox" name="force_override" value="1">
+                        <i class="bi bi-shield-exclamation" style="color:var(--warning);"></i>
+                        Forcer l'opération même si les fonds sont insuffisants
+                    </label>
+                </div>
+                <?php endif; ?>
                 <button type="submit" class="btn btn-primary btn-block">
                     <i class="bi bi-credit-card"></i> Enregistrer le débit différé
                 </button>
