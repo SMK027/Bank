@@ -262,16 +262,16 @@ class AccountController extends Controller
             }
             unset($dd);
 
-            // Débits différés exécutés (< 7 jours pour utilisateurs, tous pour modérateurs)
-            $executedDeferredDebits = $isModerator
-                ? $this->deferredDebitModel->getExecutedByAccount($accountId)
-                : $this->deferredDebitModel->getRecentlyExecutedByAccount($accountId);
-            foreach ($executedDeferredDebits as &$dd) {
-                $authorId = (int) ($dd['user_id'] ?? 0);
-                $author   = $this->userModel->find($authorId);
-                $dd['author_name'] = $author ? $author['username'] : 'Inconnu';
+            // Débits différés exécutés (modérateurs uniquement)
+            if ($isModerator) {
+                $executedDeferredDebits = $this->deferredDebitModel->getExecutedByAccount($accountId);
+                foreach ($executedDeferredDebits as &$dd) {
+                    $authorId = (int) ($dd['user_id'] ?? 0);
+                    $author   = $this->userModel->find($authorId);
+                    $dd['author_name'] = $author ? $author['username'] : 'Inconnu';
+                }
+                unset($dd);
             }
-            unset($dd);
         }
 
         // Intérêts accumulés en cours d'année (TWAB Jan 1 → aujourd'hui)

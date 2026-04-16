@@ -1023,9 +1023,6 @@
         <h4 style="margin-bottom:0.6rem;font-size:0.95rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">
             <i class="bi bi-credit-card-2-back"></i> Débits différés exécutés
             <span class="badge badge-secondary"><?= count($executedDeferredDebits) ?></span>
-            <?php if (!$isModerator): ?>
-                <span style="font-size:0.75rem;font-weight:400;color:var(--text-muted);margin-left:0.4rem;">(&lt; 7 jours)</span>
-            <?php endif; ?>
         </h4>
         <div class="table-responsive" style="margin-bottom:1.25rem;">
             <table class="table">
