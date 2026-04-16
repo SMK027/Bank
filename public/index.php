@@ -101,6 +101,7 @@ $router->post('/accounts/{accountId}/transactions/{transactionId}/delete', Trans
 
 // --- Débits différés ---
 $router->post('/accounts/{accountId}/deferred-debits', TransactionController::class, 'createDeferredDebit');
+$router->post('/accounts/{accountId}/deferred-debits/{debitId}/edit', TransactionController::class, 'editDeferredDebit');
 $router->post('/accounts/{accountId}/deferred-debits/{debitId}/cancel', TransactionController::class, 'cancelDeferredDebit');
 
 // --- Virements ---

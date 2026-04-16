@@ -347,4 +347,70 @@ class TransactionController extends Controller
         $this->setFlash('success', 'Opération à débit différé annulée.');
         $this->redirect('/accounts/' . $accountId);
     }
+
+    /**
+     * Modifier les dates d'une opération à débit différé en attente.
+     */
+    public function editDeferredDebit(string $accountId, string $debitId): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+
+        $accId  = (int) $accountId;
+        $ddId   = (int) $debitId;
+        $userId = $this->getCurrentUserId();
+
+        if (!$this->isModerator() && !$this->accountModel->hasAccess($accId, $userId)) {
+            $this->setFlash('danger', 'Accès refusé.');
+            $this->redirect('/dashboard');
+            return;
+        }
+
+        $dd = $this->deferredDebitModel->find($ddId);
+        if (!$dd || (int) $dd['account_id'] !== $accId || $dd['status'] !== DeferredDebit::STATUS_PENDING) {
+            $this->setFlash('danger', 'Opération introuvable ou déjà traitée.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $data = $this->getPostData(['operation_date', 'period_end_date']);
+        $updates = [];
+
+        // Date d'opération
+        if (!empty($data['operation_date'])) {
+            $dtOp = parse_datetime_input($data['operation_date']);
+            if (!$dtOp) {
+                $this->setFlash('danger', 'Date d\'opération invalide (format : jj/mm/aaaa hh:mm).');
+                $this->redirect('/accounts/' . $accountId);
+                return;
+            }
+            $updates['operation_date'] = $dtOp->format('Y-m-d H:i:s');
+        }
+
+        // Date de fin de période
+        if (!empty($data['period_end_date'])) {
+            $dtPeriod = parse_datetime_input($data['period_end_date']);
+            if (!$dtPeriod) {
+                $this->setFlash('danger', 'Date de fin de période invalide (format : jj/mm/aaaa).');
+                $this->redirect('/accounts/' . $accountId);
+                return;
+            }
+            if ($dtPeriod->format('Y-m-d') < date('Y-m-d')) {
+                $this->setFlash('danger', 'La date de fin de période doit être aujourd\'hui ou dans le futur.');
+                $this->redirect('/accounts/' . $accountId);
+                return;
+            }
+            $updates['period_end_date'] = $dtPeriod->format('Y-m-d');
+        }
+
+        if (empty($updates)) {
+            $this->setFlash('warning', 'Aucune modification apportée.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $this->deferredDebitModel->update($ddId, $updates);
+        $this->setFlash('success', 'Opération à débit différé modifiée.');
+        $this->redirect('/accounts/' . $accountId);
+    }
 }

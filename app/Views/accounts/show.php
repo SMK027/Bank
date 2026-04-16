@@ -927,18 +927,39 @@
                             <?php $isDue = $dd['period_end_date'] <= date('Y-m-d'); ?>
                             <tr style="opacity:0.85;font-style:italic;">
                                 <td>
-                                    <i class="bi bi-credit-card" style="color:var(--info,#3b82f6);"></i>
-                                    <?= date('d/m/Y H:i', strtotime($dd['operation_date'])) ?>
+                                    <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/deferred-debits/<?= (int) $dd['id'] ?>/edit"
+                                          style="display:flex;align-items:center;gap:0.3rem;">
+                                        <?= csrf_field() ?>
+                                        <i class="bi bi-credit-card" style="color:var(--info,#3b82f6);flex-shrink:0;"></i>
+                                        <input type="text" name="operation_date"
+                                               value="<?= e(date('d/m/Y H:i', strtotime($dd['operation_date']))) ?>"
+                                               placeholder="jj/mm/aaaa hh:mm"
+                                               style="font-size:0.78rem;padding:0.2rem 0.4rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);width:125px">
+                                        <button type="submit" class="btn btn-outline btn-sm" style="padding:0.15rem 0.35rem;font-size:0.72rem;" title="Modifier la date d'opération">
+                                            <i class="bi bi-check-lg"></i>
+                                        </button>
+                                    </form>
                                 </td>
                                 <td>
-                                    <?php if ($isDue): ?>
-                                        <i class="bi bi-hourglass-split" style="color:var(--danger);"></i>
-                                        <strong style="color:var(--danger);"><?= date('d/m/Y', strtotime($dd['period_end_date'])) ?></strong>
-                                        <br><small class="text-danger" style="font-style:normal;">En attente d'exécution</small>
-                                    <?php else: ?>
-                                        <i class="bi bi-clock" style="color:var(--warning,#f59e0b);"></i>
-                                        <?= date('d/m/Y', strtotime($dd['period_end_date'])) ?>
-                                    <?php endif; ?>
+                                    <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/deferred-debits/<?= (int) $dd['id'] ?>/edit"
+                                          style="display:flex;align-items:center;gap:0.3rem;">
+                                        <?= csrf_field() ?>
+                                        <?php if ($isDue): ?>
+                                            <i class="bi bi-hourglass-split" style="color:var(--danger);flex-shrink:0;"></i>
+                                        <?php else: ?>
+                                            <i class="bi bi-clock" style="color:var(--warning,#f59e0b);flex-shrink:0;"></i>
+                                        <?php endif; ?>
+                                        <input type="text" name="period_end_date"
+                                               value="<?= e(date('d/m/Y', strtotime($dd['period_end_date']))) ?>"
+                                               placeholder="jj/mm/aaaa"
+                                               style="font-size:0.78rem;padding:0.2rem 0.4rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);width:95px">
+                                        <button type="submit" class="btn btn-outline btn-sm" style="padding:0.15rem 0.35rem;font-size:0.72rem;" title="Modifier la date de fin de période">
+                                            <i class="bi bi-check-lg"></i>
+                                        </button>
+                                        <?php if ($isDue): ?>
+                                            <br><small class="text-danger" style="font-style:normal;">En attente</small>
+                                        <?php endif; ?>
+                                    </form>
                                 </td>
                                 <td><?= e($dd['category']) ?></td>
                                 <td>
