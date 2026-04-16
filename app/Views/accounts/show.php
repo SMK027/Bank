@@ -513,10 +513,12 @@
                         if (!empty($deferredDebitDay)) {
                             $day   = (int) $deferredDebitDay;
                             $now   = new DateTime();
-                            $thisMonth = (int) $now->format('j') < $day
+                            $targetMonth = (int) $now->format('j') < $day
                                 ? $now->format('Y-m')
                                 : $now->modify('+1 month')->format('Y-m');
-                            $ddSuggest = date('d/m/Y', strtotime($thisMonth . '-' . str_pad((string) $day, 2, '0', STR_PAD_LEFT)));
+                            $lastDay = (int) date('t', strtotime($targetMonth . '-01'));
+                            $actualDay = min($day, $lastDay);
+                            $ddSuggest = date('d/m/Y', strtotime($targetMonth . '-' . str_pad((string) $actualDay, 2, '0', STR_PAD_LEFT)));
                         }
                         ?>
                         <input type="text" id="dd-period-end" name="period_end_date" class="form-control"

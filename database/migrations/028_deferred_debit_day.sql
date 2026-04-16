@@ -3,4 +3,4 @@
 
 ALTER TABLE `accounts`
     ADD COLUMN `deferred_debit_day` TINYINT UNSIGNED DEFAULT NULL
-        COMMENT 'Jour du mois (1-28) pour le débit différé automatique';
+        COMMENT 'Jour du mois (1-31) pour le débit différé automatique';

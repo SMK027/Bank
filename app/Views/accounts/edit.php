@@ -104,7 +104,7 @@
                     </label>
                     <select id="deferred_debit_day" name="deferred_debit_day" class="form-control">
                         <option value="">— Non défini —</option>
-                        <?php for ($d = 1; $d <= 28; $d++): ?>
+                        <?php for ($d = 1; $d <= 31; $d++): ?>
                             <option value="<?= $d ?>" <?= (int) ($account['deferred_debit_day'] ?? 0) === $d ? 'selected' : '' ?>><?= $d ?></option>
                         <?php endfor; ?>
                     </select>

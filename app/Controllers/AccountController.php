@@ -440,7 +440,7 @@ class AccountController extends Controller
             return null;
         }
         $day = (int) $value;
-        return ($day >= 1 && $day <= 28) ? $day : null;
+        return ($day >= 1 && $day <= 31) ? $day : null;
     }
 
     /**
