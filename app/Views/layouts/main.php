@@ -21,37 +21,45 @@
 
             <div class="navbar-menu" id="navMenu">
                 <?php if (is_authenticated()): ?>
-                    <a href="/dashboard" class="navbar-link"><i class="bi bi-speedometer2"></i> Tableau de bord</a>
-                    <a href="/accounts/create" class="navbar-link"><i class="bi bi-plus-circle"></i> Nouveau compte</a>
-                    <a href="/transfers/create" class="navbar-link"><i class="bi bi-arrow-left-right"></i> Virement</a>
-                    <a href="/tickets" class="navbar-link"><i class="bi bi-ticket-perforated"></i> Mes demandes</a>
                     <?php
                         $__convModel    = new \App\Models\Conversation();
                         $__unreadMsgs   = $__convModel->countTotalUnread((int) current_user_id());
-                    ?>
-                    <a href="/messages" class="navbar-link" title="Messagerie">
-                        <i class="bi bi-envelope<?= $__unreadMsgs > 0 ? '-fill' : '' ?>"></i> Messagerie
-                        <?php if ($__unreadMsgs > 0): ?>
-                            <span class="notif-badge"><?= $__unreadMsgs > 99 ? '99+' : $__unreadMsgs ?></span>
-                        <?php endif; ?>
-                    </a>
-                    <?php if (is_moderator()): ?>
-                    <a href="/moderation" class="navbar-link navbar-link-mod"><i class="bi bi-shield-check"></i> Modération</a>
-                    <?php endif; ?>
-                    <?php
                         $__notifModel   = new \App\Models\Notification();
                         $__unreadNotifs = $__notifModel->countUnread((int) current_user_id());
                     ?>
-                    <a href="/notifications" class="navbar-link navbar-notif-link" title="Notifications">
-                        <i class="bi bi-bell<?= $__unreadNotifs > 0 ? '-fill' : '' ?>"></i>
-                        <?php if ($__unreadNotifs > 0): ?>
-                            <span class="notif-badge"><?= $__unreadNotifs > 99 ? '99+' : $__unreadNotifs ?></span>
+
+                    <!-- Liens principaux -->
+                    <div class="navbar-group navbar-nav-links">
+                        <a href="/dashboard" class="navbar-link"><i class="bi bi-speedometer2"></i> <span class="nav-label">Tableau de bord</span></a>
+                        <a href="/accounts/create" class="navbar-link"><i class="bi bi-plus-circle"></i> <span class="nav-label">Nouveau compte</span></a>
+                        <a href="/transfers/create" class="navbar-link"><i class="bi bi-arrow-left-right"></i> <span class="nav-label">Virement</span></a>
+                        <a href="/tickets" class="navbar-link"><i class="bi bi-ticket-perforated"></i> <span class="nav-label">Demandes</span></a>
+                        <?php if (is_moderator()): ?>
+                        <a href="/moderation" class="navbar-link navbar-link-mod"><i class="bi bi-shield-check"></i> <span class="nav-label">Modération</span></a>
                         <?php endif; ?>
-                    </a>
-                    <div class="navbar-user">
+                    </div>
+
+                    <!-- Icônes rapides (messagerie + notifications) -->
+                    <div class="navbar-group navbar-quick-icons">
+                        <a href="/messages" class="navbar-icon-link" title="Messagerie">
+                            <i class="bi bi-envelope<?= $__unreadMsgs > 0 ? '-fill' : '' ?>"></i>
+                            <?php if ($__unreadMsgs > 0): ?>
+                                <span class="notif-badge"><?= $__unreadMsgs > 99 ? '99+' : $__unreadMsgs ?></span>
+                            <?php endif; ?>
+                        </a>
+                        <a href="/notifications" class="navbar-icon-link" title="Notifications">
+                            <i class="bi bi-bell<?= $__unreadNotifs > 0 ? '-fill' : '' ?>"></i>
+                            <?php if ($__unreadNotifs > 0): ?>
+                                <span class="notif-badge"><?= $__unreadNotifs > 99 ? '99+' : $__unreadNotifs ?></span>
+                            <?php endif; ?>
+                        </a>
+                    </div>
+
+                    <!-- Utilisateur -->
+                    <div class="navbar-group navbar-user">
                         <a href="/profile" class="navbar-link navbar-profile-link">
                             <span class="navbar-avatar navbar-avatar-placeholder"><?= strtoupper(substr(current_username(), 0, 1)) ?></span>
-                            <?= e(current_username()) ?>
+                            <span class="nav-label"><?= e(current_username()) ?></span>
                         </a>
                         <a href="/logout" class="btn btn-sm btn-outline">Déconnexion</a>
                     </div>
