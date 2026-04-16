@@ -25,6 +25,16 @@
                     <a href="/accounts/create" class="navbar-link"><i class="bi bi-plus-circle"></i> Nouveau compte</a>
                     <a href="/transfers/create" class="navbar-link"><i class="bi bi-arrow-left-right"></i> Virement</a>
                     <a href="/tickets" class="navbar-link"><i class="bi bi-ticket-perforated"></i> Mes demandes</a>
+                    <?php
+                        $__convModel    = new \App\Models\Conversation();
+                        $__unreadMsgs   = $__convModel->countTotalUnread((int) current_user_id());
+                    ?>
+                    <a href="/messages" class="navbar-link" title="Messagerie">
+                        <i class="bi bi-envelope<?= $__unreadMsgs > 0 ? '-fill' : '' ?>"></i> Messagerie
+                        <?php if ($__unreadMsgs > 0): ?>
+                            <span class="notif-badge"><?= $__unreadMsgs > 99 ? '99+' : $__unreadMsgs ?></span>
+                        <?php endif; ?>
+                    </a>
                     <?php if (is_moderator()): ?>
                     <a href="/moderation" class="navbar-link navbar-link-mod"><i class="bi bi-shield-check"></i> Modération</a>
                     <?php endif; ?>

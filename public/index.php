@@ -28,6 +28,7 @@ use App\Controllers\TicketController;
 use App\Controllers\NotificationController;
 use App\Controllers\AuditLogController;
 use App\Controllers\SavingsInterestController;
+use App\Controllers\MessageController;
 
 // Démarrer la session
 Session::start();
@@ -172,6 +173,17 @@ $router->get('/moderation/tickets', ModerationController::class, 'ticketIndex');
 $router->get('/moderation/tickets/{id}', ModerationController::class, 'ticketShow');
 $router->post('/moderation/tickets/{id}/reply', ModerationController::class, 'ticketReply');
 $router->post('/moderation/tickets/{id}/status', ModerationController::class, 'ticketUpdateStatus');
+
+// --- Messagerie interne ---
+$router->get('/messages', MessageController::class, 'index');
+$router->get('/messages/create', MessageController::class, 'createForm');
+$router->post('/messages', MessageController::class, 'store');
+$router->get('/messages/search-users', MessageController::class, 'searchUsers');
+$router->get('/messages/{id}', MessageController::class, 'show');
+$router->post('/messages/{id}/reply', MessageController::class, 'reply');
+$router->post('/messages/{id}/close', MessageController::class, 'close');
+$router->post('/messages/{id}/reopen', MessageController::class, 'reopen');
+$router->post('/messages/{id}/add-participant', MessageController::class, 'addParticipant');
 
 // --- Notifications ---
 $router->get('/notifications', NotificationController::class, 'index');

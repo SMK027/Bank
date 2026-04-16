@@ -60,6 +60,7 @@ class Notification extends Model
         'mod_transfer_pending'  => 'bi-arrow-left-right text-primary',
         'mod_direct_debit_due'  => 'bi-file-earmark-arrow-down text-warning',
         'interest_pending'      => 'bi-percent text-success',
+        'new_message'           => 'bi-envelope-fill text-primary',
     ];
 
     // ── Création ─────────────────────────────────────────────────────────────
