@@ -320,6 +320,7 @@ class AccountController extends Controller
             'accruedInterest'    => $accruedInterest,
             'deferredDebitEnabled'  => $deferredDebitEnabled,
             'pendingDeferredDebits' => $pendingDeferredDebits,
+            'deferredDebitDay'      => $deferredDebitEnabled ? ($account['deferred_debit_day'] ?? null) : null,
         ]);
     }
 
@@ -376,7 +377,7 @@ class AccountController extends Controller
             return;
         }
 
-        $data = $this->getPostData(['name', 'currency', 'overdraft', 'account_type', 'cap', 'balance_alert_threshold', 'interest_rate']);
+        $data = $this->getPostData(['name', 'currency', 'overdraft', 'account_type', 'cap', 'balance_alert_threshold', 'interest_rate', 'deferred_debit_day']);
 
         if (empty($data['name']) || empty($data['currency'])) {
             $this->setFlash('danger', 'Le nom et la devise sont requis.');
@@ -419,11 +420,27 @@ class AccountController extends Controller
                 'cap'                     => $cap,
                 'balance_alert_threshold' => $alertThreshold,
                 'interest_rate'           => $interestRate,
+                'deferred_debit_day'      => $this->parseDeferredDebitDay($data['deferred_debit_day'] ?? null, $account),
             ]);
         }
 
         $this->setFlash('success', 'Compte modifié avec succès.');
         $this->redirect('/accounts/' . $id);
+    }
+
+    /**
+     * Parse et valide le jour préféré de débit différé (1-28 ou null).
+     */
+    private function parseDeferredDebitDay(?string $value, array $account): ?int
+    {
+        if (!$account['deferred_debit_enabled']) {
+            return $account['deferred_debit_day'] ?? null;
+        }
+        if ($value === null || $value === '') {
+            return null;
+        }
+        $day = (int) $value;
+        return ($day >= 1 && $day <= 28) ? $day : null;
     }
 
     /**

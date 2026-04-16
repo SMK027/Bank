@@ -97,6 +97,24 @@
                 </div>
                 <?php endif; ?>
 
+                <?php if (!empty($account['deferred_debit_enabled'])): ?>
+                <div class="form-group" id="deferred-debit-day-group">
+                    <label for="deferred_debit_day" class="form-label">
+                        <i class="bi bi-credit-card"></i> Jour de débit carte (mensuel)
+                    </label>
+                    <select id="deferred_debit_day" name="deferred_debit_day" class="form-control">
+                        <option value="">— Non défini —</option>
+                        <?php for ($d = 1; $d <= 28; $d++): ?>
+                            <option value="<?= $d ?>" <?= (int) ($account['deferred_debit_day'] ?? 0) === $d ? 'selected' : '' ?>><?= $d ?></option>
+                        <?php endfor; ?>
+                    </select>
+                    <span class="form-hint">
+                        Jour du mois où tous vos encours carte seront débités.
+                        Cette date sera pré-remplie automatiquement lors de vos prochaines opérations à débit différé.
+                    </span>
+                </div>
+                <?php endif; ?>
+
                 <div class="form-group">
                     <button type="submit" class="btn btn-primary btn-block">
                         <i class="bi bi-check-lg"></i> Enregistrer les modifications

@@ -508,9 +508,29 @@
                         <label for="dd-period-end" class="form-label">
                             <i class="bi bi-calendar-event"></i> Date de fin de période <span style="color:var(--danger);">*</span>
                         </label>
+                        <?php
+                        $ddSuggest = '';
+                        if (!empty($deferredDebitDay)) {
+                            $day   = (int) $deferredDebitDay;
+                            $now   = new DateTime();
+                            $thisMonth = (int) $now->format('j') < $day
+                                ? $now->format('Y-m')
+                                : $now->modify('+1 month')->format('Y-m');
+                            $ddSuggest = date('d/m/Y', strtotime($thisMonth . '-' . str_pad((string) $day, 2, '0', STR_PAD_LEFT)));
+                        }
+                        ?>
                         <input type="text" id="dd-period-end" name="period_end_date" class="form-control"
-                               placeholder="jj/mm/aaaa" required>
-                        <span class="form-hint">Date à laquelle l'opération sera débitée.</span>
+                               placeholder="jj/mm/aaaa" required
+                               value="<?= e($ddSuggest) ?>">
+                        <span class="form-hint">
+                            Date à laquelle l'opération sera débitée.
+                            <?php if ($ddSuggest): ?>
+                                <br><i class="bi bi-info-circle"></i> Pré-remplie au <strong><?= (int) $deferredDebitDay ?></strong> du mois
+                                d'après vos <a href="/accounts/<?= (int) $account['id'] ?>/edit">préférences</a>.
+                            <?php else: ?>
+                                <br><i class="bi bi-lightbulb"></i> <a href="/accounts/<?= (int) $account['id'] ?>/edit">Définissez votre jour de débit mensuel</a> pour pré-remplir ce champ.
+                            <?php endif; ?>
+                        </span>
                     </div>
                 </div>
                 <button type="submit" class="btn btn-primary btn-block">
