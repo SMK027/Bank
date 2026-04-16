@@ -112,10 +112,10 @@ class Conversation extends Model
     public function markRead(int $conversationId, int $userId): void
     {
         $stmt = $this->getPdo()->prepare(
-            'UPDATE `conversation_participants` SET `last_read_at` = NOW()
+            'UPDATE `conversation_participants` SET `last_read_at` = ?
              WHERE `conversation_id` = ? AND `user_id` = ?'
         );
-        $stmt->execute([$conversationId, $userId]);
+        $stmt->execute([date('Y-m-d H:i:s'), $conversationId, $userId]);
     }
 
     /**
