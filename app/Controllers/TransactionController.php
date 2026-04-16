@@ -364,16 +364,16 @@ class TransactionController extends Controller
             return;
         }
 
-        // Vérification des fonds disponibles (solde + découvert autorisé)
-        $currentBalance = $this->accountModel->getBalance($accId);
-        $overdraft      = (float) ($account['overdraft'] ?? 0);
-        $available      = $currentBalance + $overdraft;
+        // Vérification des fonds disponibles (solde à venir + découvert autorisé)
+        $futureBalance = $this->accountModel->getFutureBalance($accId);
+        $overdraft     = (float) ($account['overdraft'] ?? 0);
+        $available     = $futureBalance + $overdraft;
 
         if ($amount > $available) {
             if (!$this->isModerator() || empty($data['force_override'])) {
                 $this->setFlash('danger', sprintf(
-                    'Fonds insuffisants. Solde disponible : %.2f € (solde %.2f € + découvert %.2f €). Montant demandé : %.2f €.',
-                    $available, $currentBalance, $overdraft, $amount
+                    'Fonds insuffisants. Solde à venir : %.2f € (+ découvert %.2f € = %.2f € disponibles). Montant demandé : %.2f €.',
+                    $futureBalance, $overdraft, $available, $amount
                 ));
                 $this->redirect('/accounts/' . $accountId);
                 return;
