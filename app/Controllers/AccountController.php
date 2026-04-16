@@ -252,9 +252,21 @@ class AccountController extends Controller
         // Débits différés en attente (encours carte)
         $pendingDeferredDebits = [];
         $deferredDebitEnabled  = !empty($account['deferred_debit_enabled']);
+        $executedDeferredDebits = [];
         if ($deferredDebitEnabled) {
             $pendingDeferredDebits = $this->deferredDebitModel->getPendingByAccount($accountId);
             foreach ($pendingDeferredDebits as &$dd) {
+                $authorId = (int) ($dd['user_id'] ?? 0);
+                $author   = $this->userModel->find($authorId);
+                $dd['author_name'] = $author ? $author['username'] : 'Inconnu';
+            }
+            unset($dd);
+
+            // Débits différés exécutés (< 7 jours pour utilisateurs, tous pour modérateurs)
+            $executedDeferredDebits = $isModerator
+                ? $this->deferredDebitModel->getExecutedByAccount($accountId)
+                : $this->deferredDebitModel->getRecentlyExecutedByAccount($accountId);
+            foreach ($executedDeferredDebits as &$dd) {
                 $authorId = (int) ($dd['user_id'] ?? 0);
                 $author   = $this->userModel->find($authorId);
                 $dd['author_name'] = $author ? $author['username'] : 'Inconnu';
@@ -318,9 +330,10 @@ class AccountController extends Controller
             'linkedTxIds'        => $linkedTxIds,
             'recurringTransfers' => $recurringTransfers,
             'accruedInterest'    => $accruedInterest,
-            'deferredDebitEnabled'  => $deferredDebitEnabled,
-            'pendingDeferredDebits' => $pendingDeferredDebits,
-            'deferredDebitDay'      => $deferredDebitEnabled ? ($account['deferred_debit_day'] ?? null) : null,
+            'deferredDebitEnabled'    => $deferredDebitEnabled,
+            'pendingDeferredDebits'  => $pendingDeferredDebits,
+            'executedDeferredDebits' => $executedDeferredDebits,
+            'deferredDebitDay'       => $deferredDebitEnabled ? ($account['deferred_debit_day'] ?? null) : null,
         ]);
     }
 

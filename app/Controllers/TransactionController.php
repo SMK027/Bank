@@ -367,10 +367,29 @@ class TransactionController extends Controller
         }
 
         $dd = $this->deferredDebitModel->find($ddId);
-        if (!$dd || (int) $dd['account_id'] !== $accId || $dd['status'] !== DeferredDebit::STATUS_PENDING) {
-            $this->setFlash('danger', 'Opération introuvable ou déjà traitée.');
+        if (!$dd || (int) $dd['account_id'] !== $accId) {
+            $this->setFlash('danger', 'Opération introuvable.');
             $this->redirect('/accounts/' . $accountId);
             return;
+        }
+
+        $isExecuted = $dd['status'] === DeferredDebit::STATUS_EXECUTED;
+        $isPending  = $dd['status'] === DeferredDebit::STATUS_PENDING;
+
+        if (!$isPending && !$isExecuted) {
+            $this->setFlash('danger', 'Cette opération ne peut plus être modifiée.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        // Les utilisateurs ne peuvent modifier les DD exécutés que dans les 7 jours
+        if ($isExecuted && !$this->isModerator()) {
+            $executedAt = strtotime($dd['executed_at'] ?? '');
+            if (!$executedAt || (time() - $executedAt) > 7 * 86400) {
+                $this->setFlash('danger', 'Cette opération a été exécutée il y a plus de 7 jours et ne peut plus être modifiée.');
+                $this->redirect('/accounts/' . $accountId);
+                return;
+            }
         }
 
         $data = $this->getPostData(['operation_date', 'period_end_date']);
@@ -395,7 +414,8 @@ class TransactionController extends Controller
                 $this->redirect('/accounts/' . $accountId);
                 return;
             }
-            if ($dtPeriod->format('Y-m-d') < date('Y-m-d')) {
+            // Pour les DD en attente, la date doit être dans le futur
+            if ($isPending && $dtPeriod->format('Y-m-d') < date('Y-m-d')) {
                 $this->setFlash('danger', 'La date de fin de période doit être aujourd\'hui ou dans le futur.');
                 $this->redirect('/accounts/' . $accountId);
                 return;
@@ -410,6 +430,14 @@ class TransactionController extends Controller
         }
 
         $this->deferredDebitModel->update($ddId, $updates);
+
+        // Pour les DD exécutés, mettre à jour la transaction liée
+        if ($isExecuted && !empty($dd['transaction_id']) && isset($updates['operation_date'])) {
+            $this->transactionModel->update((int) $dd['transaction_id'], [
+                'created_at' => $updates['operation_date'],
+            ]);
+        }
+
         $this->setFlash('success', 'Opération à débit différé modifiée.');
         $this->redirect('/accounts/' . $accountId);
     }

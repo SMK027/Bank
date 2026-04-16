@@ -87,4 +87,35 @@ class DeferredDebit extends Model
     {
         return $this->update($id, ['status' => self::STATUS_CANCELLED]);
     }
+
+    /**
+     * Débits différés exécutés récemment pour un compte (< $days jours).
+     */
+    public function getRecentlyExecutedByAccount(int $accountId, int $days = 7): array
+    {
+        $stmt = $this->getPdo()->prepare(
+            "SELECT * FROM `{$this->table}`
+             WHERE account_id = :account_id AND status = :status
+               AND executed_at >= DATE_SUB(NOW(), INTERVAL :days DAY)
+             ORDER BY executed_at DESC"
+        );
+        $stmt->execute([
+            'account_id' => $accountId,
+            'status'     => self::STATUS_EXECUTED,
+            'days'       => $days,
+        ]);
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Tous les débits différés exécutés pour un compte (pour modérateurs).
+     */
+    public function getExecutedByAccount(int $accountId): array
+    {
+        return $this->findBy(
+            ['account_id' => $accountId, 'status' => self::STATUS_EXECUTED],
+            'executed_at',
+            'DESC'
+        );
+    }
 }
