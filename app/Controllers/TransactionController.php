@@ -525,14 +525,19 @@ class TransactionController extends Controller
 
         $this->deferredDebitModel->update($ddId, $updates);
 
-        // Pour les DD exécutés, mettre à jour la transaction liée
-        if ($isExecuted && !empty($dd['transaction_id']) && isset($updates['operation_date'])) {
-            $this->transactionModel->update((int) $dd['transaction_id'], [
-                'created_at' => $updates['operation_date'],
+        // Pour les DD exécutés, supprimer la transaction liée et repasser en attente
+        if ($isExecuted && !empty($dd['transaction_id'])) {
+            $this->transactionModel->delete((int) $dd['transaction_id']);
+            $this->deferredDebitModel->update($ddId, [
+                'status'         => DeferredDebit::STATUS_PENDING,
+                'transaction_id' => null,
+                'executed_at'    => null,
             ]);
+            $this->setFlash('success', 'Débit différé modifié. L\'opération associée a été supprimée et le débit sera ré-exécuté à la prochaine échéance.');
+        } else {
+            $this->setFlash('success', 'Opération à débit différé modifiée.');
         }
 
-        $this->setFlash('success', 'Opération à débit différé modifiée.');
         $this->redirect('/accounts/' . $accountId);
     }
 }
