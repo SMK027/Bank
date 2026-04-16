@@ -218,6 +218,88 @@ class TransactionController extends Controller
         $this->redirect('/accounts/' . $accountId);
     }
 
+    // ── MODIFICATION DE TRANSACTIONS ─────────────────────────────────────────
+
+    /**
+     * Modifier les dates d'une transaction exécutée.
+     * Utilisateurs : dans les 7 jours. Modérateurs : toutes.
+     * Transactions liées (virements/prélèvements) : non modifiables.
+     */
+    public function editTransaction(string $accountId, string $transactionId): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+
+        $accId = (int) $accountId;
+        $txId  = (int) $transactionId;
+        $userId = $this->getCurrentUserId();
+
+        if (!$this->isModerator() && !$this->accountModel->hasAccess($accId, $userId)) {
+            $this->setFlash('danger', 'Accès refusé.');
+            $this->redirect('/dashboard');
+            return;
+        }
+
+        $transaction = $this->transactionModel->find($txId);
+        if (!$transaction || (int) $transaction['account_id'] !== $accId) {
+            $this->setFlash('danger', 'Transaction introuvable.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        // Transactions liées à un virement/prélèvement : non modifiables
+        if ($this->transactionModel->getProtectedIds([$txId]) !== []) {
+            $this->setFlash('danger', 'Cette transaction est liée à un virement ou un prélèvement et ne peut pas être modifiée directement.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        // Utilisateurs : uniquement les transactions des 7 derniers jours
+        if (!$this->isModerator()) {
+            $createdAt = strtotime($transaction['created_at'] ?? '');
+            if (!$createdAt || (time() - $createdAt) > 7 * 86400) {
+                $this->setFlash('danger', 'Cette opération date de plus de 7 jours et ne peut plus être modifiée.');
+                $this->redirect('/accounts/' . $accountId);
+                return;
+            }
+        }
+
+        $data = $this->getPostData(['created_at', 'scheduled_at']);
+        $updates = [];
+
+        // Date d'enregistrement
+        if (!empty($data['created_at'])) {
+            $dtCreated = parse_datetime_input($data['created_at']);
+            if (!$dtCreated) {
+                $this->setFlash('danger', 'Date d\'enregistrement invalide (format : jj/mm/aaaa hh:mm).');
+                $this->redirect('/accounts/' . $accountId);
+                return;
+            }
+            $updates['created_at'] = $dtCreated->format('Y-m-d H:i:s');
+        }
+
+        // Date d'exécution (si la transaction était programmée)
+        if (!empty($data['scheduled_at'])) {
+            $dtScheduled = parse_datetime_input($data['scheduled_at']);
+            if (!$dtScheduled) {
+                $this->setFlash('danger', 'Date d\'exécution invalide (format : jj/mm/aaaa hh:mm).');
+                $this->redirect('/accounts/' . $accountId);
+                return;
+            }
+            $updates['scheduled_at'] = $dtScheduled->format('Y-m-d H:i:s');
+        }
+
+        if (empty($updates)) {
+            $this->setFlash('warning', 'Aucune modification apportée.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $this->transactionModel->update($txId, $updates);
+        $this->setFlash('success', 'Dates de l\'opération modifiées.');
+        $this->redirect('/accounts/' . $accountId);
+    }
+
     // ── DÉBITS DIFFÉRÉS ─────────────────────────────────────────────────────
 
     public function createDeferredDebit(string $accountId): void

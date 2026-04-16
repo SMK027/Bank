@@ -1144,11 +1144,52 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($executedTransactions as $t): ?>
+                        <?php foreach ($executedTransactions as $t):
+                            $txIsLinked  = in_array((int) $t['id'], $linkedTxIds ?? []);
+                            $txAge       = time() - strtotime($t['created_at']);
+                            $txEditable  = !$txIsLinked && ($isModerator || $txAge <= 7 * 86400);
+                            $txHasScheduled = !empty($t['scheduled_at']);
+                        ?>
                             <tr data-type="<?= e($t['type']) ?>"
                                 data-amount="<?= e((string) (float) $t['amount']) ?>"
                                 data-author="<?= e($t['author_name']) ?>">
-                                <td><?= date('d/m/Y H:i', strtotime($t['created_at'])) ?></td>
+                                <td>
+                                    <?php if ($txEditable): ?>
+                                        <span class="tx-date-display-<?= (int) $t['id'] ?>">
+                                            <?= date('d/m/Y H:i', strtotime($t['created_at'])) ?>
+                                        </span>
+                                        <form method="POST"
+                                              action="/accounts/<?= (int) $account['id'] ?>/transactions/<?= (int) $t['id'] ?>/edit"
+                                              class="tx-date-form-<?= (int) $t['id'] ?>" style="display:none;">
+                                            <?= csrf_field() ?>
+                                            <div style="display:flex;flex-direction:column;gap:0.3rem;">
+                                                <label style="font-size:0.72rem;color:var(--text-muted);margin:0;">Enregistrement</label>
+                                                <input type="text" name="created_at" class="form-control form-control-sm"
+                                                       placeholder="jj/mm/aaaa hh:mm"
+                                                       value="<?= date('d/m/Y H:i', strtotime($t['created_at'])) ?>"
+                                                       style="width:145px;font-size:0.82rem;">
+                                                <?php if ($txHasScheduled): ?>
+                                                    <label style="font-size:0.72rem;color:var(--text-muted);margin:0;">Exécution</label>
+                                                    <input type="text" name="scheduled_at" class="form-control form-control-sm"
+                                                           placeholder="jj/mm/aaaa hh:mm"
+                                                           value="<?= date('d/m/Y H:i', strtotime($t['scheduled_at'])) ?>"
+                                                           style="width:145px;font-size:0.82rem;">
+                                                <?php endif; ?>
+                                                <div style="display:flex;gap:0.3rem;margin-top:0.15rem;">
+                                                    <button type="submit" class="btn btn-primary btn-sm" style="padding:0.15rem 0.5rem;font-size:0.78rem;">
+                                                        <i class="bi bi-check-lg"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline btn-sm tx-date-cancel" data-tx-id="<?= (int) $t['id'] ?>"
+                                                            style="padding:0.15rem 0.5rem;font-size:0.78rem;">
+                                                        <i class="bi bi-x-lg"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </form>
+                                    <?php else: ?>
+                                        <?= date('d/m/Y H:i', strtotime($t['created_at'])) ?>
+                                    <?php endif; ?>
+                                </td>
                                 <td>
                                     <?php if ($t['type'] === 'income'): ?>
                                         <span class="badge badge-success">Entrée</span>
@@ -1166,17 +1207,24 @@
                                 <td class="text-right font-bold <?= $t['type'] === 'income' ? 'text-success' : 'text-danger' ?>">
                                     <?= $t['type'] === 'income' ? '+' : '-' ?><?= number_format((float) $t['amount'], 2, ',', ' ') ?>
                                 </td>
-                                <td>
-                                    <?php if ($isModerator && !in_array((int) $t['id'], $linkedTxIds ?? [])): ?>
+                                <td style="white-space:nowrap;">
+                                    <?php if ($txEditable): ?>
+                                    <button type="button" class="btn btn-outline btn-sm tx-date-edit" data-tx-id="<?= (int) $t['id'] ?>"
+                                            title="Modifier les dates" style="padding:0.15rem 0.4rem;font-size:0.82rem;">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <?php endif; ?>
+                                    <?php if ($isModerator && !$txIsLinked): ?>
                                     <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/transactions/<?= (int) $t['id'] ?>/delete"
                                           style="display:inline">
                                         <?= csrf_field() ?>
                                         <button type="submit" class="btn btn-outline-danger btn-sm"
-                                                onclick="return confirm('Supprimer cette opération ?')">
+                                                onclick="return confirm('Supprimer cette opération ?')"
+                                                style="padding:0.15rem 0.4rem;font-size:0.82rem;">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
-                                    <?php elseif ($isModerator): ?>
+                                    <?php elseif ($txIsLinked): ?>
                                     <span class="badge badge-secondary" style="font-size:0.7rem;opacity:0.7" title="Liée à un virement ou prélèvement — annuler l'opération parente">
                                         <i class="bi bi-lock"></i>
                                     </span>
@@ -1291,6 +1339,24 @@
                 }
 
                 applyFilters();
+
+                // Toggle inline date editing per transaction
+                document.querySelectorAll('.tx-date-edit').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var txId = this.dataset.txId;
+                        document.querySelector('.tx-date-display-' + txId).style.display = 'none';
+                        var form = document.querySelector('.tx-date-form-' + txId);
+                        form.style.display = '';
+                        if (typeof initFlatpickrs === 'function') initFlatpickrs();
+                    });
+                });
+                document.querySelectorAll('.tx-date-cancel').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var txId = this.dataset.txId;
+                        document.querySelector('.tx-date-display-' + txId).style.display = '';
+                        document.querySelector('.tx-date-form-' + txId).style.display = 'none';
+                    });
+                });
             })();
             </script>
         <?php endif; ?>
