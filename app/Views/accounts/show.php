@@ -527,15 +527,28 @@
                         </label>
                         <?php
                         $ddSuggest = '';
+                        $ddMinDays = 5; // délai minimum (en jours) avant la date de fin de période
                         if (!empty($deferredDebitDay)) {
                             $day   = (int) $deferredDebitDay;
-                            $now   = new DateTime();
-                            $targetMonth = (int) $now->format('j') < $day
-                                ? $now->format('Y-m')
-                                : $now->modify('+1 month')->format('Y-m');
-                            $lastDay = (int) date('t', strtotime($targetMonth . '-01'));
-                            $actualDay = min($day, $lastDay);
-                            $ddSuggest = date('d/m/Y', strtotime($targetMonth . '-' . str_pad((string) $actualDay, 2, '0', STR_PAD_LEFT)));
+                            $now   = new DateTime('today');
+
+                            // Construit une date candidate dans le mois donné (en clampant au dernier jour du mois)
+                            $buildCandidate = static function (DateTime $monthRef, int $configuredDay): DateTime {
+                                $lastDay   = (int) $monthRef->format('t');
+                                $actualDay = min($configuredDay, $lastDay);
+                                return new DateTime($monthRef->format('Y-m-') . str_pad((string) $actualDay, 2, '0', STR_PAD_LEFT));
+                            };
+
+                            // Candidate du mois en cours
+                            $candidate = $buildCandidate($now, $day);
+                            $daysLeft  = (int) $now->diff($candidate)->format('%r%a');
+
+                            // Si le jour configuré est déjà passé ou trop proche, on bascule au mois suivant
+                            if ($daysLeft < $ddMinDays) {
+                                $nextMonth = (clone $now)->modify('first day of next month');
+                                $candidate = $buildCandidate($nextMonth, $day);
+                            }
+                            $ddSuggest = $candidate->format('d/m/Y');
                         }
                         ?>
                         <input type="text" id="dd-period-end" name="period_end_date" class="form-control"
@@ -543,6 +556,7 @@
                                value="<?= e($ddSuggest) ?>">
                         <span class="form-hint">
                             Date à laquelle l'opération sera débitée.
+                            Un délai minimum de <strong><?= (int) ($ddMinDays ?? 5) ?> jours</strong> avant cette date est requis.
                             <?php if ($ddSuggest): ?>
                                 <br><i class="bi bi-info-circle"></i> Pré-remplie au <strong><?= (int) $deferredDebitDay ?></strong> du mois
                                 d'après vos <a href="/accounts/<?= (int) $account['id'] ?>/edit">préférences</a>.

@@ -411,6 +411,19 @@ class TransactionController extends Controller
             $this->redirect('/accounts/' . $accountId);
             return;
         }
+        // Délai minimum de 5 jours avant la date de fin de période
+        $minDelayDays = 5;
+        $today = new DateTime('today');
+        $period = new DateTime($dtPeriod->format('Y-m-d'));
+        $daysUntilPeriod = (int) $today->diff($period)->format('%r%a');
+        if ($daysUntilPeriod < $minDelayDays) {
+            $this->setFlash('danger', sprintf(
+                'La date de fin de période doit être au moins %d jours après aujourd\'hui.',
+                $minDelayDays
+            ));
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
         $periodEndDate = $dtPeriod->format('Y-m-d');
 
         $this->deferredDebitModel->createDeferredDebit(
