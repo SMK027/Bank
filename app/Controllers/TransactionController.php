@@ -413,8 +413,8 @@ class TransactionController extends Controller
         }
         // Délai minimum de 5 jours avant la date de fin de période
         $minDelayDays = 5;
-        $today = new DateTime('today');
-        $period = new DateTime($dtPeriod->format('Y-m-d'));
+        $today = new \DateTime('today');
+        $period = new \DateTime($dtPeriod->format('Y-m-d'));
         $daysUntilPeriod = (int) $today->diff($period)->format('%r%a');
         if ($daysUntilPeriod < $minDelayDays) {
             $this->setFlash('danger', sprintf(
