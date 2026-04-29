@@ -103,8 +103,23 @@ class TestDatabase
                 executed_at     TEXT    DEFAULT NULL,
                 debit_tx_id     INTEGER NOT NULL DEFAULT 0,
                 credit_tx_id    INTEGER NOT NULL DEFAULT 0,
+                from_currency    TEXT    DEFAULT NULL,
+                to_currency      TEXT    DEFAULT NULL,
+                exchange_rate    REAL    DEFAULT NULL,
+                converted_amount REAL    DEFAULT NULL,
                 created_at      TEXT,
                 updated_at      TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS exchange_rates (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                base_currency   TEXT    NOT NULL,
+                target_currency TEXT    NOT NULL,
+                rate            REAL    NOT NULL,
+                fetched_at      TEXT    NOT NULL,
+                created_at      TEXT,
+                updated_at      TEXT,
+                UNIQUE (base_currency, target_currency)
             );
 
             CREATE TABLE IF NOT EXISTS guardianships (

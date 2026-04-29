@@ -116,7 +116,8 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                             <?php if (!empty($ownAccounts)): ?>
                                 <optgroup label="Mes comptes">
                                     <?php foreach ($ownAccounts as $acc): ?>
-                                        <option value="<?= (int) $acc['id'] ?>">
+                                        <option value="<?= (int) $acc['id'] ?>"
+                                                data-currency="<?= e($acc['currency']) ?>">
                                             <?= e($acc['name']) ?>
                                             (<?= number_format((float) ($acc['balance'] ?? 0), 2, ',', ' ') ?> <?= e($acc['currency']) ?>)
                                         </option>
@@ -126,7 +127,8 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                             <?php if (!empty($sharedAccounts)): ?>
                                 <optgroup label="Comptes partagés">
                                     <?php foreach ($sharedAccounts as $acc): ?>
-                                        <option value="<?= (int) $acc['id'] ?>">
+                                        <option value="<?= (int) $acc['id'] ?>"
+                                                data-currency="<?= e($acc['currency']) ?>">
                                             <?= e($acc['name']) ?>
                                             (<?= number_format((float) ($acc['balance'] ?? 0), 2, ',', ' ') ?> <?= e($acc['currency']) ?>)
                                         </option>
@@ -134,6 +136,10 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                                 </optgroup>
                             <?php endif; ?>
                         </select>
+                        <div id="currency-info-p" class="alert alert-info" style="display:none; margin-top:0.5rem; padding:0.5rem 0.75rem; font-size:0.85rem;">
+                            <i class="bi bi-currency-exchange"></i>
+                            <span id="currency-info-p-text"></span>
+                        </div>
                     </div>
 
                     <!-- Montant + Motif -->
@@ -286,6 +292,10 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                         <select id="mod-to" name="to_account_id" class="form-control" required>
                             <option value="">— Tous les comptes disponibles —</option>
                         </select>
+                        <div id="currency-info-m" class="alert alert-info" style="display:none; margin-top:0.5rem; padding:0.5rem 0.75rem; font-size:0.85rem;">
+                            <i class="bi bi-currency-exchange"></i>
+                            <span id="currency-info-m-text"></span>
+                        </div>
                     </div>
 
                     <!-- Montant + Motif -->
@@ -468,6 +478,19 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                     warnFunds.style.display = 'block';
                 }
             }
+            // Indicateur de conversion de devise
+            var curBox = document.getElementById('currency-info-p');
+            var curTxt = document.getElementById('currency-info-p-text');
+            if (curBox && curTxt) {
+                var toOpt = toEl.options[toEl.selectedIndex];
+                var toCur = toOpt ? (toOpt.dataset.currency || '') : '';
+                if (d && d.currency && toCur && d.currency !== toCur && !sameAcc) {
+                    curTxt.textContent = 'Conversion automatique ' + d.currency + ' → ' + toCur + ' au taux du jour. Le compte destinataire sera crédité du montant converti.';
+                    curBox.style.display = 'block';
+                } else {
+                    curBox.style.display = 'none';
+                }
+            }
             var dateErr = !checkSchedDate('p');
             submitBtn.disabled = sameAcc || fundErr || dateErr;
         }
@@ -614,6 +637,20 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                         warnMText.textContent = 'Fonds insuffisants. Solde prévu : ' + fmt2(newBal, d.currency) + ' (dépassement du découvert de ' + fmt2(d.overdraft, d.currency) + ').';
                     }
                     warnMFunds.style.display = 'block';
+                }
+            }
+
+            // Indicateur de conversion de devise (modération)
+            var curBoxM = document.getElementById('currency-info-m');
+            var curTxtM = document.getElementById('currency-info-m-text');
+            if (curBoxM && curTxtM) {
+                var toOptM = modTo.options[modTo.selectedIndex];
+                var toCurM = toOptM ? (toOptM.dataset.currency || '') : '';
+                if (d && d.currency && toCurM && d.currency !== toCurM && !sameAcc) {
+                    curTxtM.textContent = 'Conversion automatique ' + d.currency + ' → ' + toCurM + ' au taux du jour. Le compte destinataire sera crédité du montant converti.';
+                    curBoxM.style.display = 'block';
+                } else {
+                    curBoxM.style.display = 'none';
                 }
             }
 

@@ -42,30 +42,42 @@ class Transfer extends Model
 
     /**
      * Crée un enregistrement de virement.
+     *
+     * Les paramètres $fromCurrency, $toCurrency, $exchangeRate et $convertedAmount
+     * permettent de tracer une éventuelle conversion de devise lorsque les comptes
+     * émetteur et destinataire n'utilisent pas la même devise.
      */
     public function createTransfer(
         int     $fromAccountId,
         int     $toAccountId,
         int     $userId,
         float   $amount,
-        string  $motif        = '',
-        ?string $scheduledAt  = null,
-        int     $debitTxId    = 0,
-        int     $creditTxId   = 0
+        string  $motif           = '',
+        ?string $scheduledAt     = null,
+        int     $debitTxId       = 0,
+        int     $creditTxId      = 0,
+        ?string $fromCurrency    = null,
+        ?string $toCurrency      = null,
+        ?float  $exchangeRate    = null,
+        ?float  $convertedAmount = null
     ): int {
         $status = $scheduledAt !== null ? self::STATUS_SCHEDULED : self::STATUS_SUCCESS;
 
         return $this->create([
-            'from_account_id' => $fromAccountId,
-            'to_account_id'   => $toAccountId,
-            'user_id'         => $userId,
-            'amount'          => $amount,
-            'motif'           => $motif,
-            'status'          => $status,
-            'scheduled_at'    => $scheduledAt,
-            'executed_at'     => $scheduledAt === null ? date('Y-m-d H:i:s') : null,
-            'debit_tx_id'     => $debitTxId,
-            'credit_tx_id'    => $creditTxId,
+            'from_account_id'   => $fromAccountId,
+            'to_account_id'     => $toAccountId,
+            'user_id'           => $userId,
+            'amount'            => $amount,
+            'motif'             => $motif,
+            'status'            => $status,
+            'scheduled_at'      => $scheduledAt,
+            'executed_at'       => $scheduledAt === null ? date('Y-m-d H:i:s') : null,
+            'debit_tx_id'       => $debitTxId,
+            'credit_tx_id'      => $creditTxId,
+            'from_currency'     => $fromCurrency,
+            'to_currency'       => $toCurrency,
+            'exchange_rate'     => $exchangeRate,
+            'converted_amount'  => $convertedAmount,
         ]);
     }
 

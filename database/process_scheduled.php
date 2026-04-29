@@ -87,10 +87,14 @@ foreach ($transferModel->getDueScheduled() as $transfer) {
     // La transaction de crédit est encore 'pending' (scheduled_at != null),
     // getBalance() l'exclut — on calcule donc le solde réel sans elle.
     $toAccount = $accountModel->find($toAccountId);
+    // Pour un virement multi-devise, le crédit a été précalculé en devise du destinataire
+    $creditAmount = isset($transfer['converted_amount']) && $transfer['converted_amount'] !== null
+        ? (float) $transfer['converted_amount']
+        : $amount;
     $toCap = (float) ($toAccount['cap'] ?? 0);
     if (Account::typeHasCap($toAccount['type'] ?? '') && $toCap > 0) {
         $toBalance = $accountModel->getBalance($toAccountId);
-        if ($toBalance + $amount > $toCap) {
+        if ($toBalance + $creditAmount > $toCap) {
             echo sprintf(
                 "[%s] ERREUR virement planifié #%d : plafond atteint sur compte destinataire #%d (%.2f + %.2f > %.2f) — virement annulé.\n",
                 date('Y-m-d H:i:s'), $transferId, $toAccountId, $toBalance, $amount, $toCap
@@ -261,15 +265,67 @@ foreach ($recurringTransferModel->getDue() as $recurring) {
     $label    = 'Virement récurrent' . ($motif !== '' ? ' — ' . $motif : '');
     $nowStr   = date('Y-m-d H:i:s');
 
+    // Conversion de devise éventuelle (taux du jour)
+    $fromCurrency    = (string) ($fromAccount['currency'] ?? 'EUR');
+    $toCurrency      = (string) ($toAccount['currency']   ?? 'EUR');
+    $exchangeRate    = null;
+    $convertedAmount = $amount;
+    $debitLabel      = $label;
+    $creditLabel     = $label;
+    if ($fromCurrency !== $toCurrency) {
+        try {
+            $converter = new \App\Services\CurrencyConverter();
+            $result = $converter->convert($amount, $fromCurrency, $toCurrency);
+            $exchangeRate    = $result['rate'];
+            $convertedAmount = $result['amount'];
+            $convDetail = sprintf(
+                ' (conversion %s %s → %s %s, taux 1 %s = %s %s)',
+                number_format($amount, 2, ',', ' '),
+                $fromCurrency,
+                number_format($convertedAmount, 2, ',', ' '),
+                $toCurrency,
+                $fromCurrency,
+                rtrim(rtrim(number_format($exchangeRate, 6, ',', ' '), '0'), ','),
+                $toCurrency
+            );
+            $debitLabel  = $label . $convDetail;
+            $creditLabel = $label . $convDetail;
+        } catch (\Throwable $e) {
+            echo sprintf(
+                "[%s] ERREUR virement récurrent #%d : conversion %s→%s indisponible (%s) — report.\n",
+                date('Y-m-d H:i:s'), $recId, $fromCurrency, $toCurrency, $e->getMessage()
+            );
+            $recurringTransferModel->markExecuted($recId);
+            AuditLog::log(null, AuditLog::ACTION_TRANSFER_RECURRING_FAIL, ['amount' => $amount, 'reason' => 'currency_conversion_failed'], targetAccountId: $fromAccountId);
+            $errors++;
+            continue;
+        }
+    }
+
+    // Re-vérification du plafond destinataire avec le montant converti
+    if (Account::typeHasCap($toAccount['type'] ?? '') && $toCap > 0) {
+        $toBalance = $accountModel->getBalance($toAccountId);
+        if ($toBalance + $convertedAmount > $toCap) {
+            echo sprintf(
+                "[%s] ERREUR virement récurrent #%d : plafond atteint après conversion (%.2f + %.2f > %.2f).\n",
+                date('Y-m-d H:i:s'), $recId, $toBalance, $convertedAmount, $toCap
+            );
+            $recurringTransferModel->markExecuted($recId);
+            $errors++;
+            continue;
+        }
+    }
+
     try {
         $debitTxId = $transactionModel->addTransaction(
-            $fromAccountId, 'expense', $amount, 'Virement', $label, $userId
+            $fromAccountId, 'expense', $amount, 'Virement', $debitLabel, $userId
         );
         $creditTxId = $transactionModel->addTransaction(
-            $toAccountId, 'income', $amount, 'Virement', $label, $userId
+            $toAccountId, 'income', $convertedAmount, 'Virement', $creditLabel, $userId
         );
         $transferModel->createTransfer(
-            $fromAccountId, $toAccountId, $userId, $amount, $motif, null, $debitTxId, $creditTxId
+            $fromAccountId, $toAccountId, $userId, $amount, $motif, null, $debitTxId, $creditTxId,
+            $fromCurrency, $toCurrency, $exchangeRate, $convertedAmount
         );
         $recurringTransferModel->markExecuted($recId);
         AuditLog::log(null, AuditLog::ACTION_TRANSFER_RECURRING_EXEC, ['amount' => $amount, 'from_account' => $fromAccountId, 'to_account' => $toAccountId], targetAccountId: $fromAccountId);

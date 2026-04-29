@@ -13,6 +13,7 @@ use App\Models\RecurringTransfer;
 use App\Models\Transaction;
 use App\Models\Transfer;
 use App\Models\User;
+use App\Services\CurrencyConverter;
 
 class TransferController extends Controller
 {
@@ -273,11 +274,51 @@ class TransferController extends Controller
         }
         $label = 'Virement' . ($motif !== '' ? ' — ' . $motif : '');
 
+        // ── Conversion de devise (si nécessaire) ─────────────────────────────
+        $fromCurrency    = (string) ($fromAccount['currency'] ?? 'EUR');
+        $toCurrency      = (string) ($toAccount['currency']   ?? 'EUR');
+        $exchangeRate    = null;
+        $convertedAmount = $amount;
+        $debitLabel      = $label;
+        $creditLabel     = $label;
+
+        if ($fromCurrency !== $toCurrency) {
+            try {
+                $converter = new CurrencyConverter();
+                $result    = $converter->convert($amount, $fromCurrency, $toCurrency);
+                $exchangeRate    = $result['rate'];
+                $convertedAmount = $result['amount'];
+            } catch (\Throwable $e) {
+                $this->setFlash('danger', sprintf(
+                    'Virement impossible : conversion %s → %s indisponible (%s). Réessayez plus tard.',
+                    $fromCurrency,
+                    $toCurrency,
+                    $e->getMessage()
+                ));
+                $this->redirect('/transfers/create?tab=' . ($modMode ? 'moderation' : 'personal'));
+                return;
+            }
+
+            $convDetail = sprintf(
+                ' (conversion %s %s → %s %s, taux 1 %s = %s %s)',
+                number_format($amount, 2, ',', ' '),
+                $fromCurrency,
+                number_format($convertedAmount, 2, ',', ' '),
+                $toCurrency,
+                $fromCurrency,
+                rtrim(rtrim(number_format($exchangeRate, 6, ',', ' '), '0'), ','),
+                $toCurrency
+            );
+            $debitLabel  = $label . $convDetail;
+            $creditLabel = $label . $convDetail;
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
         // Vérifier le plafond d'épargne du compte destinataire
         $toCap = (float) ($toAccount['cap'] ?? 0);
         if (Account::typeHasCap($toAccount['type'] ?? '') && $toCap > 0) {
             $toBalance = $this->accountModel->getFutureBalance($toId);
-            if ($toBalance + $amount > $toCap) {
+            if ($toBalance + $convertedAmount > $toCap) {
                 $this->setFlash('danger', sprintf(
                     'Virement impossible : le compte destinataire « %s » est un compte épargne plafonné à %s %s. Solde actuel : %s %s.',
                     $toAccount['name'],
@@ -296,18 +337,18 @@ class TransferController extends Controller
             'expense',
             $amount,
             'Virement',
-            $label,
+            $debitLabel,
             $userId,
             $scheduledAt
         );
 
-        // Crédit sur le compte destinataire
+        // Crédit sur le compte destinataire (montant converti si devises différentes)
         $creditTxId = $this->transactionModel->addTransaction(
             $toId,
             'income',
-            $amount,
+            $convertedAmount,
             'Virement',
-            $label,
+            $creditLabel,
             $userId,
             $scheduledAt
         );
@@ -321,7 +362,11 @@ class TransferController extends Controller
             $motif,
             $scheduledAt,
             $debitTxId,
-            $creditTxId
+            $creditTxId,
+            $fromCurrency,
+            $toCurrency,
+            $exchangeRate,
+            $convertedAmount
         );
 
         // Vérification du franchissement du seuil d'alerte (virement immédiat uniquement)
@@ -335,13 +380,21 @@ class TransferController extends Controller
         }
 
         if ($scheduledAt !== null) {
+            $convInfo = $exchangeRate !== null
+                ? sprintf(
+                    ' (sera converti en %s %s au taux du jour)',
+                    number_format($convertedAmount, 2, ',', ' '),
+                    $toCurrency
+                )
+                : '';
             $this->setFlash('success', sprintf(
-                'Virement de %s %s planifié pour le %s de « %s » vers « %s ».',
+                'Virement de %s %s planifié pour le %s de « %s » vers « %s »%s.',
                 number_format($amount, 2, ',', ' '),
                 $fromAccount['currency'],
                 date('d/m/Y à H\hi', strtotime($scheduledAt)),
                 $fromAccount['name'],
-                $toAccount['name']
+                $toAccount['name'],
+                $convInfo
             ));
             // Alerte modérateurs : virement planifié
             $this->notifModel->notifyModerators(
@@ -358,21 +411,46 @@ class TransferController extends Controller
                 '/moderation/transfers'
             );
         } else {
+            $convInfo = $exchangeRate !== null
+                ? sprintf(
+                    ' (converti en %s %s au taux 1 %s = %s %s)',
+                    number_format($convertedAmount, 2, ',', ' '),
+                    $toCurrency,
+                    $fromCurrency,
+                    rtrim(rtrim(number_format($exchangeRate, 6, ',', ' '), '0'), ','),
+                    $toCurrency
+                )
+                : '';
             $this->setFlash('success', sprintf(
-                'Virement de %s %s effectué de « %s » vers « %s ».',
+                'Virement de %s %s effectué de « %s » vers « %s »%s.',
                 number_format($amount, 2, ',', ' '),
                 $fromAccount['currency'],
                 $fromAccount['name'],
-                $toAccount['name']
+                $toAccount['name'],
+                $convInfo
             ));
             // Notifier le propriétaire du compte destinataire s'il est différent de l'émetteur
             $toOwner = $this->userModel->find((int) $toAccount['user_id']);
             if ($toOwner && (int) $toOwner['id'] !== $userId) {
+                $notifTitle = $exchangeRate !== null
+                    ? sprintf('Virement reçu : %s %s', number_format($convertedAmount, 2, ',', ' '), $toCurrency)
+                    : sprintf('Virement reçu : %s %s', number_format($amount, 2, ',', ' '), $fromAccount['currency']);
+                $notifBody = sprintf('De « %s »%s.', $fromAccount['name'], $motif !== '' ? ' — ' . $motif : '');
+                if ($exchangeRate !== null) {
+                    $notifBody .= sprintf(
+                        ' (Conversion depuis %s %s au taux 1 %s = %s %s.)',
+                        number_format($amount, 2, ',', ' '),
+                        $fromCurrency,
+                        $fromCurrency,
+                        rtrim(rtrim(number_format($exchangeRate, 6, ',', ' '), '0'), ','),
+                        $toCurrency
+                    );
+                }
                 $this->notifModel->notify(
                     (int) $toOwner['id'],
                     'transfer_received',
-                    sprintf('Virement reçu : %s %s', number_format($amount, 2, ',', ' '), $fromAccount['currency']),
-                    sprintf('De « %s »%s.', $fromAccount['name'], $motif !== '' ? ' — ' . $motif : ''),
+                    $notifTitle,
+                    $notifBody,
                     '/accounts/' . $toId
                 );
             }
