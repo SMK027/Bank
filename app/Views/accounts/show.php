@@ -935,8 +935,37 @@
                     Total : <?= number_format($totalEncours, 2, ',', ' ') ?> <?= e($account['currency']) ?>
                 </span>
             </h4>
+            <?php
+                // Regroupement des débits différés par période (mois/année de la fin de période)
+                $deferredGroups = [];
+                foreach ($pendingDeferredDebits as $dd) {
+                    $key = date('Y-m', strtotime($dd['period_end_date']));
+                    $deferredGroups[$key][] = $dd;
+                }
+                ksort($deferredGroups);
+                $frenchMonths = [
+                    '01' => 'Janvier', '02' => 'Février', '03' => 'Mars', '04' => 'Avril',
+                    '05' => 'Mai',     '06' => 'Juin',    '07' => 'Juillet', '08' => 'Août',
+                    '09' => 'Septembre','10' => 'Octobre','11' => 'Novembre','12' => 'Décembre',
+                ];
+            ?>
+            <?php foreach ($deferredGroups as $groupKey => $groupItems): ?>
+                <?php
+                    [$gYear, $gMonth] = explode('-', $groupKey);
+                    $groupLabel = $frenchMonths[$gMonth] . ' ' . $gYear;
+                    $groupTotal = 0;
+                    foreach ($groupItems as $gi) $groupTotal += (float) $gi['amount'];
+                ?>
+                <h5 style="margin:0.75rem 0 0.4rem;font-size:0.85rem;color:var(--text-muted);font-weight:600;display:flex;align-items:center;gap:0.4rem;">
+                    <i class="bi bi-calendar3"></i>
+                    <span><?= e($groupLabel) ?></span>
+                    <span class="badge badge-secondary"><?= count($groupItems) ?></span>
+                    <span style="font-weight:400;color:var(--danger);">
+                        Total : <?= number_format($groupTotal, 2, ',', ' ') ?> <?= e($account['currency']) ?>
+                    </span>
+                </h5>
             <div class="table-responsive" style="margin-bottom:1.25rem;">
-                <table class="table" id="deferred-debits-table">
+                <table class="table" id="deferred-debits-table-<?= e($groupKey) ?>">
                     <thead>
                         <tr>
                             <th>Date opération</th>
@@ -949,7 +978,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($pendingDeferredDebits as $dd): ?>
+                        <?php foreach ($groupItems as $dd): ?>
                             <?php $isDue = $dd['period_end_date'] <= date('Y-m-d'); ?>
                             <tr style="opacity:0.85;font-style:italic;">
                                 <td>
@@ -1013,6 +1042,7 @@
                     </tbody>
                 </table>
             </div>
+            <?php endforeach; ?>
             <?php endif; ?>
 
         <?php endif; ?>
