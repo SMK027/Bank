@@ -84,28 +84,30 @@ foreach ($dueInstallments as $inst) {
         continue;
     }
 
-    if (in_array($account['status'] ?? '', ['frozen', 'disabled'], true)) {
+    if ($accountModel->isFrozen($accountId) || $accountModel->isDisabled($accountId)) {
+        $isFrozen = $accountModel->isFrozen($accountId);
+        $reason   = $isFrozen ? 'gelé' : 'en résiliation';
         echo sprintf("[%s] ERREUR échéance #%d : compte #%d %s — marquée échouée.\n",
-            date('Y-m-d H:i:s'), $installmentId, $accountId, $account['status']);
+            date('Y-m-d H:i:s'), $installmentId, $accountId, $reason);
 
         $installmentModel->markFailed($installmentId);
         AuditLog::log(null, AuditLog::ACTION_LOAN_INSTALLMENT_FAILED, [
             'installment_id' => $installmentId,
             'loan_id'        => $loanId,
-            'reason'         => 'compte ' . $account['status'],
+            'reason'         => 'compte_' . ($isFrozen ? 'gelé' : 'résiliation'),
         ], targetAccountId: $accountId);
 
         $notifyWithGuardians($userId, $accountId,
             'loan_installment_failed',
             'Mensualité de crédit échouée',
             sprintf(
-                'Le prélèvement de %s %s du %s (crédit #%d) a échoué : votre compte « %s » est %s.',
+                'Le prélèvement de %s %s du %s (crédit #%d) a échoué : votre compte « %s » est actuellement %s.',
                 number_format($amount, 2, ',', ' '),
                 $currency,
                 date('d/m/Y', strtotime($dueDate)),
                 $loanId,
                 $accountName,
-                $account['status'] === 'frozen' ? 'gelé' : 'désactivé'
+                $reason
             )
         );
         $errors++;

@@ -751,24 +751,26 @@ class ModerationLoanController extends Controller
                 continue;
             }
 
-            if (in_array($account['status'] ?? '', ['frozen', 'disabled'], true)) {
+            if ($this->accountModel->isFrozen($accountId) || $this->accountModel->isDisabled($accountId)) {
+                $isFrozen = $this->accountModel->isFrozen($accountId);
+                $reason   = $isFrozen ? 'gelé' : 'en résiliation';
                 $this->installmentModel->markFailed($installmentId);
                 AuditLog::log(null, AuditLog::ACTION_LOAN_INSTALLMENT_FAILED, [
                     'installment_id' => $installmentId,
                     'loan_id'        => $loanId,
-                    'reason'         => 'compte ' . $account['status'],
+                    'reason'         => 'compte_' . ($isFrozen ? 'gelé' : 'résiliation'),
                 ], targetAccountId: $accountId);
                 $notifyWithGuardians($userId,
                     'loan_installment_failed',
                     'Mensualité de crédit échouée',
                     sprintf(
-                        'Le prélèvement de %s %s du %s (crédit #%d) a échoué : votre compte « %s » est %s.',
+                        'Le prélèvement de %s %s du %s (crédit #%d) a échoué : votre compte « %s » est actuellement %s.',
                         number_format($amount, 2, ',', ' '),
                         $currency,
                         date('d/m/Y', strtotime($dueDate)),
                         $loanId,
                         $accountName,
-                        $account['status'] === 'frozen' ? 'gelé' : 'désactivé'
+                        $reason
                     )
                 );
                 $failed++;
