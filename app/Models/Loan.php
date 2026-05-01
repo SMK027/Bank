@@ -131,6 +131,20 @@ class Loan extends Model
         return $stmt->fetchAll();
     }
 
+    /**
+     * Retourne vrai si le compte possède au moins un crédit en cours
+     * (statut active ou pending_acceptance).
+     */
+    public function hasActiveLoanForAccount(int $accountId): bool
+    {
+        $stmt = $this->getPdo()->prepare(
+            'SELECT COUNT(*) FROM `loans`
+             WHERE account_id = ? AND status IN (?, ?)'
+        );
+        $stmt->execute([$accountId, self::STATUS_ACTIVE, self::STATUS_PENDING]);
+        return (int) $stmt->fetchColumn() > 0;
+    }
+
     // ── Actions de cycle de vie ──────────────────────────────────────────────
 
     /**

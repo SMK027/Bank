@@ -17,6 +17,7 @@ use App\Models\Mandate;
 use App\Models\RecurringTransfer;
 use App\Models\SavingsInterest;
 use App\Models\SavingsRate;
+use App\Models\Loan;
 use App\Models\LoanInstallment;
 use App\Models\User;
 
@@ -30,6 +31,7 @@ class AccountController extends Controller
     private User $userModel;
     private RecurringTransfer $recurringTransferModel;
     private SavingsRate $rateModel;
+    private Loan $loanModel;
 
     public function __construct()
     {
@@ -41,6 +43,7 @@ class AccountController extends Controller
         $this->deferredDebitModel     = new DeferredDebit();
         $this->userModel              = new User();
         $this->recurringTransferModel = new RecurringTransfer();
+        $this->loanModel              = new Loan();
     }
 
     public function createForm(): void
@@ -532,6 +535,13 @@ class AccountController extends Controller
 
         if (!empty($account['disabled_at'])) {
             $this->setFlash('info', 'Ce compte est déjà en cours de résiliation.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        // Bloquer la résiliation si un crédit actif est lié au compte
+        if ($this->loanModel->hasActiveLoanForAccount($accountId)) {
+            $this->setFlash('danger', 'Impossible de résilier ce compte : un crédit actif y est associé. Remboursez entièrement le crédit avant de pouvoir résilier.');
             $this->redirect('/accounts/' . $accountId);
             return;
         }
