@@ -150,7 +150,15 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
                 <?php foreach ($installments as $inst): ?>
                 <tr>
                     <td><?= date('d/m/Y', strtotime($inst['due_date'])) ?></td>
-                    <td class="text-right fw-medium"><?= number_format((float)$inst['amount'], 2, ',', ' ') ?> €</td>
+                    <td class="text-right fw-medium">
+                        <?= number_format((float)$inst['amount'], 2, ',', ' ') ?> €
+                        <?php if ((float)($inst['penalty'] ?? 0) > 0): ?>
+                        <div style="font-size:0.72rem;font-weight:400;color:var(--danger);margin-top:2px;white-space:nowrap">
+                            <i class="bi bi-exclamation-triangle-fill" style="font-size:0.65rem"></i>
+                            dont <?= number_format((float)$inst['penalty'], 2, ',', ' ') ?> € de pénalité de retard
+                        </div>
+                        <?php endif; ?>
+                    </td>
                     <td class="text-center">
                         <span class="badge <?= htmlspecialchars($iBadge[$inst['status']] ?? 'badge-secondary') ?>">
                             <?= htmlspecialchars($iLabels[$inst['status']] ?? $inst['status']) ?>
