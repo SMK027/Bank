@@ -377,6 +377,10 @@ class ModerationLoanController extends Controller
         // ── 4. Marquer le crédit comme annulé ────────────────────────────────
         $this->loanModel->cancel($loanId, $debitTxId);
 
+        // ── 5. Recalcul de sécurité : amount_repaid depuis les mensualités ──
+        //      (filet de sécurité contre tout décalage numérique ou appel partiel)
+        $this->loanModel->recalculateAmountRepaid($loanId);
+
         // ── 5. Audit + notification ──────────────────────────────────────────
         AuditLog::log($modId, AuditLog::ACTION_LOAN_CANCELLED, [
             'loan_id'          => $loanId,

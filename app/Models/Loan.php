@@ -238,6 +238,21 @@ class Loan extends Model
     }
 
     /**
+     * Recalcule amount_repaid depuis les mensualités (source de vérité).
+     * amount_repaid = SUM des mensualités dont le statut est 'paid' uniquement
+     * (les mensualités remboursées ont déjà été déduites ; les annulées n'ont jamais été encaissées).
+     */
+    public function recalculateAmountRepaid(int $id): void
+    {
+        $stmt = $this->getPdo()->prepare(
+            'SELECT COALESCE(SUM(amount), 0) FROM `loan_installments` WHERE loan_id = ? AND status = ?'
+        );
+        $stmt->execute([$id, LoanInstallment::STATUS_PAID]);
+        $repaid = (float) $stmt->fetchColumn();
+        $this->update($id, ['amount_repaid' => $repaid]);
+    }
+
+    /**
      * Annule un crédit (modération).
      *
      * @param int      $id          Identifiant du crédit.
