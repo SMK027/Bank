@@ -213,6 +213,7 @@ $router->get('/moderation/loans/{id}', ModerationLoanController::class, 'show');
 $router->post('/moderation/loans/{id}/rate', ModerationLoanController::class, 'updateRate');
 $router->post('/moderation/loans/{id}/installments', ModerationLoanController::class, 'addInstallment');
 $router->post('/moderation/loans/{id}/installments/{iid}/cancel', ModerationLoanController::class, 'cancelInstallment');
+$router->post('/moderation/loans/process-installments', ModerationLoanController::class, 'processInstallments');
 
 // --- Modération : taux d'intérêt épargne ---
 $router->get('/moderation/savings-rate', ModerationController::class, 'savingsRate');

@@ -13,6 +13,13 @@
     <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
         <a href="/moderation" class="btn btn-outline btn-sm"><i class="bi bi-shield-check"></i> Comptes</a>
         <a href="/moderation/loans/create" class="btn btn-primary btn-sm"><i class="bi bi-plus-circle"></i> Octroyer un crédit</a>
+        <form method="POST" action="/moderation/loans/process-installments" style="display:inline"
+              onsubmit="return confirm('Forcer le prélèvement de toutes les mensualités échues ?')">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
+            <button type="submit" class="btn btn-warning btn-sm">
+                <i class="bi bi-lightning-charge"></i> Prélever les mensualités dues
+            </button>
+        </form>
         <span class="btn btn-outline btn-sm disabled" aria-current="page"><i class="bi bi-cash-coin"></i> Crédits</span>
     </div>
 </div>

@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Models\Account;
 use App\Models\AuditLog;
+use App\Models\Guardianship;
 use App\Models\Loan;
 use App\Models\LoanInstallment;
 use App\Models\LoanSimulation;
@@ -306,5 +307,165 @@ class ModerationLoanController extends Controller
         $this->installmentModel->cancel($installmentId);
         $this->setFlash('success', 'Échéance annulée.');
         $this->redirect('/moderation/loans/' . $loanId);
+    }
+
+    // ── Exécution manuelle des mensualités ───────────────────────────────────
+
+    public function processInstallments(): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $guardianshipModel = new Guardianship();
+
+        $notifyWithGuardians = function (
+            int    $userId,
+            string $type,
+            string $title,
+            string $body
+        ) use ($guardianshipModel): void {
+            $link = '/loans';
+            $this->notifModel->notify($userId, $type, $title, $body, $link);
+            foreach ($guardianshipModel->getGuardiansOf($userId) as $g) {
+                $this->notifModel->notify((int) $g['guardian_user_id'], $type, $title, $body, $link);
+            }
+        };
+
+        $dueInstallments = $this->installmentModel->getDue();
+
+        if (empty($dueInstallments)) {
+            $this->setFlash('info', 'Aucune mensualité échue à traiter.');
+            $this->redirect('/moderation/loans');
+            return;
+        }
+
+        $executed = 0;
+        $failed   = 0;
+
+        foreach ($dueInstallments as $inst) {
+            $installmentId = (int) $inst['id'];
+            $loanId        = (int) $inst['loan_id'];
+            $accountId     = (int) $inst['account_id'];
+            $userId        = (int) $inst['user_id'];
+            $amount        = (float) $inst['amount'];
+            $dueDate       = $inst['due_date'];
+            $currency      = $inst['currency'] ?? 'EUR';
+            $accountName   = $inst['account_name'] ?? ('Compte #' . $accountId);
+
+            $account = $this->accountModel->find($accountId);
+            if (!$account) {
+                $this->installmentModel->markFailed($installmentId);
+                $failed++;
+                continue;
+            }
+
+            if (in_array($account['status'] ?? '', ['frozen', 'disabled'], true)) {
+                $this->installmentModel->markFailed($installmentId);
+                AuditLog::log(null, AuditLog::ACTION_LOAN_INSTALLMENT_FAILED, [
+                    'installment_id' => $installmentId,
+                    'loan_id'        => $loanId,
+                    'reason'         => 'compte ' . $account['status'],
+                ], targetAccountId: $accountId);
+                $notifyWithGuardians($userId,
+                    'loan_installment_failed',
+                    'Mensualité de crédit échouée',
+                    sprintf(
+                        'Le prélèvement de %s %s du %s (crédit #%d) a échoué : votre compte « %s » est %s.',
+                        number_format($amount, 2, ',', ' '),
+                        $currency,
+                        date('d/m/Y', strtotime($dueDate)),
+                        $loanId,
+                        $accountName,
+                        $account['status'] === 'frozen' ? 'gelé' : 'désactivé'
+                    )
+                );
+                $failed++;
+                continue;
+            }
+
+            $balance = $this->accountModel->getBalance($accountId);
+            if ($balance < $amount) {
+                $this->installmentModel->markFailed($installmentId);
+                AuditLog::log(null, AuditLog::ACTION_LOAN_INSTALLMENT_FAILED, [
+                    'installment_id' => $installmentId,
+                    'loan_id'        => $loanId,
+                    'balance'        => $balance,
+                    'required'       => $amount,
+                ], targetAccountId: $accountId);
+                $notifyWithGuardians($userId,
+                    'loan_installment_failed',
+                    'Mensualité de crédit échouée — solde insuffisant',
+                    sprintf(
+                        'Le prélèvement de %s %s du %s (crédit #%d) a échoué faute de provision sur le compte « %s ».',
+                        number_format($amount, 2, ',', ' '),
+                        $currency,
+                        date('d/m/Y', strtotime($dueDate)),
+                        $loanId,
+                        $accountName
+                    )
+                );
+                $failed++;
+                continue;
+            }
+
+            try {
+                $txId = $this->transactionModel->addTransaction(
+                    $accountId,
+                    'expense',
+                    $amount,
+                    'Autre',
+                    sprintf('Remboursement crédit #%d — échéance du %s', $loanId, date('d/m/Y', strtotime($dueDate))),
+                    $userId
+                );
+
+                $this->installmentModel->markPaid($installmentId, $txId);
+                $closed = $this->loanModel->recordRepayment($loanId, $amount);
+
+                AuditLog::log(null, AuditLog::ACTION_LOAN_INSTALLMENT_PAID, [
+                    'installment_id' => $installmentId,
+                    'loan_id'        => $loanId,
+                    'amount'         => $amount,
+                    'tx_id'          => $txId,
+                ], targetAccountId: $accountId);
+
+                $notifyWithGuardians($userId,
+                    'loan_installment_due',
+                    'Mensualité de crédit prélevée',
+                    sprintf(
+                        'Un montant de %s %s a été prélevé sur votre compte « %s » au titre du crédit #%d.',
+                        number_format($amount, 2, ',', ' '),
+                        $currency,
+                        $accountName,
+                        $loanId
+                    )
+                );
+
+                if ($closed) {
+                    AuditLog::log(null, AuditLog::ACTION_LOAN_CLOSED, [
+                        'loan_id' => $loanId,
+                    ], targetAccountId: $accountId);
+                    $notifyWithGuardians($userId,
+                        'loan_closed',
+                        'Crédit soldé !',
+                        sprintf('Félicitations ! Votre crédit #%d sur le compte « %s » est entièrement remboursé.', $loanId, $accountName)
+                    );
+                }
+
+                $executed++;
+
+            } catch (\Throwable) {
+                try { $this->installmentModel->markFailed($installmentId); } catch (\Throwable) {}
+                $failed++;
+            }
+        }
+
+        $msg = sprintf('%d mensualité(s) traitée(s)', $executed);
+        if ($failed > 0) {
+            $msg .= sprintf(', %d échec(s)', $failed);
+            $this->setFlash('warning', $msg . '.');
+        } else {
+            $this->setFlash('success', $msg . '.');
+        }
+        $this->redirect('/moderation/loans');
     }
 }
