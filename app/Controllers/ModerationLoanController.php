@@ -60,6 +60,7 @@ class ModerationLoanController extends Controller
             'types'  => LoanSimulation::getTypes(),
             'statusLabels' => Loan::STATUS_LABELS,
             'statusBadge'  => Loan::STATUS_BADGE,
+            'csrfToken'    => csrf_token(),
         ]);
     }
 

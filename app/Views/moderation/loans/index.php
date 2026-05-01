@@ -15,7 +15,7 @@
         <a href="/moderation/loans/create" class="btn btn-primary btn-sm"><i class="bi bi-plus-circle"></i> Octroyer un crédit</a>
         <form method="POST" action="/moderation/loans/process-installments" style="display:inline"
               onsubmit="return confirm('Forcer le prélèvement de toutes les mensualités échues ?')">
-            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
+            <?= csrf_field() ?>
             <button type="submit" class="btn btn-warning btn-sm">
                 <i class="bi bi-lightning-charge"></i> Prélever les mensualités dues
             </button>
