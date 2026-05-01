@@ -313,4 +313,38 @@ class Loan extends Model
         $stmt->execute([$loanId, LoanInstallment::STATUS_CANCELLED, LoanInstallment::STATUS_REFUNDED]);
         return (float) $stmt->fetchColumn();
     }
+
+    /**
+     * Retourne le capital restant à planifier (non encore alloué à des échéances actives).
+     * "Actives" = pending, paid, failed (pas annulées ni remboursées).
+     */
+    public function getSchedulablePrincipal(int $id): float
+    {
+        $loan = $this->find($id);
+        if (!$loan) {
+            return 0.0;
+        }
+        $stmt = $this->getPdo()->prepare(
+            'SELECT COALESCE(SUM(principal), 0)
+             FROM `loan_installments`
+             WHERE loan_id = ? AND status NOT IN (?, ?)'
+        );
+        $stmt->execute([$id, LoanInstallment::STATUS_CANCELLED, LoanInstallment::STATUS_REFUNDED]);
+        return max(0.0, round((float) $loan['amount'] - (float) $stmt->fetchColumn(), 2));
+    }
+
+    /**
+     * Retourne le total des parts capital des mensualités payées (non remboursées).
+     * Utilisé pour calculer le capital restant dû lors d'un recalcul d'intérêts.
+     */
+    public function getPaidPrincipal(int $id): float
+    {
+        $stmt = $this->getPdo()->prepare(
+            'SELECT COALESCE(SUM(principal), 0)
+             FROM `loan_installments`
+             WHERE loan_id = ? AND status = ?'
+        );
+        $stmt->execute([$id, LoanInstallment::STATUS_PAID]);
+        return (float) $stmt->fetchColumn();
+    }
 }

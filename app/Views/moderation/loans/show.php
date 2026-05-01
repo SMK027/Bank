@@ -2,8 +2,10 @@
 /** @var array  $loan */
 /** @var array  $installments */
 /** @var float  $totalScheduled */
+/** @var float  $totalInterest */
 /** @var float  $remaining */
 /** @var float  $schedulable */
+/** @var float  $monthlyRate */
 /** @var array  $types */
 /** @var array  $statusLabels */
 /** @var array  $statusBadge */
@@ -141,9 +143,12 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
         <h3 style="margin:0;font-size:1rem;"><i class="bi bi-calendar3"></i> Échéancier</h3>
         <div style="font-size:0.82rem;color:var(--text-muted)">
             Planifié : <strong><?= number_format($totalScheduled, 2, ',', ' ') ?> €</strong>
-            / <?= number_format((float)$loan['amount'], 2, ',', ' ') ?> €
+            / <?= number_format((float)$loan['amount'], 2, ',', ' ') ?> € capital
+            <?php if ($totalInterest > 0): ?>
+            — <span style="color:var(--warning)">dont <?= number_format($totalInterest, 2, ',', ' ') ?> € d'intérêts</span>
+            <?php endif; ?>
             <?php if ($canEdit): ?>
-            — Planifiable restant : <strong style="color:<?= $schedulable > 0 ? 'var(--success)' : 'var(--text-muted)' ?>">
+            — Capital restant : <strong style="color:<?= $schedulable > 0 ? 'var(--success)' : 'var(--text-muted)' ?>">
                 <?= number_format($schedulable, 2, ',', ' ') ?> €
             </strong>
             <?php endif; ?>
@@ -173,7 +178,15 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
                 <tr>
                     <td style="font-size:0.8rem;color:var(--text-muted)">#<?= $inst['id'] ?></td>
                     <td><?= date('d/m/Y', strtotime($inst['due_date'])) ?></td>
-                    <td class="text-right fw-medium"><?= number_format((float)$inst['amount'], 2, ',', ' ') ?> €</td>
+                    <td class="text-right fw-medium">
+                        <?= number_format((float)$inst['amount'], 2, ',', ' ') ?> €
+                        <?php if ((float)$inst['interest'] > 0): ?>
+                        <div style="font-size:0.72rem;color:var(--text-muted);font-weight:400;margin-top:2px;white-space:nowrap">
+                            <?= number_format((float)$inst['principal'], 2, ',', ' ') ?> € capital
+                            + <?= number_format((float)$inst['interest'], 2, ',', ' ') ?> € int.
+                        </div>
+                        <?php endif; ?>
+                    </td>
                     <td class="text-center">
                         <span class="badge <?= htmlspecialchars($iBadge[$inst['status']] ?? 'badge-secondary') ?>">
                             <?= htmlspecialchars($iLabels[$inst['status']] ?? $inst['status']) ?>
@@ -211,7 +224,14 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
             <tfoot>
                 <tr style="font-size:0.85rem;background:rgba(0,0,0,.02)">
                     <td colspan="2" class="fw-medium">Total planifié</td>
-                    <td class="text-right fw-medium"><?= number_format($totalScheduled, 2, ',', ' ') ?> €</td>
+                    <td class="text-right fw-medium">
+                        <?= number_format($totalScheduled, 2, ',', ' ') ?> €
+                        <?php if ($totalInterest > 0): ?>
+                        <div style="font-size:0.72rem;color:var(--text-muted);font-weight:400;margin-top:2px">
+                            dont <?= number_format($totalInterest, 2, ',', ' ') ?> € d'intérêts
+                        </div>
+                        <?php endif; ?>
+                    </td>
                     <td colspan="3"></td>
                 </tr>
             </tfoot>
@@ -236,18 +256,61 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
                 </div>
                 <div>
                     <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:2px">
-                        Montant (€) <span style="font-weight:400;color:var(--text-muted)">max. <?= number_format($schedulable, 2, ',', ' ') ?> €</span>
+                        Montant total (€)
+                        <span style="font-weight:400;color:var(--text-muted)">
+                            — Capital restant : <?= number_format($schedulable, 2, ',', ' ') ?> €
+                            <?php if ($monthlyRate > 0): ?>
+                            / Intérêts estimés : <span id="interest_preview"><?= number_format(round($schedulable * $monthlyRate, 2), 2, ',', ' ') ?></span> €
+                            <?php endif; ?>
+                        </span>
                     </label>
-                    <input type="number" name="amount" class="form-control"
-                           min="0.01" step="0.01" max="<?= $schedulable ?>"
-                           placeholder="0.00" required
-                           style="font-size:0.85rem;padding:0.35rem 0.6rem;height:auto;width:130px">
+                    <input type="number" id="installment_amount" name="amount" class="form-control"
+                           min="0.01" step="0.01"
+                           placeholder="<?= number_format(round($schedulable + round($schedulable * $monthlyRate, 2), 2), 2, '.', '') ?>"
+                           required
+                           style="font-size:0.85rem;padding:0.35rem 0.6rem;height:auto;width:150px">
+                    <?php if ($monthlyRate > 0): ?>
+                    <div id="breakdown_hint" style="font-size:0.75rem;color:var(--text-muted);margin-top:3px;display:none">
+                        Capital : <strong id="principal_preview">—</strong> €
+                        &nbsp;+&nbsp; Intérêts : <strong id="interest_prev2">—</strong> €
+                    </div>
+                    <?php endif; ?>
                 </div>
                 <button type="submit" class="btn btn-primary btn-sm">
                     <i class="bi bi-calendar-plus"></i> Ajouter
                 </button>
             </div>
         </form>
+        <?php if ($monthlyRate > 0): ?>
+        <script>
+        (function() {
+            var MONTHLY_RATE  = <?= $monthlyRate ?>;
+            var SCHEDULABLE   = <?= $schedulable ?>;
+            var amountInput   = document.getElementById('installment_amount');
+            var hintEl        = document.getElementById('breakdown_hint');
+            var principalEl   = document.getElementById('principal_preview');
+            var interestEl    = document.getElementById('interest_prev2');
+            var interestPreview = document.getElementById('interest_preview');
+
+            function fmt(v) {
+                return v.toFixed(2).replace('.', ',');
+            }
+            function update() {
+                var amount    = parseFloat(amountInput.value) || 0;
+                var interest  = Math.round(SCHEDULABLE * MONTHLY_RATE * 100) / 100;
+                var principal = Math.round((amount - interest) * 100) / 100;
+                if (amount > 0) {
+                    hintEl.style.display = 'block';
+                    principalEl.textContent = fmt(Math.max(0, principal));
+                    interestEl.textContent  = fmt(interest);
+                } else {
+                    hintEl.style.display = 'none';
+                }
+            }
+            amountInput.addEventListener('input', update);
+        })();
+        </script>
+        <?php endif; ?>
     </div>
     <?php elseif ($canEdit && $schedulable <= 0): ?>
     <div class="card-body" style="border-top:1px solid var(--border-color);padding:0.75rem 1rem;

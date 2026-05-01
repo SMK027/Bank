@@ -181,18 +181,23 @@ class ModerationLoanController extends Controller
             return;
         }
 
-        $installments   = $this->installmentModel->getByLoan((int) $id);
-        $totalScheduled = $this->loanModel->getTotalScheduledInstallments((int) $id);
-        $remaining      = max(0.0, round($totalScheduled - (float) $loan['amount_repaid'], 2));
-        $schedulable    = round((float) $loan['amount'] - $totalScheduled, 2);
+        $installments        = $this->installmentModel->getByLoan((int) $id);
+        $totalScheduled      = $this->loanModel->getTotalScheduledInstallments((int) $id);
+        $schedulable         = $this->loanModel->getSchedulablePrincipal((int) $id);
+        $scheduledPrincipal  = round((float) $loan['amount'] - $schedulable, 2);
+        $totalInterest       = max(0.0, round($totalScheduled - $scheduledPrincipal, 2));
+        $remaining           = max(0.0, round($totalScheduled - (float) $loan['amount_repaid'], 2));
+        $monthlyRate         = round((float) $loan['annual_rate'] / 100.0 / 12.0, 8);
 
         $this->render('moderation/loans/show', [
             'title'          => 'Crédit #' . $id . ' — ' . $loan['owner_username'],
             'loan'           => $loan,
             'installments'   => $installments,
             'totalScheduled' => $totalScheduled,
+            'totalInterest'  => $totalInterest,
             'remaining'      => $remaining,
             'schedulable'    => $schedulable,
+            'monthlyRate'    => $monthlyRate,
             'types'          => LoanSimulation::getTypes(),
             'statusLabels'   => Loan::STATUS_LABELS,
             'statusBadge'    => Loan::STATUS_BADGE,
@@ -227,13 +232,22 @@ class ModerationLoanController extends Controller
 
         $this->loanModel->updateRate($loanId, $rate);
 
+        // Recalcul des intérêts sur toutes les mensualités en attente
+        $outstanding  = round((float) $loan['amount'] - $this->loanModel->getPaidPrincipal($loanId), 2);
+        $recalcCount  = $this->installmentModel->recalculateInterestForPending($loanId, $rate, $outstanding);
+
         $modId = $this->getCurrentUserId();
         AuditLog::log($modId, AuditLog::ACTION_LOAN_RATE_UPDATE, [
-            'loan_id'  => $loanId,
-            'new_rate' => $rate,
+            'loan_id'          => $loanId,
+            'new_rate'         => $rate,
+            'installments_recalculated' => $recalcCount,
         ], targetAccountId: (int) $loan['account_id']);
 
-        $this->setFlash('success', 'Taux mis à jour avec succès.');
+        $this->setFlash('success', sprintf(
+            'Taux mis à jour (%s %%)%s.',
+            number_format($rate, 2, ',', ' '),
+            $recalcCount > 0 ? sprintf(' — %d mensualité(s) recalculée(s)', $recalcCount) : ''
+        ));
         $this->redirect('/moderation/loans/' . $loanId);
     }
 

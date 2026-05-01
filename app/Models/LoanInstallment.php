@@ -96,16 +96,53 @@ class LoanInstallment extends Model
     // ── Écriture ──────────────────────────────────────────────────────────────
 
     /**
-     * Ajoute une échéance à un crédit.
+     * Ajoute une échéance à un crédit avec décomposition capital/intérêts.
+     *
+     * @param float $principal  Part capital de la mensualité
+     * @param float $interest   Part intérêts (calculée sur le capital restant)
      */
-    public function addInstallment(int $loanId, string $dueDate, float $amount): int
+    public function addInstallment(int $loanId, string $dueDate, float $principal, float $interest): int
     {
         return $this->create([
-            'loan_id'  => $loanId,
-            'due_date' => $dueDate,
-            'amount'   => $amount,
-            'status'   => self::STATUS_PENDING,
+            'loan_id'   => $loanId,
+            'due_date'  => $dueDate,
+            'amount'    => round($principal + $interest, 2),
+            'principal' => $principal,
+            'interest'  => $interest,
+            'status'    => self::STATUS_PENDING,
         ]);
+    }
+
+    /**
+     * Recalcule les intérêts de toutes les mensualités en attente suite à un changement de taux.
+     *
+     * Parcourt les mensualités dans l'ordre chronologique. Pour chacune, l'intérêt
+     * est recalculé sur le capital restant (encours progressivement réduit par chaque principal).
+     *
+     * @param int   $loanId              ID du crédit
+     * @param float $annualRate          Nouveau taux annuel (%)
+     * @param float $outstandingPrincipal Capital restant dû (loan.amount − principal des mensualités payées)
+     * @return int  Nombre de mensualités recalculées
+     */
+    public function recalculateInterestForPending(int $loanId, float $annualRate, float $outstandingPrincipal): int
+    {
+        $pending     = $this->findBy(['loan_id' => $loanId, 'status' => self::STATUS_PENDING], 'due_date', 'ASC');
+        $monthlyRate = $annualRate / 100.0 / 12.0;
+        $remaining   = $outstandingPrincipal;
+        $count       = 0;
+
+        foreach ($pending as $inst) {
+            $interest = round($remaining * $monthlyRate, 2);
+            $amount   = round((float) $inst['principal'] + $interest, 2);
+            $this->update((int) $inst['id'], [
+                'interest' => $interest,
+                'amount'   => $amount,
+            ]);
+            $remaining = max(0.0, round($remaining - (float) $inst['principal'], 2));
+            $count++;
+        }
+
+        return $count;
     }
 
     /**
