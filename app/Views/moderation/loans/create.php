@@ -108,57 +108,75 @@
 </div>
 
 <script>
+var SEARCH_URL = '/moderation/direct-debits/accounts/search';
+
 // ── Autocomplete compte ──────────────────────────────────────────────────────
-const accountInput    = document.getElementById('account_search');
-const accountHidden   = document.getElementById('account_id');
-const accountResults  = document.getElementById('account_results');
-const accountSelected = document.getElementById('account_selected');
-const accountLabel    = document.getElementById('account_label');
-let   acTimer;
+var accountInput    = document.getElementById('account_search');
+var accountHidden   = document.getElementById('account_id');
+var accountResults  = document.getElementById('account_results');
+var accountSelected = document.getElementById('account_selected');
+var accountLabel    = document.getElementById('account_label');
+var acTimer;
 
 accountInput.addEventListener('input', function() {
     clearTimeout(acTimer);
-    const q = this.value.trim();
+    var q = this.value.trim();
     if (q.length < 2) { accountResults.style.display = 'none'; return; }
-    acTimer = setTimeout(() => {
-        fetch('/api/accounts/search?q=' + encodeURIComponent(q))
-            .then(r => r.json())
-            .then(data => {
-                accountResults.innerHTML = '';
-                if (!data.length) {
-                    accountResults.innerHTML = '<div style="padding:0.5rem 0.75rem;font-size:0.82rem;color:var(--text-muted)">Aucun résultat</div>';
-                }
-                data.forEach(item => {
-                    const el = document.createElement('div');
-                    el.style.cssText = 'padding:0.45rem 0.75rem;cursor:pointer;font-size:0.85rem;border-bottom:1px solid var(--gray-light)';
-                    el.innerHTML = `<strong>${escHtml(item.username)}</strong> — ${escHtml(item.name)} <span style="color:var(--text-muted);font-size:0.78rem">(${escHtml(item.type || '')})</span>`;
-                    el.addEventListener('mouseenter', () => el.style.background = 'rgba(67,97,238,0.06)');
-                    el.addEventListener('mouseleave', () => el.style.background = '');
-                    el.addEventListener('click', () => selectAccount(item));
-                    accountResults.appendChild(el);
+
+    acTimer = setTimeout(function() {
+        fetch(SEARCH_URL + '?q=' + encodeURIComponent(q), {
+            headers: {'X-Requested-With': 'XMLHttpRequest'}
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.length) {
+                accountResults.innerHTML = '<div style="padding:0.6rem 0.9rem;color:var(--text-muted);font-size:0.82rem;">Aucun résultat</div>';
+            } else {
+                var html = '';
+                data.forEach(function(item) {
+                    html += '<div class="ac-result-item"'
+                          + ' data-id="'    + esc(item.id)       + '"'
+                          + ' data-name="'  + escAttr(item.name)    + '"'
+                          + ' data-owner="' + escAttr(item.owner)   + '"'
+                          + ' style="padding:0.55rem 0.9rem;cursor:pointer;font-size:0.83rem;border-bottom:1px solid var(--border-color);">'
+                          + '<strong>' + esc(item.name) + '</strong>'
+                          + ' <span style="color:var(--text-muted)">(' + esc(item.owner) + ')</span>'
+                          + ' <span style="font-size:0.76rem;color:var(--text-muted)">— ' + esc(item.currency) + '</span>'
+                          + '</div>';
                 });
-                accountResults.style.display = 'block';
-            });
-    }, 250);
+                accountResults.innerHTML = html;
+
+                accountResults.querySelectorAll('.ac-result-item').forEach(function(el) {
+                    el.addEventListener('mouseenter', function() { this.style.background = 'var(--bg-secondary,#f8f9fa)'; });
+                    el.addEventListener('mouseleave', function() { this.style.background = ''; });
+                    el.addEventListener('click', function() {
+                        selectAccount(this.dataset.id, this.dataset.name, this.dataset.owner);
+                    });
+                });
+            }
+            accountResults.style.display = 'block';
+        })
+        .catch(function() { accountResults.style.display = 'none'; });
+    }, 280);
 });
 
-function selectAccount(item) {
-    accountHidden.value    = item.id;
-    accountLabel.textContent = item.name + ' (' + item.username + ')';
-    accountInput.value     = item.name;
-    accountResults.style.display = 'none';
-    accountSelected.style.display = 'flex';
+function selectAccount(id, name, owner) {
+    accountHidden.value              = id;
+    accountLabel.textContent         = name + ' (' + owner + ')';
+    accountInput.value               = '';
+    accountResults.style.display     = 'none';
+    accountSelected.style.display    = 'flex';
     checkSubmit();
 }
 
 function clearAccountAc() {
-    accountHidden.value   = '';
-    accountInput.value    = '';
+    accountHidden.value           = '';
+    accountInput.value            = '';
     accountSelected.style.display = 'none';
     checkSubmit();
 }
 
-document.addEventListener('click', e => {
+document.addEventListener('click', function(e) {
     if (!accountInput.contains(e.target) && !accountResults.contains(e.target)) {
         accountResults.style.display = 'none';
     }
@@ -172,16 +190,19 @@ function updateRate(rate) {
 
 // ── Activation du bouton submit ──────────────────────────────────────────────
 function checkSubmit() {
-    const hasAccount = accountHidden.value !== '';
-    const hasType    = document.querySelector('input[name="loan_type"]:checked') !== null;
-    const hasAmount  = parseFloat(document.getElementById('amount').value) > 0;
+    var hasAccount = accountHidden.value !== '';
+    var hasType    = document.querySelector('input[name="loan_type"]:checked') !== null;
+    var hasAmount  = parseFloat(document.getElementById('amount').value) > 0;
     document.getElementById('submit-btn').disabled = !(hasAccount && hasType && hasAmount);
 }
 
 document.getElementById('amount').addEventListener('input', checkSubmit);
 document.getElementById('annual_rate').addEventListener('input', checkSubmit);
 
-function escHtml(str) {
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function esc(str) {
+    return String(str)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+function escAttr(str) { return esc(str).replace(/'/g,'&#39;'); }
 </script>

@@ -168,6 +168,7 @@ class LoanController extends Controller
             'statusBadge'  => Loan::STATUS_BADGE,
             'iLabels'      => LoanInstallment::STATUS_LABELS,
             'iBadge'       => LoanInstallment::STATUS_BADGE,
+            'csrfToken'    => csrf_token(),
         ]);
     }
 

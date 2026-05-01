@@ -75,6 +75,7 @@ class ModerationLoanController extends Controller
             'title'     => 'Octroyer un crédit',
             'types'     => LoanSimulation::getTypes(),
             'account'   => $account,
+            'csrfToken' => csrf_token(),
         ]);
     }
 
@@ -190,6 +191,7 @@ class ModerationLoanController extends Controller
             'statusBadge'    => Loan::STATUS_BADGE,
             'iLabels'        => LoanInstallment::STATUS_LABELS,
             'iBadge'         => LoanInstallment::STATUS_BADGE,
+            'csrfToken'      => csrf_token(),
         ]);
     }
 
