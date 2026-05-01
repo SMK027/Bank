@@ -423,6 +423,80 @@ class ModerationLoanController extends Controller
         $this->redirect('/moderation/loans/' . $loanId);
     }
 
+    // ── Modifier la pénalité d'une échéance ──────────────────────────────────
+
+    public function updatePenalty(string $id, string $iid): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $modId         = $this->getCurrentUserId();
+        $loanId        = (int) $id;
+        $installmentId = (int) $iid;
+
+        $installment = $this->installmentModel->find($installmentId);
+        if (!$installment || (int) $installment['loan_id'] !== $loanId) {
+            $this->setFlash('danger', 'Échéance introuvable.');
+            $this->redirect('/moderation/loans/' . $loanId);
+            return;
+        }
+
+        if ($installment['status'] !== LoanInstallment::STATUS_PENDING) {
+            $this->setFlash('danger', 'La pénalité ne peut être modifiée que sur une échéance en attente.');
+            $this->redirect('/moderation/loans/' . $loanId);
+            return;
+        }
+
+        $loan = $this->loanModel->find($loanId);
+        if (!$loan || !in_array($loan['status'], [Loan::STATUS_ACTIVE, Loan::STATUS_PENDING], true)) {
+            $this->setFlash('danger', 'Crédit introuvable ou dans un état invalide.');
+            $this->redirect('/moderation/loans/' . $loanId);
+            return;
+        }
+
+        $data       = $this->getPostData(['penalty']);
+        $penalty    = max(0.0, round((float) str_replace(',', '.', $data['penalty'] ?? '0'), 2));
+        $oldPenalty = round((float) ($installment['penalty'] ?? 0), 2);
+
+        $success = $this->installmentModel->updatePenalty($installmentId, $penalty);
+        if (!$success) {
+            $this->setFlash('danger', 'Impossible de modifier la pénalité.');
+            $this->redirect('/moderation/loans/' . $loanId);
+            return;
+        }
+
+        AuditLog::log($modId, AuditLog::ACTION_LOAN_INSTALLMENT_PENALTY_UPDATED, [
+            'installment_id' => $installmentId,
+            'old_penalty'    => $oldPenalty,
+            'new_penalty'    => $penalty,
+            'new_amount'     => round((float) $installment['principal'] + (float) $installment['interest'] + $penalty, 2),
+        ], targetAccountId: (int) $loan['account_id']);
+
+        $ownerId   = (int) ($loan['user_id'] ?? 0);
+        $typeLabel = LoanSimulation::getTypes()[$loan['loan_type']]['label'] ?? $loan['loan_type'];
+        if ($ownerId) {
+            $msg = $penalty > 0
+                ? sprintf(
+                    'La pénalité de retard de votre mensualité du %s (crédit %s #%d) a été modifiée à %s €.',
+                    date('d/m/Y', strtotime($installment['due_date'])),
+                    $typeLabel, $loanId,
+                    number_format($penalty, 2, ',', ' ')
+                )
+                : sprintf(
+                    'La pénalité de retard de votre mensualité du %s (crédit %s #%d) a été supprimée.',
+                    date('d/m/Y', strtotime($installment['due_date'])),
+                    $typeLabel, $loanId
+                );
+            $this->notifModel->notify($ownerId, 'loan_penalty_updated', 'Pénalité de retard modifiée', $msg, '/loans/' . $loanId);
+        }
+
+        $this->setFlash('success', $penalty > 0
+            ? sprintf('Pénalité mise à jour : %s €.', number_format($penalty, 2, ',', ' '))
+            : 'Pénalité supprimée.'
+        );
+        $this->redirect('/moderation/loans/' . $loanId);
+    }
+
     // ── Annuler une échéance ─────────────────────────────────────────────────
 
     public function cancelInstallment(string $id, string $iid): void

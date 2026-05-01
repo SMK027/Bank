@@ -200,6 +200,29 @@ class LoanInstallment extends Model
     }
 
     /**
+     * Met à jour la pénalité de retard d'une mensualité en attente.
+     * Recalcule automatiquement le montant total (principal + intérêts + pénalité).
+     *
+     * @param int   $id      ID de l'échéance (doit être STATUS_PENDING)
+     * @param float $penalty Nouveau montant de pénalité (>= 0)
+     */
+    public function updatePenalty(int $id, float $penalty): bool
+    {
+        $inst = $this->find($id);
+        if (!$inst || $inst['status'] !== self::STATUS_PENDING) {
+            return false;
+        }
+
+        $penalty   = max(0.0, round($penalty, 2));
+        $newAmount = round((float) $inst['principal'] + (float) $inst['interest'] + $penalty, 2);
+
+        return $this->update($id, [
+            'penalty' => $penalty,
+            'amount'  => $newAmount,
+        ]);
+    }
+
+    /**
      * Replanifie une mensualité échouée : reporte la date, remet le statut à pending,
      * et ajoute les pénalités de retard éventuelles (qui s'ajoutent au montant total).
      *

@@ -208,6 +208,7 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
                     </td>
                     <td>
                         <?php if ($inst['status'] === LoanInstallment::STATUS_PENDING && $canEdit): ?>
+                        <div style="display:flex;gap:0.3rem;align-items:flex-start">
                         <form method="POST"
                               action="/moderation/loans/<?= (int)$loan['id'] ?>/installments/<?= (int)$inst['id'] ?>/cancel"
                               onsubmit="return confirm('Annuler cette échéance ?')">
@@ -217,6 +218,52 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
                                 <i class="bi bi-x"></i>
                             </button>
                         </form>
+                        <details style="position:relative">
+                            <summary class="btn btn-sm btn-outline" style="color:var(--danger);border-color:var(--danger);list-style:none;cursor:pointer"
+                                     title="Modifier la pénalité de retard">
+                                <i class="bi bi-exclamation-triangle"></i>
+                            </summary>
+                            <div style="position:absolute;right:0;top:calc(100% + 4px);background:var(--white);border:1px solid var(--border-color);
+                                        border-radius:var(--border-radius);box-shadow:var(--shadow);padding:0.75rem;min-width:240px;z-index:100">
+                                <div style="font-size:0.82rem;font-weight:600;margin-bottom:0.5rem;color:var(--danger)">
+                                    <i class="bi bi-exclamation-triangle"></i> Pénalité de retard
+                                </div>
+                                <form method="POST"
+                                      action="/moderation/loans/<?= (int)$loan['id'] ?>/installments/<?= (int)$inst['id'] ?>/penalty">
+                                    <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
+                                    <div style="margin-bottom:0.6rem">
+                                        <label style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:2px">
+                                            Montant (€) <span style="font-weight:400;color:var(--text-muted)">0 = supprimer</span>
+                                        </label>
+                                        <input type="number" name="penalty" class="form-control"
+                                               min="0" step="0.01"
+                                               value="<?= number_format((float)($inst['penalty'] ?? 0), 2, '.', '') ?>"
+                                               placeholder="0.00"
+                                               style="font-size:0.82rem;height:auto;padding:0.3rem 0.5rem">
+                                    </div>
+                                    <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.6rem">
+                                        Capital + intérêts : <?= number_format((float)$inst['principal'] + (float)$inst['interest'], 2, ',', ' ') ?> €
+                                        &rarr; total : <strong id="penpreview_<?= $inst['id'] ?>">—</strong>
+                                    </div>
+                                    <button type="submit" class="btn btn-sm btn-danger" style="width:100%">
+                                        <i class="bi bi-check2"></i> Appliquer
+                                    </button>
+                                </form>
+                            </div>
+                        </details>
+                        <script>
+                        (function() {
+                            var base    = <?= (float)$inst['principal'] + (float)$inst['interest'] ?>;
+                            var preview = document.getElementById('penpreview_<?= $inst['id'] ?>');
+                            var details = preview ? preview.closest('details') : null;
+                            if (!details || !preview) return;
+                            details.querySelector('[name="penalty"]').addEventListener('input', function() {
+                                var p = parseFloat(this.value) || 0;
+                                preview.textContent = (Math.round((base + p) * 100) / 100).toFixed(2).replace('.', ',') + ' €';
+                            });
+                        })();
+                        </script>
+                        </div>
                         <?php elseif ($inst['status'] === LoanInstallment::STATUS_PAID): ?>
                         <form method="POST"
                               action="/moderation/loans/<?= (int)$loan['id'] ?>/installments/<?= (int)$inst['id'] ?>/refund"
