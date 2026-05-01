@@ -777,8 +777,9 @@ class ModerationLoanController extends Controller
                 continue;
             }
 
-            $balance = $this->accountModel->getBalance($accountId);
-            if ($balance < $amount) {
+            $balance   = $this->accountModel->getBalance($accountId);
+            $overdraft = (float) ($account['overdraft'] ?? 0.0);
+            if ($balance + $overdraft < $amount) {
                 $this->installmentModel->markFailed($installmentId);
                 AuditLog::log(null, AuditLog::ACTION_LOAN_INSTALLMENT_FAILED, [
                     'installment_id' => $installmentId,

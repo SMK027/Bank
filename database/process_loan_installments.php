@@ -114,11 +114,12 @@ foreach ($dueInstallments as $inst) {
         continue;
     }
 
-    // ── Vérifier solde suffisant ─────────────────────────────────────────
-    $balance = $accountModel->getBalance($accountId);
-    if ($balance < $amount) {
-        echo sprintf("[%s] INSUFFISANT échéance #%d : solde %.2f < mensualité %.2f — marquée échouée.\n",
-            date('Y-m-d H:i:s'), $installmentId, $balance, $amount);
+    // ── Vérifier solde suffisant (découvert autorisé inclus) ─────────────
+    $balance   = $accountModel->getBalance($accountId);
+    $overdraft = (float) ($account['overdraft'] ?? 0.0);
+    if ($balance + $overdraft < $amount) {
+        echo sprintf("[%s] INSUFFISANT échéance #%d : solde %.2f (découvert %.2f) < mensualité %.2f — marquée échouée.\n",
+            date('Y-m-d H:i:s'), $installmentId, $balance, $overdraft, $amount);
 
         $installmentModel->markFailed($installmentId);
         AuditLog::log(null, AuditLog::ACTION_LOAN_INSTALLMENT_FAILED, [
