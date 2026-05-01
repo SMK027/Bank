@@ -196,10 +196,6 @@ class Loan extends Model
     /**
      * Enregistre un remboursement partiel (incrémente amount_repaid).
      * Retourne true si le crédit est désormais soldé.
-     *
-     * La comparaison se fait contre le total effectif (mensualités actives
-     * hors annulées et remboursées) et non contre le montant nominal du crédit,
-     * afin que les annulations de mensualités soient correctement prises en compte.
      */
     public function recordRepayment(int $id, float $amount): bool
     {
@@ -260,11 +256,8 @@ class Loan extends Model
     }
 
     /**
-     * Retourne le montant total des échéances actives d'un crédit
-     * (hors annulées et remboursées, dont le paiement a été reversé).
-     *
-     * C'est cette valeur — et non loan.amount — qui représente le montant
-     * effectivement à rembourser par le client.
+     * Retourne le montant total effectif des échéances d'un crédit.
+     * Exclut les mensualités annulées et remboursées (non actives sur le plan de remboursement).
      */
     public function getTotalScheduledInstallments(int $loanId): float
     {
