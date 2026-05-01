@@ -124,21 +124,20 @@ class LoanInstallment extends Model
      * @param float $outstandingPrincipal Capital restant dû (loan.amount − principal des mensualités payées)
      * @return int  Nombre de mensualités recalculées
      */
-    public function recalculateInterestForPending(int $loanId, float $annualRate, float $outstandingPrincipal): int
+    public function recalculateInterestForPending(int $loanId, float $annualRate): int
     {
-        $pending     = $this->findBy(['loan_id' => $loanId, 'status' => self::STATUS_PENDING], 'due_date', 'ASC');
-        $monthlyRate = $annualRate / 100.0 / 12.0;
-        $remaining   = $outstandingPrincipal;
-        $count       = 0;
+        $pending = $this->findBy(['loan_id' => $loanId, 'status' => self::STATUS_PENDING], 'due_date', 'ASC');
+        $rate    = $annualRate / 100.0;
+        $count   = 0;
 
         foreach ($pending as $inst) {
-            $interest = round($remaining * $monthlyRate, 2);
-            $amount   = round((float) $inst['principal'] + $interest, 2);
+            $principal = (float) $inst['principal'];
+            $interest  = round($principal * $rate, 2);
+            $amount    = round($principal + $interest, 2);
             $this->update((int) $inst['id'], [
                 'interest' => $interest,
                 'amount'   => $amount,
             ]);
-            $remaining = max(0.0, round($remaining - (float) $inst['principal'], 2));
             $count++;
         }
 

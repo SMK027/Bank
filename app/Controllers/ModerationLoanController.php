@@ -187,7 +187,7 @@ class ModerationLoanController extends Controller
         $scheduledPrincipal  = round((float) $loan['amount'] - $schedulable, 2);
         $totalInterest       = max(0.0, round($totalScheduled - $scheduledPrincipal, 2));
         $remaining           = max(0.0, round($totalScheduled - (float) $loan['amount_repaid'], 2));
-        $monthlyRate         = round((float) $loan['annual_rate'] / 100.0 / 12.0, 8);
+        $rate                = round((float) $loan['annual_rate'] / 100.0, 8);
 
         $this->render('moderation/loans/show', [
             'title'          => 'Crédit #' . $id . ' — ' . $loan['owner_username'],
@@ -197,7 +197,7 @@ class ModerationLoanController extends Controller
             'totalInterest'  => $totalInterest,
             'remaining'      => $remaining,
             'schedulable'    => $schedulable,
-            'monthlyRate'    => $monthlyRate,
+            'rate'           => $rate,
             'types'          => LoanSimulation::getTypes(),
             'statusLabels'   => Loan::STATUS_LABELS,
             'statusBadge'    => Loan::STATUS_BADGE,
@@ -232,9 +232,8 @@ class ModerationLoanController extends Controller
 
         $this->loanModel->updateRate($loanId, $rate);
 
-        // Recalcul des intérêts sur toutes les mensualités en attente
-        $outstanding  = round((float) $loan['amount'] - $this->loanModel->getPaidPrincipal($loanId), 2);
-        $recalcCount  = $this->installmentModel->recalculateInterestForPending($loanId, $rate, $outstanding);
+        // Recalcul des intérêts (flat rate) sur toutes les mensualités en attente
+        $recalcCount  = $this->installmentModel->recalculateInterestForPending($loanId, $rate);
 
         $modId = $this->getCurrentUserId();
         AuditLog::log($modId, AuditLog::ACTION_LOAN_RATE_UPDATE, [
@@ -283,21 +282,42 @@ class ModerationLoanController extends Controller
             return;
         }
 
-        // Vérifier que le total des échéances ne dépasse pas le montant total
-        $totalScheduled = $this->loanModel->getTotalScheduledInstallments($loanId);
-        if (round($totalScheduled + $amount, 2) > (float) $loan['amount']) {
+        // Décomposition capital / intérêts (flat rate annuel)
+        $schedulablePrincipal = $this->loanModel->getSchedulablePrincipal($loanId);
+        if ($schedulablePrincipal <= 0) {
+            $this->setFlash('danger', 'Tout le capital du crédit est déjà planifié.');
+            $this->redirect('/moderation/loans/' . $loanId);
+            return;
+        }
+
+        $rate      = (float) $loan['annual_rate'] / 100.0;
+        $principal = round($amount / (1 + $rate), 2);
+        $interest  = round($amount - $principal, 2);
+
+        if ($principal <= 0) {
+            $this->setFlash('danger', 'Montant invalide.');
+            $this->redirect('/moderation/loans/' . $loanId);
+            return;
+        }
+
+        if ($principal > $schedulablePrincipal + 0.005) {
             $this->setFlash('danger', sprintf(
-                'Le total des échéances (%s €) dépasserait le montant total du crédit (%s €).',
-                number_format($totalScheduled + $amount, 2, ',', ' '),
-                number_format((float) $loan['amount'], 2, ',', ' ')
+                'La part capital (%s €) dépasse le capital restant à planifier (%s €).',
+                number_format($principal, 2, ',', ' '),
+                number_format($schedulablePrincipal, 2, ',', ' ')
             ));
             $this->redirect('/moderation/loans/' . $loanId);
             return;
         }
 
-        $this->installmentModel->addInstallment($loanId, $dueDate, $amount);
+        $this->installmentModel->addInstallment($loanId, $dueDate, $principal, $interest);
 
-        $this->setFlash('success', 'Échéance ajoutée.');
+        $this->setFlash('success', sprintf(
+            'Échéance ajoutée : %s € (%s € capital + %s € intérêts).',
+            number_format($amount, 2, ',', ' '),
+            number_format($principal, 2, ',', ' '),
+            number_format($interest, 2, ',', ' ')
+        ));
         $this->redirect('/moderation/loans/' . $loanId);
     }
 

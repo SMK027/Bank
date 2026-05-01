@@ -5,7 +5,7 @@
 /** @var float  $totalInterest */
 /** @var float  $remaining */
 /** @var float  $schedulable */
-/** @var float  $monthlyRate */
+/** @var float  $rate */
 /** @var array  $types */
 /** @var array  $statusLabels */
 /** @var array  $statusBadge */
@@ -259,17 +259,17 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
                         Montant total (€)
                         <span style="font-weight:400;color:var(--text-muted)">
                             — Capital restant : <?= number_format($schedulable, 2, ',', ' ') ?> €
-                            <?php if ($monthlyRate > 0): ?>
-                            / Intérêts estimés : <span id="interest_preview"><?= number_format(round($schedulable * $monthlyRate, 2), 2, ',', ' ') ?></span> €
+                            <?php if ($rate > 0): ?>
+                            / Intérêts si remboursement total : <span id="interest_preview"><?= number_format(round($schedulable * $rate, 2), 2, ',', ' ') ?></span> €
                             <?php endif; ?>
                         </span>
                     </label>
                     <input type="number" id="installment_amount" name="amount" class="form-control"
                            min="0.01" step="0.01"
-                           placeholder="<?= number_format(round($schedulable + round($schedulable * $monthlyRate, 2), 2), 2, '.', '') ?>"
+                           placeholder="<?= number_format(round($schedulable * (1 + $rate), 2), 2, '.', '') ?>"
                            required
                            style="font-size:0.85rem;padding:0.35rem 0.6rem;height:auto;width:150px">
-                    <?php if ($monthlyRate > 0): ?>
+                    <?php if ($rate > 0): ?>
                     <div id="breakdown_hint" style="font-size:0.75rem;color:var(--text-muted);margin-top:3px;display:none">
                         Capital : <strong id="principal_preview">—</strong> €
                         &nbsp;+&nbsp; Intérêts : <strong id="interest_prev2">—</strong> €
@@ -281,23 +281,22 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
                 </button>
             </div>
         </form>
-        <?php if ($monthlyRate > 0): ?>
+        <?php if ($rate > 0): ?>
         <script>
         (function() {
-            var MONTHLY_RATE  = <?= $monthlyRate ?>;
-            var SCHEDULABLE   = <?= $schedulable ?>;
+            var RATE        = <?= $rate ?>;
+            var SCHEDULABLE = <?= $schedulable ?>;
             var amountInput   = document.getElementById('installment_amount');
             var hintEl        = document.getElementById('breakdown_hint');
             var principalEl   = document.getElementById('principal_preview');
             var interestEl    = document.getElementById('interest_prev2');
-            var interestPreview = document.getElementById('interest_preview');
 
             function fmt(v) {
                 return v.toFixed(2).replace('.', ',');
             }
             function update() {
-                var amount    = parseFloat(amountInput.value) || 0;
-                var interest  = Math.round(SCHEDULABLE * MONTHLY_RATE * 100) / 100;
+                var amount    = parseFloat(amountInput.value.replace(',', '.')) || 0;
+                var interest  = Math.round(amount * RATE / (1 + RATE) * 100) / 100;
                 var principal = Math.round((amount - interest) * 100) / 100;
                 if (amount > 0) {
                     hintEl.style.display = 'block';
