@@ -197,13 +197,15 @@ class Transaction extends Model
                     UNION ALL
                     SELECT credit_tx_id AS linked_id FROM loans              WHERE credit_tx_id IS NOT NULL    AND credit_tx_id IN ($ph)
                     UNION ALL
+                    SELECT cancel_tx_id AS linked_id FROM loans              WHERE cancel_tx_id IS NOT NULL    AND cancel_tx_id IN ($ph)
+                    UNION ALL
                     SELECT transaction_id AS linked_id FROM loan_installments WHERE transaction_id IS NOT NULL AND transaction_id IN ($ph)
                     UNION ALL
                     SELECT refund_tx_id AS linked_id FROM loan_installments  WHERE refund_tx_id IS NOT NULL    AND refund_tx_id  IN ($ph)
                 ) AS linked_sub
                 WHERE linked_id IS NOT NULL";
         $stmt = $this->getPdo()->prepare($sql);
-        $stmt->execute(array_merge($ids, $ids, $ids, $ids, $ids, $ids, $ids));
+        $stmt->execute(array_merge($ids, $ids, $ids, $ids, $ids, $ids, $ids, $ids));
         return array_map('intval', array_column($stmt->fetchAll(\PDO::FETCH_ASSOC), 'linked_id'));
     }
 

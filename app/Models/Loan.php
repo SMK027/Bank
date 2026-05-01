@@ -239,13 +239,20 @@ class Loan extends Model
 
     /**
      * Annule un crédit (modération).
+     *
+     * @param int      $id          Identifiant du crédit.
+     * @param int|null $cancelTxId  ID de la transaction de débit de récupération des fonds (si applicable).
      */
-    public function cancel(int $id): bool
+    public function cancel(int $id, ?int $cancelTxId = null): bool
     {
-        return $this->update($id, [
+        $data = [
             'status'    => self::STATUS_CANCELLED,
             'closed_at' => date('Y-m-d H:i:s'),
-        ]);
+        ];
+        if ($cancelTxId !== null) {
+            $data['cancel_tx_id'] = $cancelTxId;
+        }
+        return $this->update($id, $data);
     }
 
     /**
