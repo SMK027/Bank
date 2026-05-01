@@ -18,6 +18,30 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    /* ----- Dropdown modération (navbar) ----- */
+    const modToggle = document.getElementById('modToggle');
+    const modDropdown = document.getElementById('modDropdown');
+    if (modToggle && modDropdown) {
+        modToggle.addEventListener('click', function (e) {
+            e.stopPropagation();
+            const isOpen = modDropdown.classList.toggle('open');
+            modToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        });
+        document.addEventListener('click', function (e) {
+            if (!modDropdown.contains(e.target)) {
+                modDropdown.classList.remove('open');
+                modToggle.setAttribute('aria-expanded', 'false');
+            }
+        });
+        // Fermer sur Échap
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                modDropdown.classList.remove('open');
+                modToggle.setAttribute('aria-expanded', 'false');
+            }
+        });
+    }
+
     /* ----- Sidebar toggle (tablette) ----- */
     const sidebarToggle = document.querySelector('.sidebar-toggle');
     const sidebar = document.querySelector('.sidebar');

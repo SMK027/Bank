@@ -37,11 +37,74 @@
                         <a href="/tickets" class="navbar-link"><i class="bi bi-ticket-perforated"></i> <span class="nav-label">Demandes</span></a>
                         <a href="/loans/simulator" class="navbar-link"><i class="bi bi-calculator-fill"></i> <span class="nav-label">Simulateur</span></a>
                         <a href="/loans" class="navbar-link"><i class="bi bi-cash-coin"></i> <span class="nav-label">Crédits</span></a>
-                        <?php if (is_moderator()): ?>
-                        <a href="/moderation" class="navbar-link navbar-link-mod"><i class="bi bi-shield-check"></i> <span class="nav-label">Modération</span></a>
-                        <a href="/moderation/loans" class="navbar-link navbar-link-mod"><i class="bi bi-cash-coin"></i> <span class="nav-label">Crédits</span></a>
-                        <?php endif; ?>
                     </div>
+
+                    <?php if (is_moderator()): ?>
+                    <!-- Section modération -->
+                    <div class="navbar-group navbar-mod-section">
+                        <div class="navbar-sep"></div>
+                        <div class="navbar-mod-dropdown" id="modDropdown">
+                            <button class="navbar-mod-toggle" id="modToggle" aria-expanded="false" aria-haspopup="true">
+                                <i class="bi bi-shield-check"></i>
+                                <span class="nav-label">Modération</span>
+                                <i class="bi bi-chevron-down navbar-mod-chevron"></i>
+                            </button>
+                            <div class="navbar-mod-menu" id="modMenu" role="menu">
+                                <div class="navbar-mod-menu-header">Modération</div>
+
+                                <div class="navbar-mod-group-label">Vue d'ensemble</div>
+                                <a href="/moderation" class="navbar-mod-item" role="menuitem">
+                                    <i class="bi bi-speedometer2"></i> Tableau de bord
+                                </a>
+                                <a href="/moderation/audit-log" class="navbar-mod-item" role="menuitem">
+                                    <i class="bi bi-journal-text"></i> Journal d'audit
+                                </a>
+
+                                <div class="navbar-mod-sep"></div>
+                                <div class="navbar-mod-group-label">Comptes &amp; Utilisateurs</div>
+                                <a href="/moderation/users" class="navbar-mod-item" role="menuitem">
+                                    <i class="bi bi-people"></i> Utilisateurs
+                                </a>
+                                <a href="/moderation/accounts/create" class="navbar-mod-item" role="menuitem">
+                                    <i class="bi bi-plus-square"></i> Créer un compte
+                                </a>
+                                <a href="/moderation/guardianships" class="navbar-mod-item" role="menuitem">
+                                    <i class="bi bi-person-heart"></i> Tutelles
+                                </a>
+
+                                <div class="navbar-mod-sep"></div>
+                                <div class="navbar-mod-group-label">Transactions</div>
+                                <a href="/moderation/transfers" class="navbar-mod-item" role="menuitem">
+                                    <i class="bi bi-arrow-left-right"></i> Virements
+                                </a>
+                                <a href="/moderation/direct-debits" class="navbar-mod-item" role="menuitem">
+                                    <i class="bi bi-calendar2-check"></i> Prélèvements
+                                </a>
+                                <a href="/moderation/mandates" class="navbar-mod-item" role="menuitem">
+                                    <i class="bi bi-file-earmark-text"></i> Mandats
+                                </a>
+                                <a href="/moderation/recurring-transfers" class="navbar-mod-item" role="menuitem">
+                                    <i class="bi bi-arrow-repeat"></i> Virements récurrents
+                                </a>
+
+                                <div class="navbar-mod-sep"></div>
+                                <div class="navbar-mod-group-label">Crédit &amp; Épargne</div>
+                                <a href="/moderation/loans" class="navbar-mod-item" role="menuitem">
+                                    <i class="bi bi-cash-coin"></i> Crédits
+                                </a>
+                                <a href="/moderation/savings-rate" class="navbar-mod-item" role="menuitem">
+                                    <i class="bi bi-piggy-bank"></i> Taux d'épargne
+                                </a>
+
+                                <div class="navbar-mod-sep"></div>
+                                <div class="navbar-mod-group-label">Support</div>
+                                <a href="/moderation/tickets" class="navbar-mod-item" role="menuitem">
+                                    <i class="bi bi-ticket-perforated"></i> Tickets
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
 
                     <!-- Icônes rapides (messagerie + notifications) -->
                     <div class="navbar-group navbar-quick-icons">

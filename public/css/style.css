@@ -850,6 +850,124 @@ select.form-control {
 }
 
 /* -----------------------------------------------------------
+   Dropdown modération (navbar)
+   ----------------------------------------------------------- */
+.navbar-sep {
+    width: 1px;
+    height: 22px;
+    background: var(--gray-light);
+    margin: 0 0.35rem;
+    flex-shrink: 0;
+}
+
+.navbar-mod-section {
+    align-items: center;
+}
+
+.navbar-mod-dropdown {
+    position: relative;
+}
+
+.navbar-mod-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.55rem;
+    border-radius: var(--border-radius-sm);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6d28d9;
+    white-space: nowrap;
+    transition: background .2s, color .2s;
+}
+
+.navbar-mod-toggle:hover,
+.navbar-mod-dropdown.open .navbar-mod-toggle {
+    background: rgba(109, 40, 217, 0.08);
+}
+
+.navbar-mod-chevron {
+    font-size: 0.7rem;
+    transition: transform .2s;
+}
+
+.navbar-mod-dropdown.open .navbar-mod-chevron {
+    transform: rotate(180deg);
+}
+
+.navbar-mod-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 230px;
+    background: var(--white);
+    border: 1px solid var(--gray-light);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    z-index: 2000;
+    padding: 0.4rem 0;
+}
+
+.navbar-mod-dropdown.open .navbar-mod-menu {
+    display: block;
+}
+
+.navbar-mod-menu-header {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #6d28d9;
+    padding: 0.4rem 0.9rem 0.25rem;
+    opacity: .7;
+    display: none; /* visible seulement sur mobile */
+}
+
+.navbar-mod-group-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    padding: 0.3rem 0.9rem 0.1rem;
+    margin-top: 0.1rem;
+}
+
+.navbar-mod-sep {
+    height: 1px;
+    background: var(--gray-light);
+    margin: 0.3rem 0;
+}
+
+.navbar-mod-item {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.38rem 0.9rem;
+    font-size: 0.85rem;
+    color: var(--dark);
+    font-weight: 500;
+    transition: background .15s, color .15s;
+    white-space: nowrap;
+}
+
+.navbar-mod-item:hover {
+    background: rgba(109, 40, 217, 0.07);
+    color: #6d28d9;
+}
+
+.navbar-mod-item i {
+    width: 16px;
+    text-align: center;
+    flex-shrink: 0;
+    opacity: .75;
+}
+
+/* -----------------------------------------------------------
    Tableaux
    ----------------------------------------------------------- */
 .table-responsive {
@@ -1374,6 +1492,18 @@ select.form-control {
         display: none;
     }
 
+    /* Masquer le label "Modération" sur tablette, garder l'icône */
+    .navbar-mod-toggle .nav-label,
+    .navbar-mod-toggle .navbar-mod-chevron {
+        display: none;
+    }
+
+    /* Positionner le menu à gauche pour éviter le débordement */
+    .navbar-mod-menu {
+        right: auto;
+        left: 0;
+    }
+
     .sidebar {
         position: fixed;
         left: -100%;
@@ -1479,6 +1609,47 @@ select.form-control {
 
     .nav-label {
         display: inline !important;
+    }
+
+    /* Dropdown mod sur mobile : affiché en liste statique */
+    .navbar-mod-section {
+        flex-direction: column;
+        align-items: flex-start;
+        width: 100%;
+        border-top: 1px solid var(--gray-light);
+        padding-top: 0.4rem;
+    }
+
+    .navbar-sep { display: none; }
+
+    .navbar-mod-dropdown { width: 100%; }
+
+    .navbar-mod-toggle {
+        width: 100%;
+        justify-content: space-between;
+        padding: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    .navbar-mod-toggle .nav-label,
+    .navbar-mod-toggle .navbar-mod-chevron {
+        display: inline !important;
+    }
+
+    .navbar-mod-menu {
+        position: static;
+        box-shadow: none;
+        border: none;
+        border-radius: 0;
+        padding: 0 0 0 0.75rem;
+    }
+
+    .navbar-mod-menu-header { display: none; }
+
+    .navbar-mod-item {
+        width: 100%;
+        padding: 0.4rem 0.5rem;
+        font-size: 0.88rem;
     }
 
     h1 { font-size: 1.5rem; }
