@@ -204,12 +204,15 @@ class Loan extends Model
             return false;
         }
 
-        $newRepaid     = round((float) $loan['amount_repaid'] + $amount, 2);
+        $newRepaid      = round((float) $loan['amount_repaid'] + $amount, 2);
         $effectiveTotal = $this->getTotalScheduledInstallments($id);
 
         $this->update($id, ['amount_repaid' => $newRepaid]);
 
-        if ($effectiveTotal > 0 && $newRepaid >= $effectiveTotal) {
+        // Solder uniquement si tout le capital est planifié ET que tout est remboursé.
+        // Si effectiveTotal < loan.amount, il reste du capital non planifié → pas soldé.
+        $allPrincipalScheduled = $this->getSchedulablePrincipal($id) <= 0;
+        if ($allPrincipalScheduled && $effectiveTotal > 0 && $newRepaid >= $effectiveTotal) {
             $this->close($id);
             return true; // soldé
         }
