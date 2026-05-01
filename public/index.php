@@ -30,6 +30,7 @@ use App\Controllers\AuditLogController;
 use App\Controllers\SavingsInterestController;
 use App\Controllers\MessageController;
 use App\Controllers\LoanController;
+use App\Controllers\ModerationLoanController;
 
 // Démarrer la session
 Session::start();
@@ -197,6 +198,21 @@ $router->post('/interests/{id}/confirm', SavingsInterestController::class, 'conf
 // --- Simulateur de crédits ---
 $router->get('/loans/simulator', LoanController::class, 'simulatorForm');
 $router->post('/loans/simulator', LoanController::class, 'simulate');
+
+// --- Crédits utilisateur ---
+$router->get('/loans', LoanController::class, 'myLoans');
+$router->get('/loans/{id}', LoanController::class, 'show');
+$router->post('/loans/{id}/accept', LoanController::class, 'accept');
+$router->post('/loans/{id}/reject', LoanController::class, 'reject');
+
+// --- Modération : crédits ---
+$router->get('/moderation/loans', ModerationLoanController::class, 'index');
+$router->get('/moderation/loans/create', ModerationLoanController::class, 'createForm');
+$router->post('/moderation/loans', ModerationLoanController::class, 'create');
+$router->get('/moderation/loans/{id}', ModerationLoanController::class, 'show');
+$router->post('/moderation/loans/{id}/rate', ModerationLoanController::class, 'updateRate');
+$router->post('/moderation/loans/{id}/installments', ModerationLoanController::class, 'addInstallment');
+$router->post('/moderation/loans/{id}/installments/{iid}/cancel', ModerationLoanController::class, 'cancelInstallment');
 
 // --- Modération : taux d'intérêt épargne ---
 $router->get('/moderation/savings-rate', ModerationController::class, 'savingsRate');

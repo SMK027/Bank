@@ -15,3 +15,6 @@ PATH=/usr/local/bin:/usr/bin:/bin
 # Clôture des comptes désactivés (suppression définitive en fin de mois) – tous les jours à 02h00
 0 2 * * * www-data . /etc/cron.env; /usr/local/bin/php /var/www/html/database/process_account_closures.php >> /var/www/html/data/closures-cron.log 2>&1
 
+# Prélèvement des échéances de crédits échues – tous les jours à 06h00
+0 6 * * * www-data . /etc/cron.env; /usr/local/bin/php /var/www/html/database/process_loan_installments.php >> /var/www/html/data/loans-cron.log 2>&1
+

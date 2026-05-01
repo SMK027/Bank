@@ -61,6 +61,10 @@ class Notification extends Model
         'mod_direct_debit_due'  => 'bi-file-earmark-arrow-down text-warning',
         'interest_pending'      => 'bi-percent text-success',
         'new_message'           => 'bi-envelope-fill text-primary',
+        'loan_offered'          => 'bi-cash-coin text-primary',
+        'loan_installment_due'  => 'bi-calendar-check-fill text-warning',
+        'loan_installment_failed' => 'bi-exclamation-triangle-fill text-danger',
+        'loan_closed'           => 'bi-check-circle-fill text-success',
     ];
 
     // ── Création ─────────────────────────────────────────────────────────────

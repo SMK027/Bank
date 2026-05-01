@@ -70,6 +70,15 @@ class AuditLog extends Model
 
     public const ACTION_RECURRING_TRANSFER_RESCHEDULE = 'recurring_transfer.reschedule';
 
+    // Crédits
+    public const ACTION_LOAN_GRANT       = 'loan.grant';
+    public const ACTION_LOAN_ACCEPT      = 'loan.accept';
+    public const ACTION_LOAN_REJECT      = 'loan.reject';
+    public const ACTION_LOAN_RATE_UPDATE = 'loan.rate_update';
+    public const ACTION_LOAN_INSTALLMENT_PAID   = 'loan.installment_paid';
+    public const ACTION_LOAN_INSTALLMENT_FAILED = 'loan.installment_failed';
+    public const ACTION_LOAN_CLOSED      = 'loan.closed';
+
     // Utilisateurs (modération)
     public const ACTION_USER_ROLE_CHANGE = 'user.role_change';
     public const ACTION_USER_SUSPEND     = 'user.suspend';
@@ -139,6 +148,13 @@ class AuditLog extends Model
         'interest.confirm'         => 'Intérêts confirmés',
         'interest.rate_set'        => 'Taux d\'intérêt maximum configuré',
         'interest.run'             => 'Calcul des intérêts déclenché (modération)',
+        'loan.grant'               => 'Crédit octroyé',
+        'loan.accept'              => 'Crédit accepté',
+        'loan.reject'              => 'Crédit refusé',
+        'loan.rate_update'         => 'Taux de crédit modifié',
+        'loan.installment_paid'    => 'Mensualité de crédit prélevée',
+        'loan.installment_failed'  => 'Mensualité de crédit échouée',
+        'loan.closed'              => 'Crédit soldé',
     ];
 
     /** Couleur Bootstrap associée à chaque catégorie. */
@@ -154,6 +170,7 @@ class AuditLog extends Model
         'access'           => 'bg-success',
         'guardianship'     => 'bg-success',
         'minor_account'    => 'bg-success',
+        'loan'             => 'bg-purple',
     ];
 
     // ── Écriture ─────────────────────────────────────────────────────────────

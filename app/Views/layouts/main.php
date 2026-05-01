@@ -36,8 +36,10 @@
                         <a href="/transfers/create" class="navbar-link"><i class="bi bi-arrow-left-right"></i> <span class="nav-label">Virement</span></a>
                         <a href="/tickets" class="navbar-link"><i class="bi bi-ticket-perforated"></i> <span class="nav-label">Demandes</span></a>
                         <a href="/loans/simulator" class="navbar-link"><i class="bi bi-calculator-fill"></i> <span class="nav-label">Simulateur</span></a>
+                        <a href="/loans" class="navbar-link"><i class="bi bi-cash-coin"></i> <span class="nav-label">Crédits</span></a>
                         <?php if (is_moderator()): ?>
                         <a href="/moderation" class="navbar-link navbar-link-mod"><i class="bi bi-shield-check"></i> <span class="nav-label">Modération</span></a>
+                        <a href="/moderation/loans" class="navbar-link navbar-link-mod"><i class="bi bi-cash-coin"></i> <span class="nav-label">Crédits</span></a>
                         <?php endif; ?>
                     </div>
 

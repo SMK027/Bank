@@ -5,24 +5,40 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Controller;
+use App\Models\Account;
+use App\Models\AuditLog;
+use App\Models\Loan;
+use App\Models\LoanInstallment;
 use App\Models\LoanSimulation;
+use App\Models\Notification;
+use App\Models\Transaction;
 
 class LoanController extends Controller
 {
-    private LoanSimulation $loanModel;
+    private LoanSimulation  $simModel;
+    private Loan            $loanModel;
+    private LoanInstallment $installmentModel;
+    private Account         $accountModel;
+    private Transaction     $transactionModel;
+    private Notification    $notifModel;
 
     public function __construct()
     {
-        $this->loanModel = new LoanSimulation();
+        $this->simModel         = new LoanSimulation();
+        $this->loanModel        = new Loan();
+        $this->installmentModel = new LoanInstallment();
+        $this->accountModel     = new Account();
+        $this->transactionModel = new Transaction();
+        $this->notifModel       = new Notification();
     }
 
-    // ── Formulaire + liste ─────────────────────────────────────────────────────
+    // ── Simulateur ────────────────────────────────────────────────────────────
 
     public function simulatorForm(): void
     {
         $this->requireAuth();
         $userId  = $this->getCurrentUserId();
-        $history = $this->loanModel->getHistoryForUser($userId, 10);
+        $history = $this->simModel->getHistoryForUser($userId, 10);
 
         $this->render('loans/simulator', [
             'title'      => 'Simulateur de crédits',
@@ -31,8 +47,6 @@ class LoanController extends Controller
             'simulation' => null,
         ]);
     }
-
-    // ── Traitement du formulaire ───────────────────────────────────────────────
 
     public function simulate(): void
     {
@@ -43,7 +57,6 @@ class LoanController extends Controller
         $data   = $this->getPostData(['loan_type', 'amount', 'months']);
         $types  = LoanSimulation::getTypes();
 
-        // --- Validation ---
         if (empty($data['loan_type']) || !isset($types[$data['loan_type']])) {
             $this->setFlash('danger', 'Type de crédit invalide.');
             $this->redirect('/loans/simulator');
@@ -78,7 +91,7 @@ class LoanController extends Controller
         $result = LoanSimulation::calculate($amount, $months, $type['rate']);
 
         // --- Persistance ---
-        $this->loanModel->saveSimulation(
+        $this->simModel->saveSimulation(
             $userId,
             $data['loan_type'],
             $amount,
@@ -89,7 +102,7 @@ class LoanController extends Controller
             $result['total_interest']
         );
 
-        $history = $this->loanModel->getHistoryForUser($userId, 10);
+        $history = $this->simModel->getHistoryForUser($userId, 10);
 
         $this->render('loans/simulator', [
             'title'      => 'Simulateur de crédits',
@@ -107,5 +120,127 @@ class LoanController extends Controller
                 'amortization'    => $result['amortization'],
             ],
         ]);
+    }
+
+    // ── Crédits actifs de l'utilisateur ──────────────────────────────────────
+
+    public function myLoans(): void
+    {
+        $this->requireAuth();
+        $userId = $this->getCurrentUserId();
+        $loans  = $this->loanModel->getForUser($userId);
+        $types  = LoanSimulation::getTypes();
+
+        $this->render('loans/my_loans', [
+            'title'        => 'Mes crédits',
+            'loans'        => $loans,
+            'types'        => $types,
+            'statusLabels' => Loan::STATUS_LABELS,
+            'statusBadge'  => Loan::STATUS_BADGE,
+        ]);
+    }
+
+    // ── Détail d'un crédit ────────────────────────────────────────────────────
+
+    public function show(string $id): void
+    {
+        $this->requireAuth();
+        $userId = $this->getCurrentUserId();
+        $loanId = (int) $id;
+        $loan   = $this->loanModel->getEnriched($loanId);
+
+        if (!$loan || (int) $loan['user_id'] !== $userId) {
+            $this->setFlash('danger', 'Crédit introuvable.');
+            $this->redirect('/loans');
+            return;
+        }
+
+        $installments = $this->installmentModel->getByLoan($loanId);
+        $remaining    = round((float) $loan['amount'] - (float) $loan['amount_repaid'], 2);
+
+        $this->render('loans/show', [
+            'title'        => 'Crédit #' . $loanId . ' — ' . ($loan['account_name'] ?? ''),
+            'loan'         => $loan,
+            'installments' => $installments,
+            'remaining'    => $remaining,
+            'types'        => LoanSimulation::getTypes(),
+            'statusLabels' => Loan::STATUS_LABELS,
+            'statusBadge'  => Loan::STATUS_BADGE,
+            'iLabels'      => LoanInstallment::STATUS_LABELS,
+            'iBadge'       => LoanInstallment::STATUS_BADGE,
+        ]);
+    }
+
+    // ── Accepter un crédit ────────────────────────────────────────────────────
+
+    public function accept(string $id): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+
+        $userId = $this->getCurrentUserId();
+        $loanId = (int) $id;
+        $loan   = $this->loanModel->find($loanId);
+
+        if (!$loan || (int) $loan['user_id'] !== $userId || $loan['status'] !== Loan::STATUS_PENDING) {
+            $this->setFlash('danger', 'Action impossible sur ce crédit.');
+            $this->redirect('/loans');
+            return;
+        }
+
+        $account   = $this->accountModel->find((int) $loan['account_id']);
+        $types     = LoanSimulation::getTypes();
+        $typeLabel = $types[$loan['loan_type']]['label'] ?? $loan['loan_type'];
+
+        // Créditer le compte
+        $txId = $this->transactionModel->addTransaction(
+            (int) $loan['account_id'],
+            'income',
+            (float) $loan['amount'],
+            'Autre',
+            sprintf('Crédit %s #%d — déblocage des fonds', $typeLabel, $loanId),
+            $userId
+        );
+
+        $this->loanModel->accept($loanId, $txId);
+
+        AuditLog::log($userId, AuditLog::ACTION_LOAN_ACCEPT, [
+            'loan_id' => $loanId,
+            'amount'  => $loan['amount'],
+        ], targetAccountId: (int) $loan['account_id']);
+
+        $this->setFlash('success', sprintf(
+            'Crédit accepté. Un montant de %s € a été crédité sur votre compte « %s ».',
+            number_format((float) $loan['amount'], 2, ',', ' '),
+            $account['name'] ?? ''
+        ));
+        $this->redirect('/loans/' . $loanId);
+    }
+
+    // ── Refuser un crédit ─────────────────────────────────────────────────────
+
+    public function reject(string $id): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+
+        $userId = $this->getCurrentUserId();
+        $loanId = (int) $id;
+        $loan   = $this->loanModel->find($loanId);
+
+        if (!$loan || (int) $loan['user_id'] !== $userId || $loan['status'] !== Loan::STATUS_PENDING) {
+            $this->setFlash('danger', 'Action impossible sur ce crédit.');
+            $this->redirect('/loans');
+            return;
+        }
+
+        $this->loanModel->reject($loanId);
+
+        AuditLog::log($userId, AuditLog::ACTION_LOAN_REJECT, [
+            'loan_id' => $loanId,
+        ], targetAccountId: (int) $loan['account_id']);
+
+        $this->setFlash('info', 'Crédit refusé.');
+        $this->redirect('/loans');
     }
 }
