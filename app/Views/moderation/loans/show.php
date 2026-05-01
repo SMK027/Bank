@@ -218,6 +218,17 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
                                 <i class="bi bi-x"></i>
                             </button>
                         </form>
+                        <button type="button" class="btn btn-sm btn-outline js-open-reschedule"
+                                style="color:var(--secondary,#6b7280);border-color:var(--secondary,#6b7280)"
+                                title="Modifier la date d'échéance"
+                                data-inst-id="<?= (int)$inst['id'] ?>"
+                                data-loan-id="<?= (int)$loan['id'] ?>"
+                                data-date="<?= e(date('d/m/Y', strtotime($inst['due_date']))) ?>"
+                                data-base="<?= (float)$inst['principal'] + (float)$inst['interest'] ?>"
+                                data-penalty="<?= number_format((float)($inst['penalty'] ?? 0), 2, '.', '') ?>"
+                                data-new-date="<?= e($inst['due_date']) ?>">
+                            <i class="bi bi-calendar2-event"></i>
+                        </button>
                         <button type="button" class="btn btn-sm btn-outline js-open-penalty"
                                 style="color:var(--danger);border-color:var(--danger)"
                                 title="Modifier la pénalité de retard"
@@ -530,13 +541,17 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
     document.querySelectorAll('.js-open-reschedule').forEach(function (btn) {
         btn.addEventListener('click', function () {
             rsBase = parseFloat(this.dataset.base) || 0;
+            var isFailed = !this.dataset.newDate;
             mRsForm.action = '/moderation/loans/' + this.dataset.loanId + '/installments/' + this.dataset.instId + '/reschedule';
-            mRsSub.textContent = 'Échéance échouée du ' + this.dataset.date;
+            mRsSub.textContent = (isFailed ? 'Échéance échouée du ' : 'Échéance du ') + this.dataset.date;
             mRsPen.value = this.dataset.penalty;
             mRsBase.textContent = fmt(rsBase);
+            /* pré-remplir la date : pour pending = date actuelle, pour failed = +30j */
+            var dateInput = document.getElementById('modal-reschedule-date');
+            dateInput.value = this.dataset.newDate || dateInput.defaultValue;
             updateRsPreview();
             mRs.style.display = 'flex';
-            document.getElementById('modal-reschedule-date').focus();
+            dateInput.focus();
         });
     });
 

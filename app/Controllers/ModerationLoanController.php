@@ -348,8 +348,8 @@ class ModerationLoanController extends Controller
             return;
         }
 
-        if ($installment['status'] !== LoanInstallment::STATUS_FAILED) {
-            $this->setFlash('danger', 'Seules les mensualités échouées peuvent être replanifiées.');
+        if (!in_array($installment['status'], [LoanInstallment::STATUS_FAILED, LoanInstallment::STATUS_PENDING], true)) {
+            $this->setFlash('danger', 'Seules les mensualités en attente ou échouées peuvent être replanifiées.');
             $this->redirect('/moderation/loans/' . $loanId);
             return;
         }
@@ -395,7 +395,7 @@ class ModerationLoanController extends Controller
         ], targetAccountId: (int) $loan['account_id']);
 
         $notifBody = sprintf(
-            'La mensualité échouée du %s (crédit %s #%d) a été replanifiée au %s.',
+            'La mensualité du %s (crédit %s #%d) a été replanifiée au %s.',
             date('d/m/Y', strtotime($installment['due_date'])),
             $typeLabel,
             $loanId,

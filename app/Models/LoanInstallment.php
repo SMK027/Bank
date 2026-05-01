@@ -223,10 +223,10 @@ class LoanInstallment extends Model
     }
 
     /**
-     * Replanifie une mensualité échouée : reporte la date, remet le statut à pending,
-     * et ajoute les pénalités de retard éventuelles (qui s'ajoutent au montant total).
+     * Replanifie une mensualité (pending ou failed) : modifie la date, applique une pénalité
+     * éventuelle et recalcule le montant total. Une mensualité failed repasse à pending.
      *
-     * @param int    $id       ID de l'échéance (doit être en statut 'failed')
+     * @param int    $id       ID de l'échéance (doit être STATUS_PENDING ou STATUS_FAILED)
      * @param string $newDate  Nouvelle date d'échéance (Y-m-d)
      * @param float  $penalty  Montant de la pénalité (>= 0)
      * @return bool
@@ -234,7 +234,7 @@ class LoanInstallment extends Model
     public function reschedule(int $id, string $newDate, float $penalty = 0.0): bool
     {
         $inst = $this->find($id);
-        if (!$inst || $inst['status'] !== self::STATUS_FAILED) {
+        if (!$inst || !in_array($inst['status'], [self::STATUS_PENDING, self::STATUS_FAILED], true)) {
             return false;
         }
 
