@@ -17,6 +17,7 @@ use App\Models\Mandate;
 use App\Models\RecurringTransfer;
 use App\Models\SavingsInterest;
 use App\Models\SavingsRate;
+use App\Models\LoanInstallment;
 use App\Models\User;
 
 class AccountController extends Controller
@@ -239,6 +240,10 @@ class AccountController extends Controller
             'ASC'
         );
 
+        // Échéances de crédit à venir (pending, sur ce compte)
+        $installmentModel         = new LoanInstallment();
+        $upcomingLoanInstallments = $installmentModel->getUpcomingByAccount($accountId);
+
         // Mandats rattachés au compte (émetteur ou destinataire) — comptes pro uniquement
         $mandateModel = new Mandate();
         $mandates = [];
@@ -308,6 +313,7 @@ class AccountController extends Controller
             'txTotalCount'         => $txTotalCount,
             'txPerPage'            => $txPerPage,
             'upcomingDebits'       => $upcomingDebits,
+            'upcomingLoanInstallments' => $upcomingLoanInstallments,
             'balance'             => $balance,
             'futureBalance'      => $futureBalance,
             'hasPending'         => $hasPending,

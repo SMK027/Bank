@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Core\Model;
+use App\Models\Loan;
 
 /**
  * Échéance d'un crédit.
@@ -63,6 +64,29 @@ class LoanInstallment extends Model
                AND l.status = ?'
         );
         $stmt->execute([self::STATUS_PENDING, $today, Loan::STATUS_ACTIVE]);
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Retourne les échéances à venir (pending) pour un compte donné, triées par date.
+     */
+    public function getUpcomingByAccount(int $accountId): array
+    {
+        $stmt = $this->getPdo()->prepare(
+            'SELECT li.*, l.loan_type, l.annual_rate
+             FROM `loan_installments` li
+             JOIN `loans` l ON l.id = li.loan_id
+             WHERE li.status = ?
+               AND l.account_id = ?
+               AND l.status IN (?, ?)
+             ORDER BY li.due_date ASC'
+        );
+        $stmt->execute([
+            self::STATUS_PENDING,
+            $accountId,
+            Loan::STATUS_PENDING,
+            Loan::STATUS_ACTIVE,
+        ]);
         return $stmt->fetchAll();
     }
 

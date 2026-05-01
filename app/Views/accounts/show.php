@@ -1,3 +1,4 @@
+<?php /** @var array $upcomingLoanInstallments */ ?>
 <div class="page-header">
     <div>
         <h1>
@@ -741,13 +742,13 @@
 <!-- ======================================================= -->
 <!-- Section : Opérations à venir                          -->
 <!-- ======================================================= -->
-<?php $hasUpcoming = !empty($pendingTransactions) || !empty($upcomingDebits) || !empty($upcomingMandates) || !empty($pendingDeferredDebits); ?>
+<?php $hasUpcoming = !empty($pendingTransactions) || !empty($upcomingDebits) || !empty($upcomingMandates) || !empty($pendingDeferredDebits) || !empty($upcomingLoanInstallments); ?>
 <div class="card mt-2" style="border-left: 3px solid var(--warning, #f59e0b);">
     <div class="card-header" style="display:flex;align-items:center;gap:0.6rem;">
         <h3 style="margin:0;"><i class="bi bi-clock" style="color:var(--warning,#f59e0b);"></i> Opérations à venir</h3>
         <?php if ($hasUpcoming): ?>
             <span class="badge" style="background:var(--warning,#f59e0b);color:#fff;">
-                <?= count($pendingTransactions) + count($upcomingDebits) + count($upcomingMandates) + count($pendingDeferredDebits ?? []) ?>
+                <?= count($pendingTransactions) + count($upcomingDebits) + count($upcomingMandates) + count($pendingDeferredDebits ?? []) + count($upcomingLoanInstallments ?? []) ?>
             </span>
         <?php endif; ?>
     </div>
@@ -864,6 +865,58 @@
                                     -<?= number_format((float) $d['amount'], 2, ',', ' ') ?>
                                 </td>
                             </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+
+            <?php if (!empty($upcomingLoanInstallments)): ?>
+            <!-- Échéances de crédit à venir -->
+            <h4 style="margin-bottom:0.6rem;font-size:0.95rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">
+                <i class="bi bi-cash-coin"></i> Mensualités de crédit
+                <span class="badge badge-secondary"><?= count($upcomingLoanInstallments) ?></span>
+            </h4>
+            <div class="table-responsive" style="margin-bottom:1.25rem;">
+                <table class="table" id="upcoming-installments-table">
+                    <thead>
+                        <tr>
+                            <th>Date d'échéance</th>
+                            <th>Crédit</th>
+                            <th class="text-right">Montant</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($upcomingLoanInstallments as $inst): ?>
+                        <?php
+                            $isDue     = strtotime($inst['due_date']) <= time();
+                            $loanTypes = \App\Models\LoanSimulation::getTypes();
+                            $typeInfo  = $loanTypes[$inst['loan_type']] ?? null;
+                        ?>
+                        <tr style="opacity:0.85;font-style:italic;">
+                            <td>
+                                <?php if ($isDue): ?>
+                                    <i class="bi bi-hourglass-split" style="color:var(--danger);"></i>
+                                    <strong style="color:var(--danger);"><?= date('d/m/Y', strtotime($inst['due_date'])) ?></strong>
+                                    <br><small class="text-danger" style="font-style:normal;">En attente de prélèvement</small>
+                                <?php else: ?>
+                                    <i class="bi bi-clock" style="color:var(--warning,#f59e0b);"></i>
+                                    <?= date('d/m/Y', strtotime($inst['due_date'])) ?>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if ($typeInfo): ?>
+                                    <i class="bi <?= htmlspecialchars($typeInfo['icon']) ?>"></i>
+                                    <?= htmlspecialchars($typeInfo['label']) ?>
+                                <?php else: ?>
+                                    <?= htmlspecialchars($inst['loan_type']) ?>
+                                <?php endif; ?>
+                                <br><small class="text-muted" style="font-style:normal;">Crédit #<?= (int)$inst['loan_id'] ?></small>
+                            </td>
+                            <td class="text-right font-bold text-danger">
+                                -<?= number_format((float)$inst['amount'], 2, ',', ' ') ?>
+                            </td>
+                        </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
