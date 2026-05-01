@@ -1,3 +1,8 @@
+<?php
+/** @var array       $types */
+/** @var array|null  $account */
+/** @var string      $csrfToken */
+?>
 <div class="page-header">
     <div>
         <h1><i class="bi bi-cash-coin"></i> Octroyer un crédit</h1>

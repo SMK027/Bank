@@ -1,3 +1,10 @@
+<?php
+/** @var array  $loans */
+/** @var array  $types */
+/** @var array  $statusLabels */
+/** @var array  $statusBadge */
+/** @var string $csrfToken */
+?>
 <div class="page-header">
     <div>
         <h1><i class="bi bi-cash-coin"></i> Modération — Crédits</h1>

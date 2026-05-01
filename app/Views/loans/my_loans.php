@@ -1,3 +1,9 @@
+<?php
+/** @var array  $loans */
+/** @var array  $types */
+/** @var array  $statusLabels */
+/** @var array  $statusBadge */
+?>
 <div class="page-header">
     <div>
         <h1><i class="bi bi-cash-coin"></i> Mes crédits</h1>

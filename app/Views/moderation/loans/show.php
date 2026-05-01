@@ -9,6 +9,7 @@
 /** @var array  $statusBadge */
 /** @var array  $iLabels */
 /** @var array  $iBadge */
+/** @var string $csrfToken */
 
 use App\Models\Loan;
 use App\Models\LoanInstallment;
