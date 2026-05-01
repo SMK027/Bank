@@ -371,8 +371,8 @@ class ModerationLoanController extends Controller
             return;
         }
 
-        if ($newDate <= date('Y-m-d')) {
-            $this->setFlash('danger', 'La nouvelle date d\'échéance doit être dans le futur.');
+        if ($newDate < date('Y-m-d')) {
+            $this->setFlash('danger', 'La nouvelle date d\'échéance ne peut pas être dans le passé.');
             $this->redirect('/moderation/loans/' . $loanId);
             return;
         }

@@ -955,7 +955,13 @@
                                 <br><small class="text-muted" style="font-style:normal;">Crédit #<?= (int)$inst['loan_id'] ?></small>
                             </td>
                             <td class="text-right font-bold text-danger">
-                                -<?= number_format((float)$inst['amount'], 2, ',', ' ') ?>
+                                -<?= number_format((float)$inst['amount'], 2, ',', ' ') ?> €
+                                <?php if ((float)($inst['penalty'] ?? 0) > 0): ?>
+                                <div style="font-size:0.72rem;font-weight:400;color:var(--danger);margin-top:2px;white-space:nowrap">
+                                    <i class="bi bi-exclamation-triangle-fill" style="font-size:0.65rem"></i>
+                                    dont <?= number_format((float)$inst['penalty'], 2, ',', ' ') ?> € de pénalité de retard
+                                </div>
+                                <?php endif; ?>
                             </td>
                         </tr>
                         <?php endforeach; ?>

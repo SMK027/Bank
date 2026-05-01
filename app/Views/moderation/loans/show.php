@@ -244,7 +244,7 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
                                     <div style="margin-bottom:0.5rem">
                                         <label style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:2px">Nouvelle date</label>
                                         <input type="date" name="new_due_date" class="form-control"
-                                               min="<?= date('Y-m-d', strtotime('+1 day')) ?>"
+                                               min="<?= date('Y-m-d') ?>"
                                                value="<?= date('Y-m-d', strtotime('+30 days')) ?>" required
                                                style="font-size:0.82rem;height:auto;padding:0.3rem 0.5rem">
                                     </div>
