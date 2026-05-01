@@ -75,9 +75,10 @@ class AuditLog extends Model
     public const ACTION_LOAN_ACCEPT      = 'loan.accept';
     public const ACTION_LOAN_REJECT      = 'loan.reject';
     public const ACTION_LOAN_RATE_UPDATE = 'loan.rate_update';
-    public const ACTION_LOAN_INSTALLMENT_PAID     = 'loan.installment_paid';
-    public const ACTION_LOAN_INSTALLMENT_FAILED   = 'loan.installment_failed';
-    public const ACTION_LOAN_INSTALLMENT_REFUNDED = 'loan.installment_refunded';
+    public const ACTION_LOAN_INSTALLMENT_PAID        = 'loan.installment_paid';
+    public const ACTION_LOAN_INSTALLMENT_FAILED      = 'loan.installment_failed';
+    public const ACTION_LOAN_INSTALLMENT_REFUNDED    = 'loan.installment_refunded';
+    public const ACTION_LOAN_INSTALLMENT_RESCHEDULED = 'loan.installment_rescheduled';
     public const ACTION_LOAN_CLOSED      = 'loan.closed';
     public const ACTION_LOAN_CANCELLED   = 'loan.cancelled';
 

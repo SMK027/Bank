@@ -330,6 +330,99 @@ class ModerationLoanController extends Controller
         $this->redirect('/moderation/loans/' . $loanId);
     }
 
+    // ── Replanifier une mensualité échouée ───────────────────────────────────
+
+    public function rescheduleInstallment(string $id, string $iid): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $modId         = $this->getCurrentUserId();
+        $loanId        = (int) $id;
+        $installmentId = (int) $iid;
+
+        $installment = $this->installmentModel->find($installmentId);
+        if (!$installment || (int) $installment['loan_id'] !== $loanId) {
+            $this->setFlash('danger', 'Échéance introuvable.');
+            $this->redirect('/moderation/loans/' . $loanId);
+            return;
+        }
+
+        if ($installment['status'] !== LoanInstallment::STATUS_FAILED) {
+            $this->setFlash('danger', 'Seules les mensualités échouées peuvent être replanifiées.');
+            $this->redirect('/moderation/loans/' . $loanId);
+            return;
+        }
+
+        $loan = $this->loanModel->find($loanId);
+        if (!$loan || !in_array($loan['status'], [Loan::STATUS_ACTIVE, Loan::STATUS_PENDING], true)) {
+            $this->setFlash('danger', 'Crédit introuvable ou dans un état qui ne permet pas cette opération.');
+            $this->redirect('/moderation/loans/' . $loanId);
+            return;
+        }
+
+        $data    = $this->getPostData(['new_due_date', 'penalty']);
+        $newDate = trim($data['new_due_date']);
+        $penalty = max(0.0, round((float) str_replace(',', '.', $data['penalty'] ?? '0'), 2));
+
+        if (!$newDate || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $newDate)) {
+            $this->setFlash('danger', 'Date d\'échéance invalide.');
+            $this->redirect('/moderation/loans/' . $loanId);
+            return;
+        }
+
+        if ($newDate <= date('Y-m-d')) {
+            $this->setFlash('danger', 'La nouvelle date d\'échéance doit être dans le futur.');
+            $this->redirect('/moderation/loans/' . $loanId);
+            return;
+        }
+
+        $success = $this->installmentModel->reschedule($installmentId, $newDate, $penalty);
+        if (!$success) {
+            $this->setFlash('danger', 'Impossible de replanifier cette mensualité.');
+            $this->redirect('/moderation/loans/' . $loanId);
+            return;
+        }
+
+        $typeLabel = LoanSimulation::getTypes()[$loan['loan_type']]['label'] ?? $loan['loan_type'];
+
+        AuditLog::log($modId, AuditLog::ACTION_LOAN_INSTALLMENT_RESCHEDULED, [
+            'installment_id' => $installmentId,
+            'loan_id'        => $loanId,
+            'new_due_date'   => $newDate,
+            'penalty'        => $penalty,
+            'new_amount'     => round((float) $installment['principal'] + (float) $installment['interest'] + $penalty, 2),
+        ], targetAccountId: (int) $loan['account_id']);
+
+        $notifBody = sprintf(
+            'La mensualité échouée du %s (crédit %s #%d) a été replanifiée au %s.',
+            date('d/m/Y', strtotime($installment['due_date'])),
+            $typeLabel,
+            $loanId,
+            date('d/m/Y', strtotime($newDate))
+        );
+        if ($penalty > 0) {
+            $notifBody .= sprintf(
+                ' Une pénalité de retard de %s € a été ajoutée.',
+                number_format($penalty, 2, ',', ' ')
+            );
+        }
+        $this->notifModel->notify(
+            (int) $loan['user_id'],
+            'loan_installment_due',
+            'Mensualité replanifiée',
+            $notifBody,
+            '/loans/' . $loanId
+        );
+
+        $this->setFlash('success', sprintf(
+            'Mensualité replanifiée au %s.%s',
+            date('d/m/Y', strtotime($newDate)),
+            $penalty > 0 ? sprintf(' Pénalité de %s € ajoutée.', number_format($penalty, 2, ',', ' ')) : ''
+        ));
+        $this->redirect('/moderation/loans/' . $loanId);
+    }
+
     // ── Annuler une échéance ─────────────────────────────────────────────────
 
     public function cancelInstallment(string $id, string $iid): void

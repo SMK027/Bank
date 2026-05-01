@@ -186,10 +186,15 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
                     <td><?= date('d/m/Y', strtotime($inst['due_date'])) ?></td>
                     <td class="text-right fw-medium">
                         <?= number_format((float)$inst['amount'], 2, ',', ' ') ?> €
-                        <?php if ((float)$inst['interest'] > 0): ?>
+                        <?php if ((float)$inst['interest'] > 0 || (float)$inst['penalty'] > 0): ?>
                         <div style="font-size:0.72rem;color:var(--text-muted);font-weight:400;margin-top:2px;white-space:nowrap">
                             <?= number_format((float)$inst['principal'], 2, ',', ' ') ?> € capital
+                            <?php if ((float)$inst['interest'] > 0): ?>
                             + <?= number_format((float)$inst['interest'], 2, ',', ' ') ?> € int.
+                            <?php endif; ?>
+                            <?php if ((float)$inst['penalty'] > 0): ?>
+                            + <span style="color:var(--danger)"><?= number_format((float)$inst['penalty'], 2, ',', ' ') ?> € pénalité</span>
+                            <?php endif; ?>
                         </div>
                         <?php endif; ?>
                     </td>
@@ -222,6 +227,59 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
                                 <i class="bi bi-arrow-counterclockwise"></i>
                             </button>
                         </form>
+                        <?php elseif ($inst['status'] === LoanInstallment::STATUS_FAILED && $canEdit): ?>
+                        <details style="position:relative">
+                            <summary class="btn btn-sm btn-outline" style="color:var(--warning);border-color:var(--warning);list-style:none;cursor:pointer"
+                                     title="Replanifier">
+                                <i class="bi bi-calendar-event"></i>
+                            </summary>
+                            <div style="position:absolute;right:0;top:calc(100% + 4px);background:var(--white);border:1px solid var(--border-color);
+                                        border-radius:var(--border-radius);box-shadow:var(--shadow);padding:0.75rem;min-width:260px;z-index:100">
+                                <div style="font-size:0.82rem;font-weight:600;margin-bottom:0.5rem;color:var(--warning)">
+                                    <i class="bi bi-exclamation-triangle"></i> Replanifier la mensualité
+                                </div>
+                                <form method="POST"
+                                      action="/moderation/loans/<?= (int)$loan['id'] ?>/installments/<?= (int)$inst['id'] ?>/reschedule">
+                                    <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
+                                    <div style="margin-bottom:0.5rem">
+                                        <label style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:2px">Nouvelle date</label>
+                                        <input type="date" name="new_due_date" class="form-control"
+                                               min="<?= date('Y-m-d', strtotime('+1 day')) ?>"
+                                               value="<?= date('Y-m-d', strtotime('+30 days')) ?>" required
+                                               style="font-size:0.82rem;height:auto;padding:0.3rem 0.5rem">
+                                    </div>
+                                    <div style="margin-bottom:0.6rem">
+                                        <label style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:2px">
+                                            Pénalité de retard (€)
+                                            <span style="font-weight:400;color:var(--text-muted)">optionnel</span>
+                                        </label>
+                                        <input type="number" name="penalty" class="form-control"
+                                               min="0" step="0.01" value="0" placeholder="0.00"
+                                               style="font-size:0.82rem;height:auto;padding:0.3rem 0.5rem">
+                                    </div>
+                                    <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.6rem">
+                                        Montant actuel : <?= number_format((float)$inst['principal'] + (float)$inst['interest'], 2, ',', ' ') ?> €
+                                        &rarr; avec pénalité : <strong id="preview_<?= $inst['id'] ?>">—</strong>
+                                    </div>
+                                    <button type="submit" class="btn btn-sm btn-warning" style="width:100%">
+                                        <i class="bi bi-calendar-check"></i> Confirmer la replanification
+                                    </button>
+                                </form>
+                            </div>
+                        </details>
+                        <script>
+                        (function() {
+                            var base    = <?= (float)$inst['principal'] + (float)$inst['interest'] ?>;
+                            var preview = document.getElementById('preview_<?= $inst['id'] ?>');
+                            var input   = document.querySelector('[name="penalty"]');
+                            if (!input || !preview) return;
+                            var form = input.closest('form');
+                            form.querySelector('[name="penalty"]').addEventListener('input', function() {
+                                var p = parseFloat(this.value) || 0;
+                                preview.textContent = (Math.round((base + p) * 100) / 100).toFixed(2).replace('.', ',') + ' €';
+                            });
+                        })();
+                        </script>
                         <?php endif; ?>
                     </td>
                 </tr>

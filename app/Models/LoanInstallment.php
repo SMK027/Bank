@@ -190,4 +190,39 @@ class LoanInstallment extends Model
     {
         return $this->findBy(['loan_id' => $loanId, 'status' => self::STATUS_PAID], 'due_date', 'ASC');
     }
+
+    /**
+     * Retourne les échéances échouées d'un crédit.
+     */
+    public function getFailedByLoan(int $loanId): array
+    {
+        return $this->findBy(['loan_id' => $loanId, 'status' => self::STATUS_FAILED], 'due_date', 'ASC');
+    }
+
+    /**
+     * Replanifie une mensualité échouée : reporte la date, remet le statut à pending,
+     * et ajoute les pénalités de retard éventuelles (qui s'ajoutent au montant total).
+     *
+     * @param int    $id       ID de l'échéance (doit être en statut 'failed')
+     * @param string $newDate  Nouvelle date d'échéance (Y-m-d)
+     * @param float  $penalty  Montant de la pénalité (>= 0)
+     * @return bool
+     */
+    public function reschedule(int $id, string $newDate, float $penalty = 0.0): bool
+    {
+        $inst = $this->find($id);
+        if (!$inst || $inst['status'] !== self::STATUS_FAILED) {
+            return false;
+        }
+
+        $penalty     = max(0.0, round($penalty, 2));
+        $newAmount   = round((float) $inst['principal'] + (float) $inst['interest'] + $penalty, 2);
+
+        return $this->update($id, [
+            'due_date' => $newDate,
+            'penalty'  => $penalty,
+            'amount'   => $newAmount,
+            'status'   => self::STATUS_PENDING,
+        ]);
+    }
 }
