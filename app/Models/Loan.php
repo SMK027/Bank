@@ -15,7 +15,9 @@ use App\Core\Model;
  */
 class Loan extends Model
 {
-    protected string $table = 'loans';
+    protected string $table      = 'loans';
+    protected bool   $hasCreatedAt = false;
+    protected bool   $hasUpdatedAt = false;
 
     public const STATUS_PENDING   = 'pending_acceptance';
     public const STATUS_ACTIVE    = 'active';

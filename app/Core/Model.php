@@ -17,6 +17,9 @@ abstract class Model
     /** Mettre à false pour les tables sans colonne `updated_at` (ex. audit_logs). */
     protected bool $hasUpdatedAt = true;
 
+    /** Mettre à false pour les tables qui n'ont pas de colonne `created_at`. */
+    protected bool $hasCreatedAt = true;
+
     protected function getPdo(): PDO
     {
         return Database::getInstance();
@@ -87,7 +90,9 @@ abstract class Model
 
     public function create(array $data): int
     {
-        $data['created_at'] = date('Y-m-d H:i:s');
+        if ($this->hasCreatedAt) {
+            $data['created_at'] = date('Y-m-d H:i:s');
+        }
         if ($this->hasUpdatedAt) {
             $data['updated_at'] = date('Y-m-d H:i:s');
         }
