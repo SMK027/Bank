@@ -196,6 +196,10 @@ class Loan extends Model
     /**
      * Enregistre un remboursement partiel (incrémente amount_repaid).
      * Retourne true si le crédit est désormais soldé.
+     *
+     * La comparaison se fait contre le total effectif (mensualités actives
+     * hors annulées et remboursées) et non contre le montant nominal du crédit,
+     * afin que les annulations de mensualités soient correctement prises en compte.
      */
     public function recordRepayment(int $id, float $amount): bool
     {
@@ -204,12 +208,12 @@ class Loan extends Model
             return false;
         }
 
-        $newRepaid = round((float) $loan['amount_repaid'] + $amount, 2);
-        $total     = (float) $loan['amount'];
+        $newRepaid     = round((float) $loan['amount_repaid'] + $amount, 2);
+        $effectiveTotal = $this->getTotalScheduledInstallments($id);
 
         $this->update($id, ['amount_repaid' => $newRepaid]);
 
-        if ($newRepaid >= $total) {
+        if ($effectiveTotal > 0 && $newRepaid >= $effectiveTotal) {
             $this->close($id);
             return true; // soldé
         }
@@ -256,16 +260,20 @@ class Loan extends Model
     }
 
     /**
-     * Retourne le montant total des échéances planifiées d'un crédit.
+     * Retourne le montant total des échéances actives d'un crédit
+     * (hors annulées et remboursées, dont le paiement a été reversé).
+     *
+     * C'est cette valeur — et non loan.amount — qui représente le montant
+     * effectivement à rembourser par le client.
      */
     public function getTotalScheduledInstallments(int $loanId): float
     {
         $stmt = $this->getPdo()->prepare(
             'SELECT COALESCE(SUM(amount), 0)
              FROM `loan_installments`
-             WHERE loan_id = ? AND status != ?'
+             WHERE loan_id = ? AND status NOT IN (?, ?)'
         );
-        $stmt->execute([$loanId, LoanInstallment::STATUS_CANCELLED]);
+        $stmt->execute([$loanId, LoanInstallment::STATUS_CANCELLED, LoanInstallment::STATUS_REFUNDED]);
         return (float) $stmt->fetchColumn();
     }
 }
