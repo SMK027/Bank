@@ -183,7 +183,7 @@ class ModerationLoanController extends Controller
 
         $installments   = $this->installmentModel->getByLoan((int) $id);
         $totalScheduled = $this->loanModel->getTotalScheduledInstallments((int) $id);
-        $remaining      = round($totalScheduled - (float) $loan['amount_repaid'], 2);
+        $remaining      = max(0.0, round($totalScheduled - (float) $loan['amount_repaid'], 2));
         $schedulable    = round((float) $loan['amount'] - $totalScheduled, 2);
 
         $this->render('moderation/loans/show', [
@@ -364,6 +364,7 @@ class ModerationLoanController extends Controller
                 $modId
             );
             $this->installmentModel->markRefunded((int) $inst['id'], $refundTxId);
+            $this->loanModel->decrementRepaid($loanId, $instAmount);
             $refundTotal += $instAmount;
         }
 

@@ -155,8 +155,9 @@ class LoanController extends Controller
             return;
         }
 
-        $installments = $this->installmentModel->getByLoan($loanId);
-        $remaining    = round((float) $loan['amount'] - (float) $loan['amount_repaid'], 2);
+        $installments   = $this->installmentModel->getByLoan($loanId);
+        $totalScheduled = $this->loanModel->getTotalScheduledInstallments($loanId);
+        $remaining      = max(0.0, round($totalScheduled - (float) $loan['amount_repaid'], 2));
 
         $this->render('loans/show', [
             'title'        => 'Crédit #' . $loanId . ' — ' . ($loan['account_name'] ?? ''),

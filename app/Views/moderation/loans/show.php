@@ -142,9 +142,11 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
         <div style="font-size:0.82rem;color:var(--text-muted)">
             Planifié : <strong><?= number_format($totalScheduled, 2, ',', ' ') ?> €</strong>
             / <?= number_format((float)$loan['amount'], 2, ',', ' ') ?> €
+            <?php if ($canEdit): ?>
             — Planifiable restant : <strong style="color:<?= $schedulable > 0 ? 'var(--success)' : 'var(--text-muted)' ?>">
                 <?= number_format($schedulable, 2, ',', ' ') ?> €
             </strong>
+            <?php endif; ?>
         </div>
     </div>
 
