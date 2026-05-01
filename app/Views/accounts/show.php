@@ -1,4 +1,45 @@
-<?php /** @var array $upcomingLoanInstallments */ ?>
+<?php
+/**
+ * @var array       $account
+ * @var array       $transactions
+ * @var array       $pendingTransactions
+ * @var array       $executedTransactions
+ * @var int         $txPage
+ * @var int         $txTotalPages
+ * @var int         $txTotalCount
+ * @var int         $txPerPage
+ * @var array       $upcomingDebits
+ * @var array       $upcomingLoanInstallments
+ * @var float       $balance
+ * @var float       $futureBalance
+ * @var bool        $hasPending
+ * @var float       $totalIncome
+ * @var float       $totalExpense
+ * @var float       $totalIncomeFuture
+ * @var float       $totalExpenseFuture
+ * @var bool        $isOwner
+ * @var bool        $isModerator
+ * @var bool        $isFrozen
+ * @var bool        $isDisabled
+ * @var array       $accesses
+ * @var array|null  $owner
+ * @var array       $guardians
+ * @var bool        $isMinorAccount
+ * @var bool        $isGuardian
+ * @var array       $categories
+ * @var array       $expenseCategories
+ * @var array       $incomeCategories
+ * @var array       $mandates
+ * @var array       $upcomingMandates
+ * @var array       $linkedTxIds
+ * @var array       $recurringTransfers
+ * @var float|null  $accruedInterest
+ * @var bool        $deferredDebitEnabled
+ * @var array       $pendingDeferredDebits
+ * @var array       $executedDeferredDebits
+ * @var int|null    $deferredDebitDay
+ */
+?>
 <div class="page-header">
     <div>
         <h1>
