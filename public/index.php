@@ -29,6 +29,7 @@ use App\Controllers\NotificationController;
 use App\Controllers\AuditLogController;
 use App\Controllers\SavingsInterestController;
 use App\Controllers\MessageController;
+use App\Controllers\LoanController;
 
 // Démarrer la session
 Session::start();
@@ -192,6 +193,10 @@ $router->get('/notifications', NotificationController::class, 'index');
 $router->get('/interests', SavingsInterestController::class, 'index');
 $router->get('/interests/{id}/confirm', SavingsInterestController::class, 'confirmForm');
 $router->post('/interests/{id}/confirm', SavingsInterestController::class, 'confirm');
+
+// --- Simulateur de crédits ---
+$router->get('/loans/simulator', LoanController::class, 'simulatorForm');
+$router->post('/loans/simulator', LoanController::class, 'simulate');
 
 // --- Modération : taux d'intérêt épargne ---
 $router->get('/moderation/savings-rate', ModerationController::class, 'savingsRate');

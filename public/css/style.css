@@ -1909,3 +1909,420 @@ select.form-control {
         font-size: 1.2rem;
     }
 }
+
+/* =============================================================
+   Simulateur de crédits
+   ============================================================= */
+
+/* --- Layout 2 colonnes desktop -------------------------------- */
+.loan-layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.loan-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    position: sticky;
+    top: calc(var(--navbar-height) + 1rem);
+}
+
+.loan-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    min-width: 0;
+}
+
+/* --- Grille de cartes de type --------------------------------- */
+.loan-types-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.75rem;
+}
+
+.loan-type-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.875rem 0.5rem;
+    background: var(--white);
+    border: 2px solid var(--gray-light);
+    border-radius: var(--border-radius-lg);
+    cursor: pointer;
+    transition: border-color 0.18s, box-shadow 0.18s, transform 0.18s, background 0.18s;
+    text-align: center;
+    font-family: var(--font-family);
+    box-shadow: var(--shadow-sm);
+}
+
+.loan-type-card:hover {
+    border-color: var(--primary-light);
+    box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1), var(--shadow-sm);
+    transform: translateY(-2px);
+}
+
+.loan-type-card--active {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.18), var(--shadow) !important;
+    background: rgba(67, 97, 238, 0.04);
+    transform: translateY(-2px);
+}
+
+.loan-type-icon {
+    font-size: 1.6rem;
+    color: var(--primary);
+    line-height: 1;
+}
+
+.loan-type-card--active .loan-type-icon {
+    color: var(--primary-dark);
+}
+
+.loan-type-label {
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: var(--dark);
+    line-height: 1.2;
+}
+
+.loan-type-rate {
+    font-size: 0.75rem;
+    color: var(--gray);
+    font-weight: 500;
+}
+
+.loan-type-card--active .loan-type-rate {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+/* --- Bandeau d'info taux -------------------------------------- */
+.loan-rate-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.7rem 0.875rem;
+    background: rgba(17, 138, 178, 0.08);
+    border: 1px solid rgba(17, 138, 178, 0.25);
+    border-left: 3px solid var(--info);
+    border-radius: var(--border-radius);
+    font-size: 0.85rem;
+    color: var(--info-dark);
+    margin-bottom: 1.25rem;
+    line-height: 1.45;
+}
+
+.loan-rate-info i {
+    flex-shrink: 0;
+    font-size: 0.95rem;
+    margin-top: 0.1rem;
+}
+
+/* --- KPIs résultat -------------------------------------------- */
+.loan-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.loan-kpi {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 1rem;
+    background: var(--light);
+    border-radius: var(--border-radius-lg);
+    border: 1px solid var(--gray-light);
+    text-align: center;
+    transition: box-shadow 0.18s;
+}
+
+.loan-kpi:hover {
+    box-shadow: var(--shadow-sm);
+}
+
+.loan-kpi--primary {
+    background: rgba(67, 97, 238, 0.06);
+    border-color: rgba(67, 97, 238, 0.25);
+}
+
+.loan-kpi--danger {
+    background: rgba(239, 71, 111, 0.06);
+    border-color: rgba(239, 71, 111, 0.2);
+}
+
+.loan-kpi-value {
+    font-size: 1.45rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--dark);
+}
+
+.loan-kpi--primary .loan-kpi-value {
+    color: var(--primary);
+}
+
+.loan-kpi--danger .loan-kpi-value {
+    color: var(--danger);
+}
+
+.loan-kpi-label {
+    font-size: 0.78rem;
+    color: var(--gray);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+/* --- Barre capital / intérêts --------------------------------- */
+.loan-breakdown {
+    margin-bottom: 1.5rem;
+}
+
+.loan-breakdown-labels {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.83rem;
+    margin-bottom: 0.4rem;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.loan-breakdown-principal,
+.loan-breakdown-interest {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--gray);
+}
+
+.loan-breakdown-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.loan-breakdown-dot--primary { background: var(--primary); }
+.loan-breakdown-dot--danger  { background: var(--danger); }
+
+.loan-breakdown-bar {
+    display: flex;
+    height: 14px;
+    border-radius: 7px;
+    overflow: hidden;
+    background: var(--gray-lighter);
+}
+
+.loan-breakdown-fill {
+    height: 100%;
+    transition: width 0.6s cubic-bezier(.4,0,.2,1);
+}
+
+.loan-breakdown-fill--principal {
+    background: var(--primary);
+    border-radius: 7px 0 0 7px;
+}
+
+.loan-breakdown-fill--interest {
+    background: var(--danger);
+    border-radius: 0 7px 7px 0;
+}
+
+/* --- Accordéon amortissement ---------------------------------- */
+.loan-details {
+    border: 1px solid var(--gray-light);
+    border-radius: var(--border-radius-lg);
+    overflow: hidden;
+}
+
+.loan-details[open] {
+    box-shadow: var(--shadow-sm);
+}
+
+.loan-details-summary {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.85rem 1.1rem;
+    background: var(--light);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--dark);
+    user-select: none;
+    list-style: none;
+    transition: background 0.15s;
+}
+
+.loan-details-summary::-webkit-details-marker { display: none; }
+
+.loan-details-summary:hover {
+    background: var(--gray-lighter);
+}
+
+.loan-details-chevron {
+    margin-left: auto;
+    color: var(--gray);
+    transition: transform 0.22s ease;
+    font-size: 0.8rem;
+}
+
+.loan-details-chevron--open {
+    transform: rotate(180deg);
+}
+
+.loan-details-body {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-top: 1px solid var(--gray-light);
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+.loan-amort-table {
+    font-size: 0.83rem;
+}
+
+.loan-amort-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.loan-amort-month {
+    color: var(--gray);
+    font-weight: 600;
+    font-size: 0.78rem;
+}
+
+/* --- En-tête résultat ----------------------------------------- */
+.loan-result-header {
+    background: linear-gradient(135deg, rgba(67,97,238,.06) 0%, rgba(67,97,238,.02) 100%);
+    border-bottom-color: rgba(67,97,238,.15);
+}
+
+.loan-result-card {
+    border-top: 3px solid var(--primary);
+    animation: slideDown 0.35s ease;
+}
+
+/* --- État vide ------------------------------------------------- */
+.loan-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 3.5rem 2rem;
+    background: var(--white);
+    border-radius: var(--border-radius-lg);
+    border: 2px dashed var(--gray-light);
+    color: var(--gray);
+    gap: 0.75rem;
+}
+
+.loan-empty-icon {
+    font-size: 3rem;
+    color: var(--gray-light);
+    line-height: 1;
+}
+
+.loan-empty h3 {
+    color: var(--dark);
+    margin: 0;
+}
+
+.loan-empty p {
+    font-size: 0.9rem;
+    max-width: 340px;
+    margin: 0;
+    color: var(--gray);
+}
+
+/* --- Historique ----------------------------------------------- */
+.loan-history-body {
+    padding: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.loan-history-table {
+    font-size: 0.87rem;
+}
+
+.loan-history-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.loan-history-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+}
+
+.loan-history-date {
+    white-space: nowrap;
+}
+
+/* --- Responsive tablette ------------------------------------- */
+@media (max-width: 992px) {
+    .loan-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .loan-sidebar {
+        position: static;
+    }
+
+    .loan-types-grid {
+        grid-template-columns: repeat(5, 1fr);
+    }
+}
+
+/* --- Responsive mobile --------------------------------------- */
+@media (max-width: 640px) {
+    .loan-types-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .loan-kpis {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .loan-kpi-value {
+        font-size: 1.2rem;
+    }
+
+    .loan-breakdown-labels {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    /* Historique : masquer Coût total et Taux sur mobile */
+    .loan-history-table th:nth-child(4),
+    .loan-history-table td:nth-child(4),
+    .loan-history-table th:nth-child(6),
+    .loan-history-table td:nth-child(6) {
+        display: none;
+    }
+}
+
+@media (max-width: 420px) {
+    .loan-types-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .loan-kpis {
+        grid-template-columns: 1fr;
+    }
+}
