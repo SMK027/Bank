@@ -238,9 +238,12 @@ class Loan extends Model
     }
 
     /**
-     * Rouvre un crédit soldé si des mensualités restent effectivement dues
-     * (par ex. après le remboursement d'une mensualité payée).
+     * Rouvre un crédit soldé si des mensualités restent effectivement dues.
      * N'agit que sur les crédits en statut 'closed'.
+     *
+     * La dette effective = toutes les mensualités sauf les annulées.
+     * Les mensualités "remboursées" (refunded) sont incluses : le paiement a été
+     * reversé, donc la dette n'est pas éteinte (≠ annulation qui retire la dette).
      */
     public function reopenIfNeeded(int $id): bool
     {
@@ -248,9 +251,15 @@ class Loan extends Model
         if (!$loan || $loan['status'] !== self::STATUS_CLOSED) {
             return false;
         }
-        $effective = $this->getTotalScheduledInstallments($id);
-        $repaid    = (float) $loan['amount_repaid'];
-        if ($repaid < $effective) {
+        // Total incluant paid + pending + refunded ; exclut uniquement cancelled
+        $stmt = $this->getPdo()->prepare(
+            'SELECT COALESCE(SUM(amount), 0) FROM `loan_installments`
+             WHERE loan_id = ? AND status != ?'
+        );
+        $stmt->execute([$id, LoanInstallment::STATUS_CANCELLED]);
+        $effectiveDebt = (float) $stmt->fetchColumn();
+        $repaid        = (float) $loan['amount_repaid'];
+        if ($repaid < $effectiveDebt) {
             $this->update($id, ['status' => self::STATUS_ACTIVE, 'closed_at' => null]);
             return true;
         }
