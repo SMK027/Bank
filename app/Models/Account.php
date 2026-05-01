@@ -8,6 +8,7 @@ use App\Core\Model;
 use App\Models\DeferredDebit;
 use App\Models\DirectDebit;
 use App\Models\Guardianship;
+use App\Models\LoanInstallment;
 use App\Models\User;
 
 class Account extends Model
@@ -197,6 +198,13 @@ class Account extends Model
         // Déduire les débits différés en attente
         $deferredDebitModel = new DeferredDebit();
         $balance -= $deferredDebitModel->getPendingTotalByAccount($accountId);
+
+        // Déduire les échéances de crédit en attente
+        $installmentModel      = new LoanInstallment();
+        $upcomingInstallments  = $installmentModel->getUpcomingByAccount($accountId);
+        foreach ($upcomingInstallments as $inst) {
+            $balance -= (float) $inst['amount'];
+        }
 
         return $balance;
     }
