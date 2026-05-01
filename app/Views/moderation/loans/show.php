@@ -37,6 +37,16 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
         <a href="/accounts/<?= (int)$loan['account_id'] ?>" class="btn btn-outline btn-sm">
             <i class="bi bi-wallet2"></i> Voir le compte
         </a>
+        <?php if ($canEdit): ?>
+        <form method="POST"
+              action="/moderation/loans/<?= (int)$loan['id'] ?>/cancel"
+              onsubmit="return confirm('Annuler ce crédit ?\n\nSi des fonds ont été versés, un débit sera effectué.\nToutes les mensualités déjà payées seront remboursées.')">
+            <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
+            <button type="submit" class="btn btn-danger btn-sm">
+                <i class="bi bi-x-octagon"></i> Annuler le crédit
+            </button>
+        </form>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -176,8 +186,19 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
                               action="/moderation/loans/<?= (int)$loan['id'] ?>/installments/<?= (int)$inst['id'] ?>/cancel"
                               onsubmit="return confirm('Annuler cette échéance ?')">
                             <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
-                            <button type="submit" class="btn btn-sm btn-outline" style="color:var(--danger);border-color:var(--danger)">
+                            <button type="submit" class="btn btn-sm btn-outline" style="color:var(--danger);border-color:var(--danger)"
+                                    title="Annuler l'échéance">
                                 <i class="bi bi-x"></i>
+                            </button>
+                        </form>
+                        <?php elseif ($inst['status'] === LoanInstallment::STATUS_PAID): ?>
+                        <form method="POST"
+                              action="/moderation/loans/<?= (int)$loan['id'] ?>/installments/<?= (int)$inst['id'] ?>/refund"
+                              onsubmit="return confirm('Rembourser cette mensualité de <?= number_format((float)$inst['amount'], 2, ',', ' ') ?> € ?')">
+                            <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
+                            <button type="submit" class="btn btn-sm btn-outline" style="color:var(--info);border-color:var(--info)"
+                                    title="Rembourser cette mensualité">
+                                <i class="bi bi-arrow-counterclockwise"></i>
                             </button>
                         </form>
                         <?php endif; ?>

@@ -23,19 +23,22 @@ class Loan extends Model
     public const STATUS_ACTIVE    = 'active';
     public const STATUS_REJECTED  = 'rejected';
     public const STATUS_CLOSED    = 'closed';
+    public const STATUS_CANCELLED = 'cancelled';
 
     public const STATUS_LABELS = [
-        self::STATUS_PENDING  => 'En attente d\'acceptation',
-        self::STATUS_ACTIVE   => 'Actif',
-        self::STATUS_REJECTED => 'Refusé',
-        self::STATUS_CLOSED   => 'Soldé',
+        self::STATUS_PENDING   => 'En attente d\'acceptation',
+        self::STATUS_ACTIVE    => 'Actif',
+        self::STATUS_REJECTED  => 'Refusé',
+        self::STATUS_CLOSED    => 'Soldé',
+        self::STATUS_CANCELLED => 'Annulé',
     ];
 
     public const STATUS_BADGE = [
-        self::STATUS_PENDING  => 'badge-warning',
-        self::STATUS_ACTIVE   => 'badge-success',
-        self::STATUS_REJECTED => 'badge-danger',
-        self::STATUS_CLOSED   => 'badge-secondary',
+        self::STATUS_PENDING   => 'badge-warning',
+        self::STATUS_ACTIVE    => 'badge-success',
+        self::STATUS_REJECTED  => 'badge-danger',
+        self::STATUS_CLOSED    => 'badge-secondary',
+        self::STATUS_CANCELLED => 'badge-danger',
     ];
 
     // ── Lecture ──────────────────────────────────────────────────────────────
@@ -219,6 +222,30 @@ class Loan extends Model
     public function updateRate(int $id, float $annualRate): bool
     {
         return $this->update($id, ['annual_rate' => $annualRate]);
+    }
+
+    /**
+     * Décrémente le montant remboursé (suite au remboursement d'une mensualité).
+     */
+    public function decrementRepaid(int $id, float $amount): void
+    {
+        $loan = $this->find($id);
+        if (!$loan) {
+            return;
+        }
+        $newRepaid = max(0.0, round((float) $loan['amount_repaid'] - $amount, 2));
+        $this->update($id, ['amount_repaid' => $newRepaid]);
+    }
+
+    /**
+     * Annule un crédit (modération).
+     */
+    public function cancel(int $id): bool
+    {
+        return $this->update($id, [
+            'status'    => self::STATUS_CANCELLED,
+            'closed_at' => date('Y-m-d H:i:s'),
+        ]);
     }
 
     /**

@@ -19,13 +19,16 @@ use App\Models\User;
  * Gestion des crédits côté modération.
  *
  * Routes :
- *   GET  /moderation/loans                  → liste
- *   GET  /moderation/loans/create           → formulaire d'octroi
- *   POST /moderation/loans                  → enregistrer l'octroi
- *   GET  /moderation/loans/{id}             → détail + échéancier
- *   POST /moderation/loans/{id}/rate        → modifier le taux
- *   POST /moderation/loans/{id}/installments        → ajouter une échéance
- *   POST /moderation/loans/{id}/installments/{iid}/cancel → annuler une échéance
+ *   GET  /moderation/loans                                      → liste
+ *   GET  /moderation/loans/create                               → formulaire d'octroi
+ *   POST /moderation/loans                                      → enregistrer l'octroi
+ *   GET  /moderation/loans/{id}                                 → détail + échéancier
+ *   POST /moderation/loans/{id}/rate                            → modifier le taux
+ *   POST /moderation/loans/{id}/installments                    → ajouter une échéance
+ *   POST /moderation/loans/{id}/installments/{iid}/cancel       → annuler une échéance
+ *   POST /moderation/loans/{id}/installments/{iid}/refund       → rembourser une mensualité
+ *   POST /moderation/loans/{id}/cancel                          → annuler le crédit
+ *   POST /moderation/loans/process-installments                 → exécution manuelle du cron
  */
 class ModerationLoanController extends Controller
 {
@@ -309,6 +312,171 @@ class ModerationLoanController extends Controller
 
         $this->installmentModel->cancel($installmentId);
         $this->setFlash('success', 'Échéance annulée.');
+        $this->redirect('/moderation/loans/' . $loanId);
+    }
+
+    // ── Annulation d'un crédit par la modération ─────────────────────────────
+
+    public function cancelLoan(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $modId  = $this->getCurrentUserId();
+        $loanId = (int) $id;
+        $loan   = $this->loanModel->find($loanId);
+
+        if (!$loan || in_array($loan['status'], [Loan::STATUS_CANCELLED, Loan::STATUS_CLOSED, Loan::STATUS_REJECTED], true)) {
+            $this->setFlash('danger', 'Ce crédit ne peut pas être annulé.');
+            $this->redirect('/moderation/loans/' . $loanId);
+            return;
+        }
+
+        $accountId = (int) $loan['account_id'];
+        $userId    = (int) $loan['user_id'];
+        $amount    = (float) $loan['amount'];
+        $typeLabel = LoanSimulation::getTypes()[$loan['loan_type']]['label'] ?? $loan['loan_type'];
+
+        // ── 1. Si les fonds ont été versés lors de l'acceptation, les récupérer ──
+        $debitTxId = null;
+        if (!empty($loan['disburse_funds']) && !empty($loan['credit_tx_id'])) {
+            $debitTxId = $this->transactionModel->addTransaction(
+                $accountId,
+                'expense',
+                $amount,
+                'Autre',
+                sprintf('Annulation crédit %s #%d — récupération des fonds', $typeLabel, $loanId),
+                $modId
+            );
+        }
+
+        // ── 2. Rembourser chaque mensualité déjà payée ───────────────────────
+        $paidInstallments = $this->installmentModel->getPaidByLoan($loanId);
+        $refundTotal = 0.0;
+        foreach ($paidInstallments as $inst) {
+            $instAmount = (float) $inst['amount'];
+            $refundTxId = $this->transactionModel->addTransaction(
+                $accountId,
+                'income',
+                $instAmount,
+                'Autre',
+                sprintf('Remboursement mensualité #%d — annulation crédit #%d', (int) $inst['id'], $loanId),
+                $modId
+            );
+            $this->installmentModel->markRefunded((int) $inst['id'], $refundTxId);
+            $refundTotal += $instAmount;
+        }
+
+        // ── 3. Annuler les mensualités encore en attente ─────────────────────
+        $pendingInstallments = $this->installmentModel->findBy(['loan_id' => $loanId, 'status' => LoanInstallment::STATUS_PENDING]);
+        foreach ($pendingInstallments as $inst) {
+            $this->installmentModel->cancel((int) $inst['id']);
+        }
+
+        // ── 4. Marquer le crédit comme annulé ────────────────────────────────
+        $this->loanModel->cancel($loanId);
+
+        // ── 5. Audit + notification ──────────────────────────────────────────
+        AuditLog::log($modId, AuditLog::ACTION_LOAN_CANCELLED, [
+            'loan_id'          => $loanId,
+            'amount'           => $amount,
+            'debit_recovery'   => $debitTxId !== null,
+            'refund_total'     => $refundTotal,
+            'installments_refunded' => count($paidInstallments),
+        ], targetAccountId: $accountId);
+
+        $notifBody = sprintf(
+            'Votre crédit %s #%d a été annulé par la modération.',
+            $typeLabel,
+            $loanId
+        );
+        if ($debitTxId !== null) {
+            $notifBody .= sprintf(' Un débit de %s € a été effectué pour récupérer les fonds versés.', number_format($amount, 2, ',', ' '));
+        }
+        if ($refundTotal > 0) {
+            $notifBody .= sprintf(' %s € de mensualités ont été remboursés.', number_format($refundTotal, 2, ',', ' '));
+        }
+        $this->notifModel->notify($userId, 'loan_closed', 'Crédit annulé', $notifBody, '/loans');
+
+        $this->setFlash('warning', sprintf(
+            'Crédit #%d annulé.%s%s',
+            $loanId,
+            $debitTxId !== null ? sprintf(' Débit de %s € effectué.', number_format($amount, 2, ',', ' ')) : '',
+            $refundTotal > 0 ? sprintf(' %s € remboursés (%d mensualité(s)).', number_format($refundTotal, 2, ',', ' '), count($paidInstallments)) : ''
+        ));
+        $this->redirect('/moderation/loans');
+    }
+
+    // ── Remboursement d'une mensualité ────────────────────────────────────────
+
+    public function refundInstallment(string $id, string $iid): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $modId         = $this->getCurrentUserId();
+        $loanId        = (int) $id;
+        $installmentId = (int) $iid;
+
+        $installment = $this->installmentModel->find($installmentId);
+        if (!$installment || (int) $installment['loan_id'] !== $loanId) {
+            $this->setFlash('danger', 'Échéance introuvable.');
+            $this->redirect('/moderation/loans/' . $loanId);
+            return;
+        }
+
+        if ($installment['status'] !== LoanInstallment::STATUS_PAID) {
+            $this->setFlash('danger', 'Seules les mensualités payées peuvent être remboursées.');
+            $this->redirect('/moderation/loans/' . $loanId);
+            return;
+        }
+
+        $loan = $this->loanModel->find($loanId);
+        if (!$loan) {
+            $this->setFlash('danger', 'Crédit introuvable.');
+            $this->redirect('/moderation/loans');
+            return;
+        }
+
+        $accountId  = (int) $loan['account_id'];
+        $userId     = (int) $loan['user_id'];
+        $amount     = (float) $installment['amount'];
+        $typeLabel  = LoanSimulation::getTypes()[$loan['loan_type']]['label'] ?? $loan['loan_type'];
+
+        $refundTxId = $this->transactionModel->addTransaction(
+            $accountId,
+            'income',
+            $amount,
+            'Autre',
+            sprintf('Remboursement mensualité #%d — crédit %s #%d', $installmentId, $typeLabel, $loanId),
+            $modId
+        );
+
+        $this->installmentModel->markRefunded($installmentId, $refundTxId);
+        $this->loanModel->decrementRepaid($loanId, $amount);
+
+        AuditLog::log($modId, AuditLog::ACTION_LOAN_INSTALLMENT_REFUNDED, [
+            'installment_id' => $installmentId,
+            'loan_id'        => $loanId,
+            'amount'         => $amount,
+            'refund_tx_id'   => $refundTxId,
+        ], targetAccountId: $accountId);
+
+        $this->notifModel->notify(
+            $userId,
+            'loan_installment_due',
+            'Mensualité remboursée',
+            sprintf(
+                'La mensualité de %s € du %s (crédit %s #%d) vous a été remboursée par la modération.',
+                number_format($amount, 2, ',', ' '),
+                date('d/m/Y', strtotime($installment['due_date'])),
+                $typeLabel,
+                $loanId
+            ),
+            '/loans/' . $loanId
+        );
+
+        $this->setFlash('success', sprintf('Mensualité de %s € remboursée.', number_format($amount, 2, ',', ' ')));
         $this->redirect('/moderation/loans/' . $loanId);
     }
 

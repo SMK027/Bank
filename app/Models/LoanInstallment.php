@@ -22,12 +22,14 @@ class LoanInstallment extends Model
     public const STATUS_PAID      = 'paid';
     public const STATUS_FAILED    = 'failed';
     public const STATUS_CANCELLED = 'cancelled';
+    public const STATUS_REFUNDED  = 'refunded';
 
     public const STATUS_LABELS = [
         self::STATUS_PENDING   => 'En attente',
         self::STATUS_PAID      => 'Payée',
         self::STATUS_FAILED    => 'Échouée',
         self::STATUS_CANCELLED => 'Annulée',
+        self::STATUS_REFUNDED  => 'Remboursée',
     ];
 
     public const STATUS_BADGE = [
@@ -35,6 +37,7 @@ class LoanInstallment extends Model
         self::STATUS_PAID      => 'badge-success',
         self::STATUS_FAILED    => 'badge-danger',
         self::STATUS_CANCELLED => 'badge-secondary',
+        self::STATUS_REFUNDED  => 'badge-info',
     ];
 
     // ── Lecture ──────────────────────────────────────────────────────────────
@@ -131,5 +134,24 @@ class LoanInstallment extends Model
     public function cancel(int $id): bool
     {
         return $this->update($id, ['status' => self::STATUS_CANCELLED]);
+    }
+
+    /**
+     * Marque une échéance comme remboursée par la modération.
+     */
+    public function markRefunded(int $id, int $refundTxId): bool
+    {
+        return $this->update($id, [
+            'status'       => self::STATUS_REFUNDED,
+            'refund_tx_id' => $refundTxId,
+        ]);
+    }
+
+    /**
+     * Retourne les échéances payées d'un crédit.
+     */
+    public function getPaidByLoan(int $loanId): array
+    {
+        return $this->findBy(['loan_id' => $loanId, 'status' => self::STATUS_PAID], 'due_date', 'ASC');
     }
 }
