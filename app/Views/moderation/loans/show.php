@@ -64,6 +64,14 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
             <?= htmlspecialchars($statusLabels[$loan['status']] ?? $loan['status']) ?>
         </span></div>
     </div>
+    <div class="card" style="padding:1rem;">
+        <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.25rem">Versement des fonds</div>
+        <?php if (!empty($loan['disburse_funds'])): ?>
+            <span class="badge badge-success"><i class="bi bi-cash-stack"></i> Fonds versés</span>
+        <?php else: ?>
+            <span class="badge badge-secondary"><i class="bi bi-slash-circle"></i> Sans versement</span>
+        <?php endif; ?>
+    </div>
 </div>
 
 <?php if (!empty($loan['notes'])): ?>

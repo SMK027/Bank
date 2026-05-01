@@ -140,26 +140,29 @@ class Loan extends Model
         float  $amount,
         float  $annualRate,
         int    $grantedBy,
-        ?string $notes = null
+        ?string $notes = null,
+        bool   $disburseFunds = true
     ): int {
         return $this->create([
-            'account_id'   => $accountId,
-            'user_id'      => $userId,
-            'loan_type'    => $loanType,
-            'amount'       => $amount,
-            'annual_rate'  => $annualRate,
-            'amount_repaid'=> 0,
-            'status'       => self::STATUS_PENDING,
-            'granted_by'   => $grantedBy,
-            'notes'        => $notes,
-            'granted_at'   => date('Y-m-d H:i:s'),
+            'account_id'    => $accountId,
+            'user_id'       => $userId,
+            'loan_type'     => $loanType,
+            'amount'        => $amount,
+            'annual_rate'   => $annualRate,
+            'amount_repaid' => 0,
+            'status'        => self::STATUS_PENDING,
+            'granted_by'    => $grantedBy,
+            'notes'         => $notes,
+            'disburse_funds'=> $disburseFunds ? 1 : 0,
+            'granted_at'    => date('Y-m-d H:i:s'),
         ]);
     }
 
     /**
      * L'utilisateur accepte le crédit.
+     * $creditTxId est null si disburse_funds = false.
      */
-    public function accept(int $id, int $creditTxId): bool
+    public function accept(int $id, ?int $creditTxId): bool
     {
         return $this->update($id, [
             'status'       => self::STATUS_ACTIVE,

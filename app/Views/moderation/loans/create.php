@@ -97,6 +97,20 @@
                           placeholder="Conditions particulières, justification de l'octroi…"></textarea>
             </div>
 
+            <div class="form-group" style="margin-top:0.25rem;">
+                <label style="display:flex;align-items:center;gap:0.55rem;cursor:pointer;user-select:none;">
+                    <input type="checkbox" name="disburse_funds" value="1" id="disburse_funds"
+                           checked style="width:1.1rem;height:1.1rem;cursor:pointer;">
+                    <span>
+                        <strong>Octroyer les fonds</strong>
+                        <small class="text-muted" style="display:block;font-weight:400;">
+                            Décocher si l'utilisateur possède déjà les fonds sur son compte
+                            (le crédit passera en actif sans versement).
+                        </small>
+                    </span>
+                </label>
+            </div>
+
             <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1rem;">
                 <a href="/moderation/loans" class="btn btn-outline">Annuler</a>
                 <button type="submit" class="btn btn-primary" id="submit-btn" disabled>

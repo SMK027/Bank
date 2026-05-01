@@ -47,14 +47,20 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
                 Un crédit de <strong><?= number_format((float)$loan['amount'], 2, ',', ' ') ?> €</strong>
                 au taux de <strong><?= number_format((float)$loan['annual_rate'], 2, ',', ' ') ?> %</strong> par an
                 vous a été proposé sur le compte <strong>« <?= htmlspecialchars($loan['account_name'] ?? '') ?> »</strong>.
-                Si vous acceptez, le montant sera immédiatement crédité sur ce compte.
+                <?php if (!empty($loan['disburse_funds'])): ?>
+                    Si vous acceptez, le montant sera immédiatement crédité sur ce compte.
+                <?php else: ?>
+                    <span class="badge badge-secondary"><i class="bi bi-info-circle"></i> Aucun versement</span>
+                    Les fonds sont déjà sur votre compte. En acceptant, vous confirmez simplement les conditions de remboursement.
+                <?php endif; ?>
             </p>
             <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
                 <form method="POST" action="/loans/<?= (int)$loan['id'] ?>/accept">
                     <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
                     <button type="submit" class="btn btn-success"
-                            onclick="return confirm('Confirmer l\'acceptation du crédit ? Le montant sera crédité immédiatement.')">
-                        <i class="bi bi-check-circle"></i> Accepter et recevoir les fonds
+                            onclick="return confirm('Confirmer l\'acceptation du crédit ?<?= empty($loan['disburse_funds']) ? '' : ' Le montant sera crédité immédiatement.' ?>')">
+                        <i class="bi bi-check-circle"></i>
+                        <?= empty($loan['disburse_funds']) ? 'Accepter les conditions' : 'Accepter et recevoir les fonds' ?>
                     </button>
                 </form>
                 <form method="POST" action="/loans/<?= (int)$loan['id'] ?>/reject">
@@ -95,6 +101,14 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
         <div><span class="badge <?= htmlspecialchars($statusBadge[$loan['status']] ?? 'badge-secondary') ?>" style="font-size:0.9rem">
             <?= htmlspecialchars($statusLabels[$loan['status']] ?? $loan['status']) ?>
         </span></div>
+    </div>
+    <div class="card" style="padding:1rem;">
+        <div style="font-size:0.72rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.2rem">Versement des fonds</div>
+        <?php if (!empty($loan['disburse_funds'])): ?>
+            <span class="badge badge-success"><i class="bi bi-cash-stack"></i> Fonds versés</span>
+        <?php else: ?>
+            <span class="badge badge-secondary"><i class="bi bi-slash-circle"></i> Sans versement</span>
+        <?php endif; ?>
     </div>
 </div>
 

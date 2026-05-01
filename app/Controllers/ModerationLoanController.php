@@ -89,7 +89,7 @@ class ModerationLoanController extends Controller
         $this->validateCSRF();
 
         $modId = $this->getCurrentUserId();
-        $data  = $this->getPostData(['account_id', 'loan_type', 'amount', 'annual_rate', 'notes']);
+        $data  = $this->getPostData(['account_id', 'loan_type', 'amount', 'annual_rate', 'notes', 'disburse_funds']);
 
         $accountId  = (int) $data['account_id'];
         $account    = $this->accountModel->find($accountId);
@@ -108,9 +108,10 @@ class ModerationLoanController extends Controller
             return;
         }
 
-        $amount    = (float) str_replace(',', '.', $data['amount']);
-        $rate      = (float) str_replace(',', '.', $data['annual_rate']);
-        $notes     = trim($data['notes']);
+        $amount        = (float) str_replace(',', '.', $data['amount']);
+        $rate          = (float) str_replace(',', '.', $data['annual_rate']);
+        $notes         = trim($data['notes']);
+        $disburseFunds = !empty($data['disburse_funds']);
 
         if ($amount <= 0) {
             $this->setFlash('danger', 'Le montant doit être positif.');
@@ -132,7 +133,8 @@ class ModerationLoanController extends Controller
             $amount,
             $rate,
             $modId,
-            $notes ?: null
+            $notes ?: null,
+            $disburseFunds
         );
 
         // Notification à l'utilisateur

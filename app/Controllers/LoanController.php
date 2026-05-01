@@ -193,28 +193,36 @@ class LoanController extends Controller
         $types     = LoanSimulation::getTypes();
         $typeLabel = $types[$loan['loan_type']]['label'] ?? $loan['loan_type'];
 
-        // Créditer le compte
-        $txId = $this->transactionModel->addTransaction(
-            (int) $loan['account_id'],
-            'income',
-            (float) $loan['amount'],
-            'Autre',
-            sprintf('Crédit %s #%d — déblocage des fonds', $typeLabel, $loanId),
-            $userId
-        );
+        // Créditer le compte uniquement si disburse_funds = 1
+        $txId = null;
+        if (!empty($loan['disburse_funds'])) {
+            $txId = $this->transactionModel->addTransaction(
+                (int) $loan['account_id'],
+                'income',
+                (float) $loan['amount'],
+                'Autre',
+                sprintf('Crédit %s #%d — déblocage des fonds', $typeLabel, $loanId),
+                $userId
+            );
+        }
 
         $this->loanModel->accept($loanId, $txId);
 
         AuditLog::log($userId, AuditLog::ACTION_LOAN_ACCEPT, [
-            'loan_id' => $loanId,
-            'amount'  => $loan['amount'],
+            'loan_id'         => $loanId,
+            'amount'          => $loan['amount'],
+            'disburse_funds'  => !empty($loan['disburse_funds']),
         ], targetAccountId: (int) $loan['account_id']);
 
-        $this->setFlash('success', sprintf(
-            'Crédit accepté. Un montant de %s € a été crédité sur votre compte « %s ».',
-            number_format((float) $loan['amount'], 2, ',', ' '),
-            $account['name'] ?? ''
-        ));
+        if ($txId !== null) {
+            $this->setFlash('success', sprintf(
+                'Crédit accepté. Un montant de %s € a été crédité sur votre compte « %s ».',
+                number_format((float) $loan['amount'], 2, ',', ' '),
+                $account['name'] ?? ''
+            ));
+        } else {
+            $this->setFlash('success', 'Crédit accepté. Les fonds étaient déjà sur votre compte.');
+        }
         $this->redirect('/loans/' . $loanId);
     }
 
