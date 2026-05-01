@@ -437,9 +437,9 @@ class ModerationLoanController extends Controller
         }
 
         $loan = $this->loanModel->find($loanId);
-        if (!$loan) {
-            $this->setFlash('danger', 'Crédit introuvable.');
-            $this->redirect('/moderation/loans');
+        if (!$loan || !in_array($loan['status'], [Loan::STATUS_ACTIVE, Loan::STATUS_CLOSED], true)) {
+            $this->setFlash('danger', 'Crédit introuvable ou dans un état qui ne permet pas le remboursement.');
+            $this->redirect('/moderation/loans/' . $loanId);
             return;
         }
 
@@ -459,12 +459,14 @@ class ModerationLoanController extends Controller
 
         $this->installmentModel->markRefunded($installmentId, $refundTxId);
         $this->loanModel->decrementRepaid($loanId, $amount);
+        $reopened = $this->loanModel->reopenIfNeeded($loanId);
 
         AuditLog::log($modId, AuditLog::ACTION_LOAN_INSTALLMENT_REFUNDED, [
             'installment_id' => $installmentId,
             'loan_id'        => $loanId,
             'amount'         => $amount,
             'refund_tx_id'   => $refundTxId,
+            'loan_reopened'  => $reopened,
         ], targetAccountId: $accountId);
 
         $this->notifModel->notify(
@@ -481,7 +483,11 @@ class ModerationLoanController extends Controller
             '/loans/' . $loanId
         );
 
-        $this->setFlash('success', sprintf('Mensualité de %s € remboursée.', number_format($amount, 2, ',', ' ')));
+        $this->setFlash('success', sprintf(
+            'Mensualité de %s € remboursée.%s',
+            number_format($amount, 2, ',', ' '),
+            $reopened ? ' Le crédit a été réouvert (mensualités restantes à payer).' : ''
+        ));
         $this->redirect('/moderation/loans/' . $loanId);
     }
 

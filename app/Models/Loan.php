@@ -238,6 +238,26 @@ class Loan extends Model
     }
 
     /**
+     * Rouvre un crédit soldé si des mensualités restent effectivement dues
+     * (par ex. après le remboursement d'une mensualité payée).
+     * N'agit que sur les crédits en statut 'closed'.
+     */
+    public function reopenIfNeeded(int $id): bool
+    {
+        $loan = $this->find($id);
+        if (!$loan || $loan['status'] !== self::STATUS_CLOSED) {
+            return false;
+        }
+        $effective = $this->getTotalScheduledInstallments($id);
+        $repaid    = (float) $loan['amount_repaid'];
+        if ($repaid < $effective) {
+            $this->update($id, ['status' => self::STATUS_ACTIVE, 'closed_at' => null]);
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Recalcule amount_repaid depuis les mensualités (source de vérité).
      * amount_repaid = SUM des mensualités dont le statut est 'paid' uniquement
      * (les mensualités remboursées ont déjà été déduites ; les annulées n'ont jamais été encaissées).
