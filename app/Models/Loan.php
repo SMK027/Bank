@@ -169,14 +169,11 @@ class Loan extends Model
     }
 
     /**
-     * L'utilisateur refuse le crédit.
+     * L'utilisateur refuse le crédit — la ligne est supprimée (CASCADE sur loan_installments).
      */
     public function reject(int $id): bool
     {
-        return $this->update($id, [
-            'status'      => self::STATUS_REJECTED,
-            'rejected_at' => date('Y-m-d H:i:s'),
-        ]);
+        return $this->delete($id);
     }
 
     /**

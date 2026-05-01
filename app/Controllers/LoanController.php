@@ -238,10 +238,11 @@ class LoanController extends Controller
         $this->loanModel->reject($loanId);
 
         AuditLog::log($userId, AuditLog::ACTION_LOAN_REJECT, [
-            'loan_id' => $loanId,
+            'loan_id'    => $loanId,
+            'account_id' => (int) $loan['account_id'],
         ], targetAccountId: (int) $loan['account_id']);
 
-        $this->setFlash('info', 'Crédit refusé.');
+        $this->setFlash('info', 'Crédit refusé et supprimé.');
         $this->redirect('/loans');
     }
 }
