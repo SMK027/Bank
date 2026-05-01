@@ -184,6 +184,14 @@ class ModerationLoanController extends Controller
         $installments        = $this->installmentModel->getByLoan((int) $id);
         $totalScheduled      = $this->loanModel->getTotalScheduledInstallments((int) $id);
         $schedulable         = $this->loanModel->getSchedulablePrincipal((int) $id);
+        $remainingInterest = 0.0;
+        foreach ($installments as $inst) {
+            if (in_array($inst['status'], [LoanInstallment::STATUS_PENDING, LoanInstallment::STATUS_FAILED], true)) {
+                $remainingInterest += (float) ($inst['interest'] ?? 0);
+            }
+        }
+        $remainingInterest = round($remainingInterest, 2);
+
         $scheduledPrincipal  = round((float) $loan['amount'] - $schedulable, 2);
         $totalInterest       = max(0.0, round($totalScheduled - $scheduledPrincipal, 2));
         $remaining           = max(0.0, round($totalScheduled - (float) $loan['amount_repaid'], 2));
@@ -194,8 +202,9 @@ class ModerationLoanController extends Controller
             'loan'           => $loan,
             'installments'   => $installments,
             'totalScheduled' => $totalScheduled,
-            'totalInterest'  => $totalInterest,
-            'remaining'      => $remaining,
+            'totalInterest'     => $totalInterest,
+            'remaining'         => $remaining,
+            'remainingInterest' => $remainingInterest,
             'schedulable'    => $schedulable,
             'rate'           => $rate,
             'types'          => LoanSimulation::getTypes(),

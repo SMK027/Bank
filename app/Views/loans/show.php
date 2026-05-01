@@ -90,6 +90,11 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
     <div class="card" style="padding:1rem;">
         <div style="font-size:0.72rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.2rem">Restant dû</div>
         <div style="font-size:1.3rem;font-weight:700;color:var(--danger)"><?= number_format($remaining, 2, ',', ' ') ?> €</div>
+        <?php if (($remainingInterest ?? 0) > 0): ?>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">
+            dont <?= number_format($remainingInterest, 2, ',', ' ') ?> € d'intérêts
+        </div>
+        <?php endif; ?>
     </div>
     <?php endif; ?>
     <div class="card" style="padding:1rem;">

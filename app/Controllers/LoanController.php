@@ -159,11 +159,20 @@ class LoanController extends Controller
         $totalScheduled = $this->loanModel->getTotalScheduledInstallments($loanId);
         $remaining      = max(0.0, round($totalScheduled - (float) $loan['amount_repaid'], 2));
 
+        $remainingInterest = 0.0;
+        foreach ($installments as $inst) {
+            if (in_array($inst['status'], [LoanInstallment::STATUS_PENDING, LoanInstallment::STATUS_FAILED], true)) {
+                $remainingInterest += (float) ($inst['interest'] ?? 0);
+            }
+        }
+        $remainingInterest = round($remainingInterest, 2);
+
         $this->render('loans/show', [
             'title'        => 'Crédit #' . $loanId . ' — ' . ($loan['account_name'] ?? ''),
             'loan'         => $loan,
             'installments' => $installments,
-            'remaining'    => $remaining,
+            'remaining'         => $remaining,
+            'remainingInterest' => $remainingInterest,
             'types'        => LoanSimulation::getTypes(),
             'statusLabels' => Loan::STATUS_LABELS,
             'statusBadge'  => Loan::STATUS_BADGE,

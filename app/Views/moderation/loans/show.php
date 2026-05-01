@@ -4,6 +4,7 @@
 /** @var float  $totalScheduled */
 /** @var float  $totalInterest */
 /** @var float  $remaining */
+/** @var float  $remainingInterest */
 /** @var float  $schedulable */
 /** @var float  $rate */
 /** @var array  $types */
@@ -65,6 +66,11 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
     <div class="card" style="padding:1rem;">
         <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.25rem">Restant dû</div>
         <div style="font-size:1.4rem;font-weight:700;color:var(--danger)"><?= number_format($remaining, 2, ',', ' ') ?> €</div>
+        <?php if ($remainingInterest > 0): ?>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">
+            dont <?= number_format($remainingInterest, 2, ',', ' ') ?> € d'intérêts
+        </div>
+        <?php endif; ?>
     </div>
     <div class="card" style="padding:1rem;">
         <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.25rem">Taux annuel</div>
