@@ -157,7 +157,7 @@ class LoanController extends Controller
 
         $installments   = $this->installmentModel->getByLoan($loanId);
         $totalScheduled = $this->loanModel->getTotalScheduledInstallments($loanId);
-        $remaining      = max(0.0, round($totalScheduled - (float) $loan['amount_repaid'], 2));
+        $remaining      = max(0.0, round(max((float) $loan['amount'], $totalScheduled) - (float) $loan['amount_repaid'], 2));
 
         $remainingInterest = 0.0;
         foreach ($installments as $inst) {

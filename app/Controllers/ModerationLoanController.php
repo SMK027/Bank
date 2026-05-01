@@ -194,7 +194,7 @@ class ModerationLoanController extends Controller
 
         $scheduledPrincipal  = round((float) $loan['amount'] - $schedulable, 2);
         $totalInterest       = max(0.0, round($totalScheduled - $scheduledPrincipal, 2));
-        $remaining           = max(0.0, round($totalScheduled - (float) $loan['amount_repaid'], 2));
+        $remaining           = max(0.0, round(max((float) $loan['amount'], $totalScheduled) - (float) $loan['amount_repaid'], 2));
         $rate                = round((float) $loan['annual_rate'] / 100.0, 8);
 
         $this->render('moderation/loans/show', [
