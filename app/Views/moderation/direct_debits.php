@@ -240,9 +240,9 @@ function renderTable() {
             var ageMs      = now - executedMs;
             var H48        = 48 * 3600 * 1000;
             if (executedMs && ageMs >= 0 && ageMs < H48) {
-                var formId = 'reject-form-' + d.id;
+                // Fenêtre 48 h : motif + mot de passe obligatoires
                 actionCell =
-                    '<form id="' + formId + '" method="POST" action="/moderation/direct-debits/' + esc(String(d.id)) + '/reject"'
+                    '<form method="POST" action="/moderation/direct-debits/' + esc(String(d.id)) + '/reject"'
                     + ' style="display:flex;flex-direction:column;gap:0.25rem;align-items:stretch;min-width:200px;"'
                     + ' onsubmit="return confirmRejectDD(this, ' + d.id + ', \'' + esc(d.mandate_number) + '\');">'
                     + '<input type="hidden" name="csrf_token" value="' + esc(DD_CSRF) + '">'
@@ -253,10 +253,17 @@ function renderTable() {
                     + '<button type="submit" class="btn btn-warning btn-sm" style="padding:0.25rem 0.6rem;font-size:0.76rem;" title="Rejeter et rembourser">'
                     + '<i class="bi bi-arrow-counterclockwise"></i> Rejeter</button>'
                     + '</form>';
-            } else if (!executedMs) {
-                actionCell = '<span class="badge badge-secondary" style="font-size:0.7rem;opacity:0.7"><i class="bi bi-hourglass-split"></i> —</span>';
+            } else if (executedMs) {
+                // Au-delà de 48 h : rejet libre, sans motif ni mot de passe
+                actionCell =
+                    '<form method="POST" action="/moderation/direct-debits/' + esc(String(d.id)) + '/reject"'
+                    + ' style="display:inline" onsubmit="return confirm(\'Rejeter le prélèvement #' + d.id + ' (mandat ' + esc(d.mandate_number) + ') ?\\nLe montant sera recrédité sur le compte débité.\');">'
+                    + '<input type="hidden" name="csrf_token" value="' + esc(DD_CSRF) + '">'
+                    + '<button type="submit" class="btn btn-warning btn-sm" style="padding:0.25rem 0.6rem;font-size:0.76rem;" title="Rejeter et rembourser (au-delà de 48 h)">'
+                    + '<i class="bi bi-arrow-counterclockwise"></i> Rejeter</button>'
+                    + '</form>';
             } else {
-                actionCell = '<span class="badge badge-secondary" style="font-size:0.7rem;opacity:0.5" title="Délai de rejet dépassé (48 h après exécution)"><i class="bi bi-hourglass-bottom"></i> Expiré</span>';
+                actionCell = '<span class="badge badge-secondary" style="font-size:0.7rem;opacity:0.7"><i class="bi bi-hourglass-split"></i> —</span>';
             }
         } else if (d.status === 'rejected' || d.status === 'failed') {
             actionCell =

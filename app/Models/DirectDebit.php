@@ -127,13 +127,24 @@ class DirectDebit extends Model
 
     /**
      * Vérifie si un prélèvement peut être rejeté.
-     * Conditions : statut success + exécuté depuis moins de 48 h.
+     * Conditions : statut success + executed_at renseigné.
+     * Le délai de 48 h n'est plus une contrainte de rejet, mais conditionne
+     * les exigences (motif + mot de passe) imposées au modérateur.
      */
     public function canReject(array $directDebit): bool
     {
         if (($directDebit['status'] ?? '') !== self::STATUS_SUCCESS) {
             return false;
         }
+        return !empty($directDebit['executed_at']);
+    }
+
+    /**
+     * Indique si le rejet est dans la fenêtre des 48 h après exécution
+     * (motif et mot de passe requis dans ce cas).
+     */
+    public function isWithin48hOfExecution(array $directDebit): bool
+    {
         if (empty($directDebit['executed_at'])) {
             return false;
         }

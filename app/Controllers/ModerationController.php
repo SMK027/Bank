@@ -863,36 +863,46 @@ class ModerationController extends Controller
         }
 
         if (!$this->directDebitModel->canReject($directDebit)) {
-            $this->setFlash('danger', 'Ce prélèvement ne peut pas être rejeté (rejet possible uniquement dans les 48 h suivant l\'exécution).');
+            $this->setFlash('danger', 'Ce prélèvement ne peut pas être rejeté (seuls les prélèvements exécutés sont rejetables).');
             $this->redirect('/moderation/direct-debits');
             return;
         }
 
-        // Motif obligatoire
-        $reason = trim((string) ($_POST['reason'] ?? ''));
-        if ($reason === '') {
-            $this->setFlash('danger', 'Le motif de rejet est obligatoire.');
-            $this->redirect('/moderation/direct-debits');
-            return;
-        }
-        if (mb_strlen($reason) > 500) {
-            $reason = mb_substr($reason, 0, 500);
-        }
-
-        // Confirmation par mot de passe du modérateur connecté
-        $password    = (string) ($_POST['password'] ?? '');
         $moderatorId = $this->getCurrentUserId();
-        $modUser     = $this->userModel->find($moderatorId);
-        if (!$modUser || $password === '' || !password_verify($password, $modUser['password'])) {
-            $this->setFlash('danger', 'Mot de passe incorrect : rejet annulé.');
-            $this->redirect('/moderation/direct-debits');
-            return;
+        $within48h   = $this->directDebitModel->isWithin48hOfExecution($directDebit);
+        $reason      = trim((string) ($_POST['reason'] ?? ''));
+
+        // Dans les 48 h suivant l'exécution : motif + mot de passe obligatoires.
+        // Au-delà : rejet libre, sans motif ni mot de passe.
+        if ($within48h) {
+            if ($reason === '') {
+                $this->setFlash('danger', 'Le motif de rejet est obligatoire dans les 48 h suivant l\'exécution.');
+                $this->redirect('/moderation/direct-debits');
+                return;
+            }
+            if (mb_strlen($reason) > 500) {
+                $reason = mb_substr($reason, 0, 500);
+            }
+
+            $password = (string) ($_POST['password'] ?? '');
+            $modUser  = $this->userModel->find($moderatorId);
+            if (!$modUser || $password === '' || !password_verify($password, $modUser['password'])) {
+                $this->setFlash('danger', 'Mot de passe incorrect : rejet annulé.');
+                $this->redirect('/moderation/direct-debits');
+                return;
+            }
+        } else {
+            // Hors fenêtre 48 h : motif facultatif (tronqué si fourni).
+            if ($reason !== '' && mb_strlen($reason) > 500) {
+                $reason = mb_substr($reason, 0, 500);
+            }
         }
 
         $amount        = (float) $directDebit['amount'];
         $toAccountId   = (int) $directDebit['to_account_id'];
         $fromAccountId = $directDebit['from_account_id'] !== null ? (int) $directDebit['from_account_id'] : null;
-        $comment       = 'Rejet prélèvement mandat ' . $directDebit['mandate_number'] . ' — Motif : ' . $reason;
+        $comment       = 'Rejet prélèvement mandat ' . $directDebit['mandate_number']
+            . ($reason !== '' ? ' — Motif : ' . $reason : '');
 
         // Remboursement du compte débité (crédit = reversal)
         $this->transactionModel->addTransaction(
@@ -916,18 +926,23 @@ class ModerationController extends Controller
             );
         }
 
-        $this->directDebitModel->markRejected($debitId, $reason);
+        $this->directDebitModel->markRejected($debitId, $reason !== '' ? $reason : null);
 
         AuditLog::log($moderatorId, AuditLog::ACTION_DIRECT_DEBIT_REJECT, ['mandate_number' => $directDebit['mandate_number'], 'amount' => $amount, 'reason' => $reason], targetAccountId: $toAccountId);
         // Notifier le propriétaire du compte débité (et ses tuteurs si compte mineur)
         $toAccount = $this->accountModel->find($toAccountId);
         if ($toAccount) {
+            $notifBody = 'Le prélèvement (mandat ' . $directDebit['mandate_number'] . ') de '
+                . number_format($amount, 2, ',', ' ') . ' € sur votre compte « ' . $toAccount['name']
+                . ' » a été rejeté par la modération.'
+                . ($reason !== '' ? ' Motif : ' . $reason . '.' : '')
+                . ' Le montant a été recrédité.';
             $this->notifyAccountOwner(
                 (int) $toAccount['user_id'],
                 $toAccountId,
                 'direct_debit_rejected',
                 'Prélèvement rejeté — ' . number_format($amount, 2, ',', ' ') . ' €',
-                'Le prélèvement (mandat ' . $directDebit['mandate_number'] . ') de ' . number_format($amount, 2, ',', ' ') . ' € sur votre compte « ' . $toAccount['name'] . ' » a été rejeté par la modération. Motif : ' . $reason . '. Le montant a été recrédité.'
+                $notifBody
             );
         }
 
