@@ -19,15 +19,33 @@
                            value="<?= e($account['name']) ?>" required autofocus>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Type de compte</label>
-                    <input type="hidden" name="account_type" value="<?= e($account['type'] ?? 'standard') ?>">
-                    <div class="form-control" style="background:var(--gray-lighter);color:var(--dark);cursor:default;">
-                        <?php
-                        use App\Models\Account as AccountModel;
-                        echo e(AccountModel::TYPES[$account['type'] ?? 'standard']['label'] ?? $account['type']);
-                        ?>
-                    </div>
-                    <span class="form-hint"><i class="bi bi-lock-fill"></i> Le type de compte ne peut pas être modifié après création.</span>
+                    <label class="form-label" for="account_type">Type de compte</label>
+                    <?php
+                    use App\Models\Account as AccountModel;
+                    $currentType = $account['type'] ?? 'standard';
+                    ?>
+                    <?php if (!empty($isInternal)): ?>
+                        <select id="account_type" name="account_type" class="form-control" required>
+                            <?php foreach ($accountTypes as $key => $info): ?>
+                                <option value="<?= e($key) ?>"
+                                        <?= $key === $currentType ? 'selected' : '' ?>
+                                        data-no-overdraft="<?= $info['overdraft'] ? '0' : '1' ?>"
+                                        data-has-cap="<?= !empty($info['cap']) ? '1' : '0' ?>"
+                                        data-has-interest="<?= !empty($info['interest']) ? '1' : '0' ?>">
+                                    <?= e($info['label']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <span class="form-hint">
+                            <i class="bi bi-tools"></i> Compte interne de modération : le changement de type est autorisé.
+                        </span>
+                    <?php else: ?>
+                        <input type="hidden" name="account_type" value="<?= e($currentType) ?>">
+                        <div class="form-control" style="background:var(--gray-lighter);color:var(--dark);cursor:default;">
+                            <?= e(AccountModel::TYPES[$currentType]['label'] ?? $currentType) ?>
+                        </div>
+                        <span class="form-hint"><i class="bi bi-lock-fill"></i> Le type de compte ne peut pas être modifié après création.</span>
+                    <?php endif; ?>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -130,6 +148,48 @@
 <script>
 (function () {
     <?php if (empty($isGuardian)): ?>
+    <?php if (!empty($isInternal)): ?>
+    // Compte interne : le type est éditable, on bascule dynamiquement les sections liées.
+    var MAX_RATES = <?= json_encode($maxRates ?? [], JSON_HEX_TAG) ?>;
+    var typeEl    = document.getElementById('account_type');
+    var odGrp     = document.getElementById('overdraft-group');
+    var odNotice  = document.getElementById('overdraft-blocked-notice');
+    var odInput   = document.getElementById('overdraft');
+    var capGrp    = document.getElementById('cap-group');
+    var rateGrp   = document.getElementById('interest-rate-group');
+    var rateInput = document.getElementById('interest_rate');
+    var rateHint  = document.getElementById('interest-rate-hint');
+
+    function toggle() {
+        var opt         = typeEl.options[typeEl.selectedIndex];
+        var noOd        = opt.dataset.noOverdraft === '1';
+        var hasCap      = opt.dataset.hasCap === '1';
+        var hasInterest = opt.dataset.hasInterest === '1';
+
+        if (odGrp)    odGrp.style.display    = noOd ? 'none' : '';
+        if (odNotice) odNotice.style.display = (noOd && !hasCap) ? 'block' : 'none';
+        if (capGrp)   capGrp.style.display   = hasCap ? '' : 'none';
+        if (rateGrp)  rateGrp.style.display  = hasInterest ? '' : 'none';
+
+        if (noOd && odInput) odInput.value = '0';
+        if (!hasCap && document.getElementById('cap')) document.getElementById('cap').value = '';
+        if (!hasInterest && rateInput) rateInput.value = '';
+
+        if (hasInterest && rateHint) {
+            var mr = MAX_RATES[opt.value];
+            if (mr !== null && mr !== undefined) {
+                var pct = (parseFloat(mr) * 100).toFixed(2).replace('.', ',');
+                rateHint.innerHTML = 'Taux maximum autorisé : <strong>' + pct + ' %</strong>.';
+                if (rateInput) rateInput.max = (parseFloat(mr) * 100).toFixed(4);
+            } else {
+                rateHint.textContent = 'Aucun taux maximum configuré pour ce type.';
+                if (rateInput) rateInput.removeAttribute('max');
+            }
+        }
+    }
+    typeEl.addEventListener('change', toggle);
+    toggle();
+    <?php else: ?>
     // Le type est fixe — initialisation unique des sections liées
     var noOd        = <?= json_encode(!AccountModel::typeAllowsOverdraft($account['type'] ?? 'standard')) ?>;
     var hasCap      = <?= json_encode(AccountModel::typeHasCap($account['type'] ?? 'standard')) ?>;
@@ -139,6 +199,7 @@
     document.getElementById('overdraft-blocked-notice').style.display = (noOd && !hasCap) ? 'block' : 'none';
     document.getElementById('cap-group').style.display                = hasCap ? '' : 'none';
     document.getElementById('interest-rate-group').style.display      = hasInterest ? '' : 'none';
+    <?php endif; ?>
     <?php endif; ?>
 })();
 </script>

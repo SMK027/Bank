@@ -410,11 +410,23 @@ class AccountController extends Controller
             ? $this->rateModel->getCurrentRate($account['type'])
             : null;
 
+        // Pour les comptes internes : autoriser le changement de type.
+        $isInternal = !empty($account['internal']);
+        $maxRates   = [];
+        if ($isInternal) {
+            foreach (Account::getInterestEligibleTypes() as $iType) {
+                $maxRates[$iType] = $this->rateModel->getCurrentRate($iType);
+            }
+        }
+
         $this->render('accounts/edit', [
             'title'      => 'Modifier le compte',
             'account'    => $account,
             'maxRate'    => $maxRate,
             'isGuardian' => $isGuardian,
+            'isInternal' => $isInternal,
+            'accountTypes' => Account::TYPES,
+            'maxRates'   => $maxRates,
         ]);
     }
 
@@ -448,6 +460,11 @@ class AccountController extends Controller
         }
 
         $type           = $account['type'] ?? 'standard';
+        // Comptes internes de modération : changement de type autorisé.
+        if (!empty($account['internal']) && !empty($data['account_type'])
+            && array_key_exists($data['account_type'], Account::TYPES)) {
+            $type = $data['account_type'];
+        }
         $alertThreshold = ($data['balance_alert_threshold'] ?? '') !== ''
             ? max(0.0, (float) $data['balance_alert_threshold'])
             : null;
