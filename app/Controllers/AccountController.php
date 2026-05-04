@@ -13,7 +13,6 @@ use App\Models\Transaction;
 use App\Models\AccountAccess;
 use App\Models\DirectDebit;
 use App\Models\Guardianship;
-use App\Models\Mandate;
 use App\Models\RecurringTransfer;
 use App\Models\SavingsInterest;
 use App\Models\SavingsRate;
@@ -237,25 +236,27 @@ class AccountController extends Controller
         $linkedTxIds = $pageTxIds ? $this->transactionModel->getProtectedIds($pageTxIds) : [];
 
         // Prélèvements planifiés sur ce compte (to_account) non encore exécutés
-        $upcomingDebits = $this->directDebitModel->findBy(
-            ['to_account_id' => $accountId, 'status' => DirectDebit::STATUS_SCHEDULED],
-            'scheduled_at',
-            'ASC'
-        );
+        // Prélèvements planifiés liés au compte (qu'il soit débité ou crédité via mandat émis)
+        $upcomingDebits = $this->directDebitModel->getUpcomingByAccount($accountId);
+        foreach ($upcomingDebits as &$d) {
+            $isCredit = $d['from_account_id'] !== null && (int) $d['from_account_id'] === $accountId;
+            $d['direction'] = $isCredit ? 'credit' : 'debit';
+            // Contrepartie (autre compte impliqué)
+            $counterpartyId = $isCredit
+                ? ($d['to_account_id'] !== null ? (int) $d['to_account_id'] : null)
+                : ($d['from_account_id'] !== null ? (int) $d['from_account_id'] : null);
+            if ($counterpartyId === null) {
+                $d['counterparty_name'] = 'Banque';
+            } else {
+                $cp = $this->accountModel->find($counterpartyId);
+                $d['counterparty_name'] = $cp['name'] ?? ('Compte #' . $counterpartyId);
+            }
+        }
+        unset($d);
 
         // Échéances de crédit à venir (pending, sur ce compte)
         $installmentModel         = new LoanInstallment();
         $upcomingLoanInstallments = $installmentModel->getUpcomingByAccount($accountId);
-
-        // Mandats rattachés au compte (émetteur ou destinataire) — comptes pro uniquement
-        $mandateModel = new Mandate();
-        $mandates = [];
-        if ($account['type'] === 'pro') {
-            $mandates = $mandateModel->getByAccount($accountId);
-        }
-
-        // Mandats à venir (prochaine exécution planifiée) — tous types de comptes
-        $upcomingMandates = $mandateModel->getUpcomingByAccount($accountId);
 
         // Débits différés en attente (encours carte)
         $pendingDeferredDebits = [];
@@ -336,8 +337,8 @@ class AccountController extends Controller
             'categories'         => Transaction::CATEGORIES,
             'expenseCategories'  => Transaction::EXPENSE_CATEGORIES,
             'incomeCategories'   => Transaction::INCOME_CATEGORIES,
-            'mandates'           => $mandates,
-            'upcomingMandates'   => $upcomingMandates,
+            'mandates'           => [],
+            'upcomingMandates'   => [],
             'linkedTxIds'        => $linkedTxIds,
             'recurringTransfers' => $recurringTransfers,
             'accruedInterest'    => $accruedInterest,

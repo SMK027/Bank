@@ -195,6 +195,14 @@ class Account extends Model
             $balance -= (float) $d['amount'];
         }
 
+        // Ajouter les prélèvements planifiés où ce compte est émetteur (il sera crédité)
+        $upcomingCredits = $directDebitModel->findBy(
+            ['from_account_id' => $accountId, 'status' => DirectDebit::STATUS_SCHEDULED]
+        );
+        foreach ($upcomingCredits as $d) {
+            $balance += (float) $d['amount'];
+        }
+
         // Déduire les débits différés en attente
         $deferredDebitModel = new DeferredDebit();
         $balance -= $deferredDebitModel->getPendingTotalByAccount($accountId);

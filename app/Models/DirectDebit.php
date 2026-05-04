@@ -86,6 +86,22 @@ class DirectDebit extends Model
     }
 
     /**
+     * Retourne tous les prélèvements planifiés (status = scheduled) liés au compte
+     * qu'il soit débité (to_account_id) ou crédité (from_account_id).
+     */
+    public function getUpcomingByAccount(int $accountId): array
+    {
+        $stmt = $this->getPdo()->prepare(
+            "SELECT * FROM `{$this->table}`
+             WHERE status = :status
+               AND (to_account_id = :acc OR from_account_id = :acc)
+             ORDER BY scheduled_at ASC"
+        );
+        $stmt->execute(['status' => self::STATUS_SCHEDULED, 'acc' => $accountId]);
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    /**
      * Marque le prélèvement comme exécuté avec les IDs de transaction.
      */
     public function markSuccess(int $id, int $debitTxId, ?int $creditTxId): bool
