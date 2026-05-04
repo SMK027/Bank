@@ -203,6 +203,22 @@ class Account extends Model
             $balance += (float) $d['amount'];
         }
 
+        // Mandats actifs (compte débité ou émetteur) avec prochaine exécution dans le mois en cours
+        $mandateModel = new Mandate();
+        $monthStart   = date('Y-m-01 00:00:00');
+        $monthEnd     = date('Y-m-t 23:59:59');
+        foreach ($mandateModel->getUpcomingByAccount($accountId) as $m) {
+            $next = $m['next_execution_at'] ?? null;
+            if (!$next || $next < $monthStart || $next > $monthEnd) {
+                continue;
+            }
+            if ((int) $m['recipient_account_id'] === $accountId) {
+                $balance -= (float) $m['amount'];
+            } elseif ((int) ($m['emitter_account_id'] ?? 0) === $accountId) {
+                $balance += (float) $m['amount'];
+            }
+        }
+
         // Déduire les débits différés en attente
         $deferredDebitModel = new DeferredDebit();
         $balance -= $deferredDebitModel->getPendingTotalByAccount($accountId);

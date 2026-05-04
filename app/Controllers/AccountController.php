@@ -13,6 +13,7 @@ use App\Models\Transaction;
 use App\Models\AccountAccess;
 use App\Models\DirectDebit;
 use App\Models\Guardianship;
+use App\Models\Mandate;
 use App\Models\RecurringTransfer;
 use App\Models\SavingsInterest;
 use App\Models\SavingsRate;
@@ -253,6 +254,42 @@ class AccountController extends Controller
             }
         }
         unset($d);
+
+        // Mandats actifs où ce compte est débité (recipient) avec prochaine exécution dans le mois en cours :
+        // affichés comme des prélèvements virtuels.
+        $mandateModel  = new Mandate();
+        $monthStart    = date('Y-m-01 00:00:00');
+        $monthEnd      = date('Y-m-t 23:59:59');
+        foreach ($mandateModel->getUpcomingByAccount($accountId) as $m) {
+            if ((int) $m['recipient_account_id'] !== $accountId) {
+                continue; // on ne prend que les mandats débiteurs pour ce compte
+            }
+            if (empty($m['next_execution_at'])) {
+                continue;
+            }
+            $next = $m['next_execution_at'];
+            if ($next < $monthStart || $next > $monthEnd) {
+                continue;
+            }
+            $emitterId = $m['emitter_account_id'] !== null ? (int) $m['emitter_account_id'] : null;
+            $upcomingDebits[] = [
+                'id'                => null,
+                'mandate_number'    => $m['number'],
+                'scheduled_at'      => $next,
+                'amount'            => (float) $m['amount'],
+                'motif'             => $m['description'] ?? null,
+                'from_account_id'   => $emitterId,
+                'to_account_id'     => $accountId,
+                'status'            => 'scheduled',
+                'direction'         => 'debit',
+                'counterparty_name' => $emitterId === null
+                    ? 'Banque'
+                    : ($m['emitter_name'] ?? ('Compte #' . $emitterId)),
+                'is_mandate'        => true,
+            ];
+        }
+        // Re-tri par date d'exécution prévue
+        usort($upcomingDebits, fn($a, $b) => strcmp($a['scheduled_at'], $b['scheduled_at']));
 
         // Échéances de crédit à venir (pending, sur ce compte)
         $installmentModel         = new LoanInstallment();
