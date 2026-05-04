@@ -100,12 +100,15 @@
                     <input type="number" id="interest_rate" name="interest_rate" class="form-control"
                            value="<?= e($currentInterestRatePct) ?>"
                            min="0" step="0.0001" placeholder="Ex : 3.00"
-                           <?php if ($maxRate !== null): ?>
+                           <?php if (!empty($isInternal)): ?>
+                           <?php elseif ($maxRate !== null): ?>
                            max="<?= htmlspecialchars(number_format($maxRate * 100, 4, '.', ''), ENT_QUOTES) ?>"
                            <?php endif; ?>>
                     <span class="form-hint" id="interest-rate-hint">
                         Taux appliqué lors du calcul annuel des intérêts.
-                        <?php if ($maxRate !== null): ?>
+                        <?php if (!empty($isInternal)): ?>
+                            Aucune limite — compte interne de modération.
+                        <?php elseif ($maxRate !== null): ?>
                             Taux maximum autorisé : <strong><?= number_format($maxRate * 100, 2, ',', ' ') ?> %</strong>.
                         <?php else: ?>
                             Aucun taux maximum configuré par la modération pour ce type.
@@ -176,15 +179,8 @@
         if (!hasInterest && rateInput) rateInput.value = '';
 
         if (hasInterest && rateHint) {
-            var mr = MAX_RATES[opt.value];
-            if (mr !== null && mr !== undefined) {
-                var pct = (parseFloat(mr) * 100).toFixed(2).replace('.', ',');
-                rateHint.innerHTML = 'Taux maximum autorisé : <strong>' + pct + ' %</strong>.';
-                if (rateInput) rateInput.max = (parseFloat(mr) * 100).toFixed(4);
-            } else {
-                rateHint.textContent = 'Aucun taux maximum configuré pour ce type.';
-                if (rateInput) rateInput.removeAttribute('max');
-            }
+            rateHint.textContent = 'Aucune limite — compte interne de modération.';
+            if (rateInput) rateInput.removeAttribute('max');
         }
     }
     typeEl.addEventListener('change', toggle);

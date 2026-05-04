@@ -406,17 +406,16 @@ class AccountController extends Controller
             return;
         }
 
-        $maxRate = Account::typeHasInterest($account['type'] ?? '')
-            ? $this->rateModel->getCurrentRate($account['type'])
-            : null;
-
-        // Pour les comptes internes : autoriser le changement de type.
+        // Pour les comptes internes : autoriser le changement de type + pas de limite de taux.
         $isInternal = !empty($account['internal']);
+        $maxRate    = null;
         $maxRates   = [];
         if ($isInternal) {
             foreach (Account::getInterestEligibleTypes() as $iType) {
-                $maxRates[$iType] = $this->rateModel->getCurrentRate($iType);
+                $maxRates[$iType] = null; // pas de plafond pour les comptes internes
             }
+        } elseif (Account::typeHasInterest($account['type'] ?? '')) {
+            $maxRate = $this->rateModel->getCurrentRate($account['type']);
         }
 
         $this->render('accounts/edit', [
@@ -479,13 +478,16 @@ class AccountController extends Controller
         } else {
             $overdraft    = Account::typeAllowsOverdraft($type) ? abs((float) ($data['overdraft'] ?: 0)) : 0.0;
             $cap          = Account::typeHasCap($type) && $data['cap'] !== '' ? abs((float) $data['cap']) : null;
+            $isInternal   = !empty($account['internal']);
             $interestRate = null;
             if (Account::typeHasInterest($type) && ($data['interest_rate'] ?? '') !== '') {
                 $rawPct       = (float) str_replace(',', '.', $data['interest_rate']);
                 $interestRate = round($rawPct / 100, 6);
-                $maxRate      = $this->rateModel->getCurrentRate($type);
-                if ($maxRate !== null && $interestRate > $maxRate) {
-                    $interestRate = $maxRate;
+                if (!$isInternal) {
+                    $maxRate = $this->rateModel->getCurrentRate($type);
+                    if ($maxRate !== null && $interestRate > $maxRate) {
+                        $interestRate = $maxRate;
+                    }
                 }
                 if ($interestRate < 0) {
                     $interestRate = 0.0;
