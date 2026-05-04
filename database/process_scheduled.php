@@ -92,7 +92,7 @@ foreach ($transferModel->getDueScheduled() as $transfer) {
         ? (float) $transfer['converted_amount']
         : $amount;
     $toCap = (float) ($toAccount['cap'] ?? 0);
-    if (Account::typeHasCap($toAccount['type'] ?? '') && $toCap > 0) {
+    if (Account::typeHasCap($toAccount['type'] ?? '') && $toCap > 0 && !Account::isInternal($toAccount)) {
         $toBalance = $accountModel->getBalance($toAccountId);
         if ($toBalance + $creditAmount > $toCap) {
             echo sprintf(
@@ -214,7 +214,7 @@ foreach ($recurringTransferModel->getDue() as $recurring) {
     // Vérifier le plafond du compte destinataire (les intérêts annuels passent par process_interests.php)
     $toAccount = $accountModel->find($toAccountId);
     $toCap     = (float) ($toAccount['cap'] ?? 0);
-    if (Account::typeHasCap($toAccount['type'] ?? '') && $toCap > 0) {
+    if (Account::typeHasCap($toAccount['type'] ?? '') && $toCap > 0 && !Account::isInternal($toAccount)) {
         $toBalance = $accountModel->getBalance($toAccountId);
         if ($toBalance + $amount > $toCap) {
             echo sprintf(

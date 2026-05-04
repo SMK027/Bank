@@ -188,10 +188,10 @@ class SavingsInterestController extends Controller
         return true;
     }
 
-    /** Retourne le plafond (float) du compte si pertinent, null sinon. */
+    /** Retourne le plafond (float) du compte si pertinent, null sinon. Les comptes internes sont exemptés. */
     private function resolveCap(?array $account): ?float
     {
-        if ($account && Account::typeHasCap($account['type'] ?? '') && (float) ($account['cap'] ?? 0) > 0) {
+        if ($account && Account::typeHasCap($account['type'] ?? '') && (float) ($account['cap'] ?? 0) > 0 && !Account::isInternal($account)) {
             return (float) $account['cap'];
         }
         return null;

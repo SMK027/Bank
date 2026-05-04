@@ -87,8 +87,8 @@ foreach ($savings as $account) {
         // Solde au moment du calcul (avant versement)
         $balanceBefore = $accountModel->getBalance($accountId);
 
-        // Maximum théorique (borné par le plafond si présent)
-        $cap = Account::typeHasCap($accountType) && ($account['cap'] ?? 0) > 0
+        // Maximum théorique (borné par le plafond si présent, sauf pour les comptes internes)
+        $cap = Account::typeHasCap($accountType) && ($account['cap'] ?? 0) > 0 && !Account::isInternal($account)
             ? (float) $account['cap']
             : null;
         $maxAmount = SavingsInterest::computeMaxAmount($balanceBefore, $accountRate, $cap);

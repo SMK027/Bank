@@ -314,9 +314,9 @@ class TransferController extends Controller
         }
         // ─────────────────────────────────────────────────────────────────────
 
-        // Vérifier le plafond d'épargne du compte destinataire
+        // Vérifier le plafond d'épargne du compte destinataire (non applicable aux comptes internes)
         $toCap = (float) ($toAccount['cap'] ?? 0);
-        if (Account::typeHasCap($toAccount['type'] ?? '') && $toCap > 0) {
+        if (Account::typeHasCap($toAccount['type'] ?? '') && $toCap > 0 && !Account::isInternal($toAccount)) {
             $toBalance = $this->accountModel->getFutureBalance($toId);
             if ($toBalance + $convertedAmount > $toCap) {
                 $this->setFlash('danger', sprintf(
