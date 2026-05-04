@@ -49,6 +49,11 @@
                         <div class="d-flex justify-between align-center mb-1">
                             <h3 style="margin:0"><?= e($account['name']) ?></h3>
                             <div style="display:flex;gap:0.3rem;align-items:center;flex-wrap:wrap;">
+                                <?php if (!empty($account['internal'])): ?>
+                                    <span class="badge" style="background:var(--warning,#f59e0b);color:#fff;font-size:0.72em;" title="Compte interne de modération (test) — non partageable">
+                                        <i class="bi bi-tools"></i> Interne
+                                    </span>
+                                <?php endif; ?>
                                 <?php if (!empty($account['disabled_at'])): ?>
                                     <span class="badge" style="background:var(--danger);color:#fff;font-size:0.72em;">
                                         <i class="bi bi-slash-circle"></i> Résiliation
@@ -107,6 +112,11 @@
                         <div class="d-flex justify-between align-center mb-1">
                             <h3 style="margin:0"><?= e($account['name']) ?></h3>
                             <div style="display:flex;gap:0.3rem;align-items:center;flex-wrap:wrap;">
+                                <?php if (!empty($account['internal'])): ?>
+                                    <span class="badge" style="background:var(--warning,#f59e0b);color:#fff;font-size:0.72em;" title="Compte interne de modération (test) — non partageable">
+                                        <i class="bi bi-tools"></i> Interne
+                                    </span>
+                                <?php endif; ?>
                                 <?php if (!empty($account['disabled_at'])): ?>
                                     <span class="badge" style="background:var(--danger);color:#fff;font-size:0.72em;">
                                         <i class="bi bi-slash-circle"></i> Résiliation

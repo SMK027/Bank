@@ -44,6 +44,9 @@
     <div>
         <h1>
             <i class="bi bi-wallet2"></i> <?= e($account['name']) ?>
+            <?php if (!empty($account['internal'])): ?>
+                <span class="badge" style="background:var(--warning,#f59e0b);color:#fff;font-size:0.55em;vertical-align:middle;" title="Compte interne de modération (test) — non partageable"><i class="bi bi-tools"></i> Interne</span>
+            <?php endif; ?>
             <?php if ($isFrozen): ?>
                 <span class="badge badge-frozen" style="font-size:0.55em;vertical-align:middle;"><i class="bi bi-snow"></i> Gelé</span>
             <?php endif; ?>
