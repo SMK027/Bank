@@ -81,7 +81,10 @@ foreach ($savings as $account) {
 
     try {
         // Calcul au prorata temporis (TWAB) avec le taux propre au compte
-        $rateSegments     = $rateModel->getRateSegmentsForYear($accountType, $year);
+        // Comptes internes : segments vides pour ne pas plafonner au taux de modération
+        $rateSegments     = Account::isInternal($account)
+            ? []
+            : $rateModel->getRateSegmentsForYear($accountType, $year);
         $calculatedAmount = SavingsInterest::calculateProrata($accountId, $year, $accountRate, $txModel, $rateSegments);
 
         // Solde au moment du calcul (avant versement)
