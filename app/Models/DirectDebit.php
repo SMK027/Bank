@@ -94,10 +94,14 @@ class DirectDebit extends Model
         $stmt = $this->getPdo()->prepare(
             "SELECT * FROM `{$this->table}`
              WHERE status = :status
-               AND (to_account_id = :acc OR from_account_id = :acc)
+               AND (to_account_id = :acc_to OR from_account_id = :acc_from)
              ORDER BY scheduled_at ASC"
         );
-        $stmt->execute(['status' => self::STATUS_SCHEDULED, 'acc' => $accountId]);
+        $stmt->execute([
+            'status'   => self::STATUS_SCHEDULED,
+            'acc_to'   => $accountId,
+            'acc_from' => $accountId,
+        ]);
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 
