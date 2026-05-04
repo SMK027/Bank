@@ -121,36 +121,129 @@
                     </button>
                 </form>
             <?php else: ?>
-                <button type="button" class="btn btn-freeze btn-sm"
-                        onclick="document.getElementById('showFreezeForm').style.display=
-                            document.getElementById('showFreezeForm').style.display==='none'?'block':'none'">
+                <button type="button" class="btn btn-freeze btn-sm" id="showFreezeToggle"
+                        onclick="toggleShowFreezeForm()">
                     <i class="bi bi-snow"></i> Geler
                 </button>
-                <div id="showFreezeForm" style="display:none;margin-top:0.5rem;padding:1rem;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.25);border-radius:var(--border-radius);min-width:280px;">
-                    <form method="POST" action="/moderation/accounts/<?= (int) $account['id'] ?>/freeze">
+                <div id="showFreezeForm" style="display:none;margin-top:0.6rem;padding:1rem 1.1rem;background:rgba(59,130,246,0.04);border:1px solid rgba(59,130,246,0.22);border-radius:var(--border-radius);max-width:380px;">
+                    <p style="margin:0 0 0.8rem;font-size:0.82rem;color:var(--text-muted);">Les opérations sortantes seront bloquées.</p>
+                    <form id="showFreezeFormEl" method="POST" action="/moderation/accounts/<?= (int) $account['id'] ?>/freeze">
                         <?= csrf_field() ?>
-                        <div style="margin-bottom:0.7rem;">
-                            <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:0.25rem;">
-                                Motif <span style="font-weight:400;color:var(--text-muted)">(facultatif)</span>
-                            </label>
-                            <textarea name="reason" rows="2" maxlength="500"
-                                placeholder="Ex. : fraude suspectée, demande judiciaire…"
-                                style="width:100%;font-size:0.83rem;padding:0.35rem 0.5rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);resize:vertical;"></textarea>
+
+                        <!-- Motif -->
+                        <div style="margin-bottom:0.85rem;">
+                            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.3rem;">
+                                <label style="font-size:0.82rem;font-weight:600;">Motif <span style="font-weight:400;color:var(--text-muted)">(facultatif)</span></label>
+                                <span id="showCharCounter" style="font-size:0.75rem;color:var(--text-muted);">0 / 500</span>
+                            </div>
+                            <div style="display:flex;flex-wrap:wrap;gap:0.28rem;margin-bottom:0.4rem;">
+                                <button type="button" class="freeze-reason-chip" data-reason="Fraude suspectée"><i class="bi bi-exclamation-triangle"></i> Fraude</button>
+                                <button type="button" class="freeze-reason-chip" data-reason="Demande judiciaire"><i class="bi bi-bank"></i> Judiciaire</button>
+                                <button type="button" class="freeze-reason-chip" data-reason="Vérification en cours"><i class="bi bi-search"></i> Vérification</button>
+                                <button type="button" class="freeze-reason-chip" data-reason="Blocage préventif"><i class="bi bi-shield-lock"></i> Préventif</button>
+                            </div>
+                            <textarea id="showReason" name="reason" rows="2" maxlength="500"
+                                placeholder="Ou saisissez un motif personnalisé…"
+                                style="width:100%;font-size:0.83rem;padding:0.35rem 0.5rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);resize:vertical;box-sizing:border-box;"></textarea>
                         </div>
-                        <div style="margin-bottom:0.8rem;">
-                            <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:0.25rem;">
-                                Dégel automatique le <span style="font-weight:400;color:var(--text-muted)">(facultatif)</span>
-                            </label>
-                            <input type="datetime-local" name="frozen_until"
-                                style="font-size:0.83rem;padding:0.35rem 0.5rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);width:100%;">
+
+                        <!-- Durée -->
+                        <div style="margin-bottom:0.9rem;">
+                            <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:0.35rem;">Durée du gel</label>
+                            <div style="display:flex;flex-wrap:wrap;gap:0.28rem;margin-bottom:0.45rem;">
+                                <button type="button" class="freeze-chip active" data-days="">Indéfini</button>
+                                <button type="button" class="freeze-chip" data-days="1">1 jour</button>
+                                <button type="button" class="freeze-chip" data-days="3">3 jours</button>
+                                <button type="button" class="freeze-chip" data-days="7">7 jours</button>
+                                <button type="button" class="freeze-chip" data-days="30">1 mois</button>
+                                <button type="button" class="freeze-chip" data-days="custom"><i class="bi bi-calendar3"></i> Personnalisé</button>
+                            </div>
+                            <input type="datetime-local" id="showFrozenUntil" name="frozen_until"
+                                style="display:none;font-size:0.83rem;padding:0.35rem 0.5rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);width:100%;box-sizing:border-box;margin-bottom:0.35rem;">
+                            <div id="showFreezePreview" class="freeze-preview">
+                                <i class="bi bi-infinity"></i> Gel indéfini — jusqu'à révocation manuelle.
+                            </div>
                         </div>
+
                         <div style="display:flex;gap:0.5rem;">
                             <button type="submit" class="btn btn-freeze btn-sm"><i class="bi bi-snow"></i> Confirmer</button>
-                            <button type="button" class="btn btn-outline btn-sm"
-                                    onclick="document.getElementById('showFreezeForm').style.display='none'">Annuler</button>
+                            <button type="button" class="btn btn-outline btn-sm" onclick="toggleShowFreezeForm()">Annuler</button>
                         </div>
                     </form>
                 </div>
+                <script>
+                (function () {
+                    function pad(n) { return n < 10 ? '0' + n : String(n); }
+                    function formatLocal(d) {
+                        return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate())
+                            + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+                    }
+                    function friendlyDate(iso) {
+                        if (!iso) return null;
+                        var d = new Date(iso);
+                        if (isNaN(d)) return null;
+                        var mo = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+                        return d.getDate() + ' ' + mo[d.getMonth()] + ' ' + d.getFullYear()
+                            + ' à ' + pad(d.getHours()) + 'h' + pad(d.getMinutes());
+                    }
+
+                    var form        = document.getElementById('showFreezeFormEl');
+                    var chips       = form.querySelectorAll('.freeze-chip[data-days]');
+                    var customInput = document.getElementById('showFrozenUntil');
+                    var preview     = document.getElementById('showFreezePreview');
+                    var textarea    = document.getElementById('showReason');
+                    var counter     = document.getElementById('showCharCounter');
+
+                    function updatePreview() {
+                        var val = customInput.value;
+                        if (!val) {
+                            preview.innerHTML = '<i class="bi bi-infinity"></i> Gel indéfini — jusqu\'\u00e0 révocation manuelle.';
+                            preview.style.color = '';
+                        } else {
+                            preview.innerHTML = '<i class="bi bi-calendar-check" style="color:#3b82f6"></i> Dégel automatique le <strong>' + friendlyDate(val) + '</strong>.';
+                            preview.style.color = '#1d4ed8';
+                        }
+                    }
+
+                    chips.forEach(function (chip) {
+                        chip.addEventListener('click', function () {
+                            chips.forEach(function (c) { c.classList.remove('active'); });
+                            chip.classList.add('active');
+                            var days = chip.dataset.days;
+                            if (days === '') {
+                                customInput.value = ''; customInput.style.display = 'none';
+                            } else if (days === 'custom') {
+                                customInput.style.display = 'block'; customInput.focus();
+                            } else {
+                                var d = new Date(); d.setDate(d.getDate() + parseInt(days, 10));
+                                customInput.value = formatLocal(d); customInput.style.display = 'none';
+                            }
+                            updatePreview();
+                        });
+                    });
+
+                    customInput.addEventListener('input', updatePreview);
+
+                    textarea.addEventListener('input', function () {
+                        counter.textContent = textarea.value.length + ' / 500';
+                    });
+
+                    form.querySelectorAll('.freeze-reason-chip').forEach(function (rc) {
+                        rc.addEventListener('click', function () {
+                            textarea.value = rc.dataset.reason;
+                            counter.textContent = textarea.value.length + ' / 500';
+                            textarea.focus();
+                        });
+                    });
+
+                    updatePreview();
+                }());
+
+                function toggleShowFreezeForm() {
+                    var panel = document.getElementById('showFreezeForm');
+                    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+                }
+                </script>
             <?php endif; ?>
             <?php if ($isDisabled): ?>
                 <form method="POST" action="/moderation/accounts/<?= (int) $account['id'] ?>/enable" style="display:inline">

@@ -357,30 +357,57 @@
 
 <!-- ── Modal Gel de compte ──────────────────────────────────────── -->
 <div id="freezeModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center;">
-    <div style="background:var(--card-bg,#fff);border-radius:var(--border-radius);box-shadow:0 8px 32px rgba(0,0,0,0.18);padding:1.5rem 1.75rem;width:100%;max-width:420px;margin:1rem;">
-        <h3 style="margin:0 0 0.25rem;font-size:1.05rem;display:flex;align-items:center;gap:0.5rem;">
-            <i class="bi bi-snow" style="color:#3b82f6;"></i>
-            Geler le compte <span id="freezeModalName" style="font-weight:700;"></span>
-        </h3>
-        <p style="font-size:0.82rem;color:var(--text-muted);margin:0 0 1rem;">Les opérations sortantes seront bloquées.</p>
+    <div style="background:var(--card-bg,#fff);border-radius:var(--border-radius);box-shadow:0 8px 32px rgba(0,0,0,0.18);padding:1.5rem 1.75rem;width:100%;max-width:460px;margin:1rem;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0.15rem;gap:0.5rem;">
+            <h3 style="margin:0;font-size:1.05rem;display:flex;align-items:center;gap:0.45rem;flex:1;min-width:0;">
+                <i class="bi bi-snow" style="color:#3b82f6;flex-shrink:0;"></i>
+                <span>Geler &laquo;&nbsp;<span id="freezeModalName" style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;display:inline-block;vertical-align:bottom;"></span>&nbsp;&raquo;</span>
+            </h3>
+            <button type="button" onclick="closeFreezeModal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.3rem;line-height:1;padding:0 0.2rem;flex-shrink:0;" title="Fermer">&times;</button>
+        </div>
+        <p style="font-size:0.82rem;color:var(--text-muted);margin:0.1rem 0 1.1rem;">Les opérations sortantes et les virements débiteurs seront bloqués.</p>
+
         <form id="freezeModalForm" method="POST" action="">
             <?= csrf_field() ?>
-            <div style="margin-bottom:0.9rem;">
-                <label style="display:block;font-size:0.83rem;font-weight:600;margin-bottom:0.3rem;">
-                    Motif <span style="font-weight:400;color:var(--text-muted)">(facultatif)</span>
-                </label>
-                <textarea name="reason" rows="2" maxlength="500"
-                    placeholder="Ex. : fraude suspectée, demande judiciaire…"
-                    style="width:100%;font-size:0.84rem;padding:0.4rem 0.6rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);resize:vertical;"></textarea>
+
+            <!-- Motif -->
+            <div style="margin-bottom:1rem;">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.35rem;">
+                    <label style="font-size:0.83rem;font-weight:600;">
+                        Motif <span style="font-weight:400;color:var(--text-muted)">(facultatif)</span>
+                    </label>
+                    <span id="modalCharCounter" style="font-size:0.76rem;color:var(--text-muted);">0 / 500</span>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:0.3rem;margin-bottom:0.45rem;">
+                    <button type="button" class="freeze-reason-chip" data-reason="Fraude suspectée"><i class="bi bi-exclamation-triangle"></i> Fraude</button>
+                    <button type="button" class="freeze-reason-chip" data-reason="Demande judiciaire"><i class="bi bi-bank"></i> Judiciaire</button>
+                    <button type="button" class="freeze-reason-chip" data-reason="Vérification en cours"><i class="bi bi-search"></i> Vérification</button>
+                    <button type="button" class="freeze-reason-chip" data-reason="Blocage préventif"><i class="bi bi-shield-lock"></i> Préventif</button>
+                </div>
+                <textarea id="modalReason" name="reason" rows="2" maxlength="500"
+                    placeholder="Ou saisissez un motif personnalisé…"
+                    style="width:100%;font-size:0.84rem;padding:0.4rem 0.6rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);resize:vertical;box-sizing:border-box;"></textarea>
             </div>
-            <div style="margin-bottom:1.1rem;">
-                <label style="display:block;font-size:0.83rem;font-weight:600;margin-bottom:0.3rem;">
-                    Durée — dégel automatique le <span style="font-weight:400;color:var(--text-muted)">(facultatif)</span>
-                </label>
-                <input type="datetime-local" name="frozen_until"
-                    style="font-size:0.84rem;padding:0.4rem 0.6rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);width:100%;">
-                <span style="font-size:0.76rem;color:var(--text-muted)">Laisser vide pour un gel indéfini.</span>
+
+            <!-- Durée -->
+            <div style="margin-bottom:1.2rem;">
+                <label style="display:block;font-size:0.83rem;font-weight:600;margin-bottom:0.4rem;">Durée du gel</label>
+                <div style="display:flex;flex-wrap:wrap;gap:0.3rem;margin-bottom:0.5rem;">
+                    <button type="button" class="freeze-chip active" data-days="">Indéfini</button>
+                    <button type="button" class="freeze-chip" data-days="1">1 jour</button>
+                    <button type="button" class="freeze-chip" data-days="3">3 jours</button>
+                    <button type="button" class="freeze-chip" data-days="7">7 jours</button>
+                    <button type="button" class="freeze-chip" data-days="30">1 mois</button>
+                    <button type="button" class="freeze-chip" data-days="90">3 mois</button>
+                    <button type="button" class="freeze-chip" data-days="custom"><i class="bi bi-calendar3"></i> Personnalisé</button>
+                </div>
+                <input type="datetime-local" id="modalFrozenUntil" name="frozen_until"
+                    style="display:none;font-size:0.84rem;padding:0.4rem 0.6rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);width:100%;box-sizing:border-box;margin-bottom:0.4rem;">
+                <div id="modalFreezePreview" class="freeze-preview">
+                    <i class="bi bi-infinity"></i> Gel indéfini — jusqu'à révocation manuelle.
+                </div>
             </div>
+
             <div style="display:flex;gap:0.6rem;justify-content:flex-end;">
                 <button type="button" onclick="closeFreezeModal()" class="btn btn-outline btn-sm">Annuler</button>
                 <button type="submit" class="btn btn-freeze btn-sm"><i class="bi bi-snow"></i> Confirmer le gel</button>
@@ -389,23 +416,122 @@
     </div>
 </div>
 <script>
-function openFreezeModal(accountId, accountName) {
-    document.getElementById('freezeModalName').textContent = accountName;
-    document.getElementById('freezeModalForm').action = '/moderation/accounts/' + accountId + '/freeze';
-    document.querySelector('#freezeModalForm textarea[name="reason"]').value = '';
-    document.querySelector('#freezeModalForm input[name="frozen_until"]').value = '';
-    var overlay = document.getElementById('freezeModalOverlay');
-    overlay.style.display = 'flex';
-}
-function closeFreezeModal() {
-    document.getElementById('freezeModalOverlay').style.display = 'none';
-}
-document.getElementById('freezeModalOverlay').addEventListener('click', function(e) {
-    if (e.target === this) closeFreezeModal();
-});
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeFreezeModal();
-});
+(function () {
+    function pad(n) { return n < 10 ? '0' + n : String(n); }
+
+    function formatLocal(d) {
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+            + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+
+    function friendlyDate(iso) {
+        if (!iso) return null;
+        var d = new Date(iso);
+        if (isNaN(d)) return null;
+        var months = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+        return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear()
+            + ' à ' + pad(d.getHours()) + 'h' + pad(d.getMinutes());
+    }
+
+    function initFreezeForm(opts) {
+        var chips       = opts.form.querySelectorAll('.freeze-chip[data-days]');
+        var customInput = document.getElementById(opts.inputId);
+        var preview     = document.getElementById(opts.previewId);
+        var textarea    = document.getElementById(opts.reasonId);
+        var counter     = document.getElementById(opts.counterId);
+        var reasonChips = opts.form.querySelectorAll('.freeze-reason-chip');
+
+        function updatePreview() {
+            var val = customInput.value;
+            if (!val) {
+                preview.innerHTML = '<i class="bi bi-infinity"></i> Gel indéfini — jusqu\'à révocation manuelle.';
+                preview.style.color = '';
+            } else {
+                var fd = friendlyDate(val);
+                preview.innerHTML = '<i class="bi bi-calendar-check" style="color:#3b82f6"></i> Dégel automatique le <strong>' + fd + '</strong>.';
+                preview.style.color = '#1d4ed8';
+            }
+        }
+
+        chips.forEach(function (chip) {
+            chip.addEventListener('click', function () {
+                chips.forEach(function (c) { c.classList.remove('active'); });
+                chip.classList.add('active');
+                var days = chip.dataset.days;
+                if (days === '') {
+                    customInput.value = '';
+                    customInput.style.display = 'none';
+                } else if (days === 'custom') {
+                    customInput.style.display = 'block';
+                    customInput.focus();
+                } else {
+                    var d = new Date();
+                    d.setDate(d.getDate() + parseInt(days, 10));
+                    customInput.value = formatLocal(d);
+                    customInput.style.display = 'none';
+                }
+                updatePreview();
+            });
+        });
+
+        customInput.addEventListener('input', updatePreview);
+
+        if (textarea && counter) {
+            textarea.addEventListener('input', function () {
+                counter.textContent = textarea.value.length + ' / 500';
+            });
+        }
+
+        reasonChips.forEach(function (rc) {
+            rc.addEventListener('click', function () {
+                if (textarea) {
+                    textarea.value = rc.dataset.reason;
+                    if (counter) counter.textContent = textarea.value.length + ' / 500';
+                    textarea.focus();
+                }
+            });
+        });
+
+        updatePreview();
+        return { reset: function () {
+            chips.forEach(function (c) { c.classList.remove('active'); });
+            var first = opts.form.querySelector('.freeze-chip[data-days=""]');
+            if (first) first.classList.add('active');
+            customInput.value = '';
+            customInput.style.display = 'none';
+            if (textarea) textarea.value = '';
+            if (counter)  counter.textContent = '0 / 500';
+            updatePreview();
+        }};
+    }
+
+    var modalForm = document.getElementById('freezeModalForm');
+    var modalCtrl = initFreezeForm({
+        form:      modalForm,
+        inputId:   'modalFrozenUntil',
+        previewId: 'modalFreezePreview',
+        reasonId:  'modalReason',
+        counterId: 'modalCharCounter',
+    });
+
+    window.openFreezeModal = function (accountId, accountName) {
+        document.getElementById('freezeModalName').textContent = accountName;
+        modalForm.action = '/moderation/accounts/' + accountId + '/freeze';
+        modalCtrl.reset();
+        document.getElementById('freezeModalOverlay').style.display = 'flex';
+    };
+
+    window.closeFreezeModal = function () {
+        document.getElementById('freezeModalOverlay').style.display = 'none';
+    };
+
+    document.getElementById('freezeModalOverlay').addEventListener('click', function (e) {
+        if (e.target === this) window.closeFreezeModal();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') window.closeFreezeModal();
+    });
+}());
 </script>
 
 <?php endif; ?>

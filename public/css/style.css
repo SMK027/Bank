@@ -866,6 +866,55 @@ select.form-control {
     to   { transform: translateY(0);    opacity: 1; }
 }
 
+/* Chips durée / raison gel */
+.freeze-chip,
+.freeze-reason-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.22rem 0.65rem;
+    font-size: 0.78rem;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 2rem;
+    background: transparent;
+    color: #3b82f6;
+    cursor: pointer;
+    transition: background 0.14s, border-color 0.14s, color 0.14s;
+    font-family: inherit;
+}
+.freeze-chip:hover,
+.freeze-reason-chip:hover {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: #3b82f6;
+}
+.freeze-chip.active {
+    background: rgba(59, 130, 246, 0.18);
+    border-color: #3b82f6;
+    font-weight: 600;
+}
+.freeze-reason-chip {
+    border-color: rgba(107, 114, 128, 0.3);
+    color: var(--text-muted, #6b7280);
+}
+.freeze-reason-chip:hover {
+    background: rgba(107, 114, 128, 0.1);
+    border-color: var(--text-muted, #6b7280);
+    color: var(--text-color);
+}
+.freeze-preview {
+    font-size: 0.82rem;
+    padding: 0.35rem 0.65rem;
+    border-radius: 4px;
+    background: rgba(59, 130, 246, 0.05);
+    border: 1px solid rgba(59, 130, 246, 0.15);
+    min-height: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--text-muted);
+    transition: color 0.2s;
+}
+
 .navbar-link-mod {
     color: #6d28d9 !important;
 }
