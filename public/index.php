@@ -153,6 +153,8 @@ $router->get('/moderation/audit-log', AuditLogController::class, 'index');
 // Comptes mineurs & tutelles légales
 $router->get('/moderation/accounts/create', ModerationController::class, 'createAccountForm');
 $router->post('/moderation/accounts', ModerationController::class, 'createAccountForUser');
+$router->get('/moderation/internal-accounts/create', ModerationController::class, 'createInternalAccountForm');
+$router->post('/moderation/internal-accounts', ModerationController::class, 'createInternalAccount');
 $router->get('/moderation/minor-accounts/create', ModerationController::class, 'createMinorAccountForm');
 $router->post('/moderation/minor-accounts', ModerationController::class, 'createMinorAccount');
 $router->get('/moderation/guardianships', ModerationController::class, 'guardianships');

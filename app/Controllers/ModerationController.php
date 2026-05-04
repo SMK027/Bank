@@ -2042,6 +2042,105 @@ class ModerationController extends Controller
         $this->redirect('/moderation');
     }
 
+    // =========================================================
+    // CRÉATION DE COMPTES INTERNES (TEST DE MODÉRATION)
+    // =========================================================
+
+    /**
+     * Formulaire de création d'un compte interne (GET).
+     * Les comptes internes appartiennent au modérateur connecté, ne peuvent pas
+     * être partagés à des utilisateurs normaux, et autorisent toutes les opérations
+     * bancaires sans restriction de profil. Ils sont destinés aux tests.
+     */
+    public function createInternalAccountForm(): void
+    {
+        $this->requireModerator();
+
+        $maxRates = [];
+        foreach (Account::getInterestEligibleTypes() as $iType) {
+            $maxRates[$iType] = $this->rateModel->getCurrentRate($iType);
+        }
+
+        $this->render('moderation/internal_account_create', [
+            'title'        => 'Modération — Créer un compte interne',
+            'accountTypes' => Account::TYPES,
+            'maxRates'     => $maxRates,
+            'csrfToken'    => csrf_token(),
+        ]);
+    }
+
+    /**
+     * Création du compte interne (POST). Le propriétaire est le modérateur connecté.
+     */
+    public function createInternalAccount(): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $data = $this->getPostData(['name', 'currency', 'account_type', 'overdraft', 'cap', 'interest_rate']);
+
+        $name = trim($data['name'] ?? '');
+        if ($name === '') {
+            $this->setFlash('danger', 'Le nom du compte est obligatoire.');
+            $this->redirect('/moderation/internal-accounts/create');
+            return;
+        }
+
+        $allowedCurrencies = ['EUR', 'USD', 'GBP', 'CHF', 'CAD', 'JPY', 'XOF', 'MAD'];
+        $currency = in_array($data['currency'] ?? '', $allowedCurrencies, true) ? $data['currency'] : 'EUR';
+
+        $type = $data['account_type'] ?? 'standard';
+        if (!array_key_exists($type, Account::TYPES)) {
+            $this->setFlash('danger', 'Type de compte invalide.');
+            $this->redirect('/moderation/internal-accounts/create');
+            return;
+        }
+
+        $overdraft = Account::typeAllowsOverdraft($type) ? abs((float) ($data['overdraft'] ?: 0)) : 0.0;
+        $cap       = Account::typeHasCap($type) && ($data['cap'] ?? '') !== '' ? abs((float) $data['cap']) : null;
+
+        $interestRate = null;
+        if (Account::typeHasInterest($type) && ($data['interest_rate'] ?? '') !== '') {
+            $rawPct       = (float) str_replace(',', '.', $data['interest_rate']);
+            $interestRate = round($rawPct / 100, 6);
+            $maxRate      = $this->rateModel->getCurrentRate($type);
+            if ($maxRate !== null && $interestRate > $maxRate) {
+                $interestRate = $maxRate;
+            }
+            if ($interestRate < 0) {
+                $interestRate = 0.0;
+            }
+        }
+
+        $moderatorId = $this->getCurrentUserId();
+        $accountId   = $this->accountModel->createAccount(
+            $moderatorId,
+            $name,
+            $currency,
+            $overdraft,
+            $type,
+            $cap,
+            true // internal = true
+        );
+
+        if ($interestRate !== null) {
+            $this->accountModel->update($accountId, ['interest_rate' => $interestRate]);
+        }
+
+        AuditLog::log($moderatorId, AuditLog::ACTION_ACCOUNT_CREATE, [
+            'name'     => $name,
+            'type'     => $type,
+            'internal' => true,
+        ], targetUserId: $moderatorId, targetAccountId: $accountId);
+
+        $this->setFlash('success', sprintf(
+            'Compte interne « %s » (%s) créé avec succès.',
+            $name,
+            Account::TYPES[$type]['label']
+        ));
+        $this->redirect('/moderation');
+    }
+
     // ── VIREMENTS RÉCURRENTS ─────────────────────────────────────────────────
 
     /**

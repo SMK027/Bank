@@ -68,6 +68,9 @@
                                 <a href="/moderation/accounts/create" class="navbar-mod-item" role="menuitem">
                                     <i class="bi bi-plus-square"></i> Créer un compte
                                 </a>
+                                <a href="/moderation/internal-accounts/create" class="navbar-mod-item" role="menuitem">
+                                    <i class="bi bi-tools"></i> Compte interne (test)
+                                </a>
                                 <a href="/moderation/guardianships" class="navbar-mod-item" role="menuitem">
                                     <i class="bi bi-person-heart"></i> Tutelles
                                 </a>

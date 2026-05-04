@@ -132,7 +132,7 @@ class Account extends Model
         return $balanceBefore >= $threshold && $balanceAfter < $threshold;
     }
 
-    public function createAccount(int $userId, string $name, string $currency, float $overdraft = 0.0, string $type = 'standard', ?float $cap = null): int
+    public function createAccount(int $userId, string $name, string $currency, float $overdraft = 0.0, string $type = 'standard', ?float $cap = null, bool $internal = false): int
     {
         if (!self::typeAllowsOverdraft($type)) {
             $overdraft = 0.0;
@@ -147,7 +147,17 @@ class Account extends Model
             'overdraft' => $overdraft,
             'type'      => $type,
             'cap'       => $cap,
+            'internal'  => $internal ? 1 : 0,
         ]);
+    }
+
+    /**
+     * Indique si un compte est un compte interne de modération (test).
+     * Les comptes internes ne peuvent pas être partagés aux utilisateurs normaux.
+     */
+    public static function isInternal(array $account): bool
+    {
+        return !empty($account['internal']);
     }
 
     public function getByUser(int $userId): array

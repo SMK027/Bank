@@ -63,6 +63,13 @@ class AccessController extends Controller
             return;
         }
 
+        // Les comptes internes de modération ne peuvent pas être partagés.
+        if ($account && Account::isInternal($account)) {
+            $this->setFlash('danger', 'Les comptes internes de modération ne peuvent pas être partagés.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
         // Partage interdit sur les comptes mineurs sauf par un modérateur
         if (!$isModerator && $account) {
             $accountOwner = $this->userModel->find((int) $account['user_id']);

@@ -6,6 +6,7 @@
     <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
         <span class="btn btn-outline btn-sm disabled" aria-current="page"><i class="bi bi-shield-check"></i> Comptes</span>
         <a href="/moderation/accounts/create" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Créer un compte</a>
+        <a href="/moderation/internal-accounts/create" class="btn btn-warning btn-sm" title="Compte de modération réservé aux tests, non partageable"><i class="bi bi-tools"></i> Compte interne</a>
         <a href="/moderation/transfers" class="btn btn-outline btn-sm"><i class="bi bi-arrow-left-right"></i> Virements</a>
         <a href="/moderation/recurring-transfers" class="btn btn-outline btn-sm"><i class="bi bi-arrow-repeat"></i> Virements récurrents</a>
         <a href="/moderation/direct-debits" class="btn btn-outline btn-sm"><i class="bi bi-file-earmark-arrow-down"></i> Prélèvements</a>
@@ -132,6 +133,11 @@
                                 <a href="/accounts/<?= (int) $acc['id'] ?>" class="font-bold">
                                     <?= e($acc['name']) ?>
                                 </a>
+                                <?php if (!empty($acc['internal'])): ?>
+                                    <span class="badge" style="background:var(--warning,#f59e0b);color:#fff;font-size:0.7rem;margin-left:0.3rem;" title="Compte interne de modération (test) — non partageable">
+                                        <i class="bi bi-tools"></i> Interne
+                                    </span>
+                                <?php endif; ?>
                             </td>
                             <td>
                                 <span><?= e($acc['owner_name']) ?></span>
