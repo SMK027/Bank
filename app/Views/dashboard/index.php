@@ -24,6 +24,12 @@
         <div class="stat-value"><?= count($sharedAccounts) ?></div>
         <div class="stat-label">Comptes partagés</div>
     </div>
+    <?php if (!empty($internalAccounts)): ?>
+    <div class="stat-card">
+        <div class="stat-value"><?= count($internalAccounts) ?></div>
+        <div class="stat-label">Comptes internes (test)</div>
+    </div>
+    <?php endif; ?>
 </div>
 
 <!-- Mes comptes -->
@@ -49,11 +55,6 @@
                         <div class="d-flex justify-between align-center mb-1">
                             <h3 style="margin:0"><?= e($account['name']) ?></h3>
                             <div style="display:flex;gap:0.3rem;align-items:center;flex-wrap:wrap;">
-                                <?php if (!empty($account['internal'])): ?>
-                                    <span class="badge" style="background:var(--warning,#f59e0b);color:#fff;font-size:0.72em;" title="Compte interne de modération (test) — non partageable">
-                                        <i class="bi bi-tools"></i> Interne
-                                    </span>
-                                <?php endif; ?>
                                 <?php if (!empty($account['disabled_at'])): ?>
                                     <span class="badge" style="background:var(--danger);color:#fff;font-size:0.72em;">
                                         <i class="bi bi-slash-circle"></i> Résiliation
@@ -89,6 +90,52 @@
                                 <i class="bi bi-shield-check"></i> Découvert autorisé : <?= number_format((float) $account['overdraft'], 2, ',', ' ') ?> <?= e($account['currency']) ?>
                             </div>
                         <?php endif; ?>
+                        <?php if (abs(($account['future_balance'] ?? $account['balance']) - $account['balance']) > 0.001): ?>
+                        <div class="text-small mt-1" style="color:var(--warning,#f59e0b);">
+                            <i class="bi bi-clock"></i> À venir&nbsp;: <strong><?= number_format($account['future_balance'], 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </a>
+        <?php endforeach; ?>
+    </div>
+<?php endif; ?>
+
+<!-- Comptes internes de modération -->
+<?php if (!empty($internalAccounts)): ?>
+    <h2 class="mt-3 mb-2" style="color:var(--warning,#f59e0b);">
+        <i class="bi bi-tools"></i> Comptes internes (test)
+    </h2>
+    <div class="alert" style="background:rgba(245,158,11,0.1);border-left:4px solid var(--warning,#f59e0b);font-size:0.85rem;padding:0.6rem 1rem;margin-bottom:0.75rem;">
+        <i class="bi bi-info-circle"></i>
+        Ces comptes sont réservés à la modération. Ils autorisent toutes les opérations bancaires et ne peuvent pas être partagés.
+    </div>
+    <div class="card-grid">
+        <?php foreach ($internalAccounts as $account): ?>
+            <a href="/accounts/<?= (int) $account['id'] ?>" class="card-link">
+                <div class="card account-card <?= $account['balance'] >= 0 ? 'account-positive' : 'account-negative' ?>"
+                     style="border-top:3px solid var(--warning,#f59e0b);">
+                    <div class="card-body">
+                        <div class="d-flex justify-between align-center mb-1">
+                            <h3 style="margin:0"><?= e($account['name']) ?></h3>
+                            <div style="display:flex;gap:0.3rem;align-items:center;flex-wrap:wrap;">
+                                <span class="badge" style="background:var(--warning,#f59e0b);color:#fff;font-size:0.72em;">
+                                    <i class="bi bi-tools"></i> Interne
+                                </span>
+                                <?php if (!empty($account['disabled_at'])): ?>
+                                    <span class="badge" style="background:var(--danger);color:#fff;font-size:0.72em;">
+                                        <i class="bi bi-slash-circle"></i> Résiliation
+                                    </span>
+                                <?php endif; ?>
+                                <span class="badge <?= $account['balance'] >= 0 ? 'badge-success' : 'badge-danger' ?>">
+                                    <?= e($account['currency']) ?>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="account-balance <?= $account['balance'] >= 0 ? 'balance-positive' : 'balance-negative' ?>">
+                            <?= number_format($account['balance'], 2, ',', ' ') ?> <?= e($account['currency']) ?>
+                        </div>
                         <?php if (abs(($account['future_balance'] ?? $account['balance']) - $account['balance']) > 0.001): ?>
                         <div class="text-small mt-1" style="color:var(--warning,#f59e0b);">
                             <i class="bi bi-clock"></i> À venir&nbsp;: <strong><?= number_format($account['future_balance'], 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>

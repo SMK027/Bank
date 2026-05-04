@@ -25,7 +25,8 @@ class DashboardController extends Controller
         $userId = $this->getCurrentUserId();
 
         $data = $this->accountModel->getAccessibleAccounts($userId);
-        $ownAccounts = $data['own'];
+        $ownAccounts    = array_values(array_filter($data['own'], fn($a) => empty($a['internal'])));
+        $internalAccounts = array_values(array_filter($data['own'], fn($a) => !empty($a['internal'])));
         $sharedAccounts = $data['shared'];
 
         // Calculer les soldes pour chaque compte
@@ -34,6 +35,12 @@ class DashboardController extends Controller
             $account['balance']        = $this->accountModel->getBalance((int) $account['id']);
             $account['future_balance'] = $this->accountModel->getFutureBalance((int) $account['id']);
             $totalBalance += $account['balance'];
+        }
+        unset($account);
+
+        foreach ($internalAccounts as &$account) {
+            $account['balance']        = $this->accountModel->getBalance((int) $account['id']);
+            $account['future_balance'] = $this->accountModel->getFutureBalance((int) $account['id']);
         }
         unset($account);
 
@@ -47,11 +54,12 @@ class DashboardController extends Controller
         $isMinor = User::isMinorFromDate($user['birth_date'] ?? null);
 
         $this->render('dashboard/index', [
-            'title'          => 'Tableau de bord',
-            'ownAccounts'    => $ownAccounts,
-            'sharedAccounts' => $sharedAccounts,
-            'totalBalance'   => $totalBalance,
-            'isMinor'        => $isMinor,
+            'title'            => 'Tableau de bord',
+            'ownAccounts'      => $ownAccounts,
+            'internalAccounts' => $internalAccounts,
+            'sharedAccounts'   => $sharedAccounts,
+            'totalBalance'     => $totalBalance,
+            'isMinor'          => $isMinor,
         ]);
     }
 }
