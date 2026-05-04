@@ -1093,9 +1093,17 @@
                     </thead>
                     <tbody>
                         <?php foreach ($groupItems as $dd): ?>
-                            <?php $isDue = $dd['period_end_date'] <= date('Y-m-d'); ?>
+                            <?php
+                                $isDue = $dd['period_end_date'] <= date('Y-m-d');
+                                $periodEndTs = strtotime($dd['period_end_date'] ?? '');
+                                $ddLocked = $periodEndTs && (time() - $periodEndTs) > 7 * 86400;
+                            ?>
                             <tr style="opacity:0.85;font-style:italic;">
                                 <td>
+                                    <?php if ($ddLocked): ?>
+                                        <i class="bi bi-credit-card" style="color:var(--info,#3b82f6);"></i>
+                                        <?= e(date('d/m/Y H:i', strtotime($dd['operation_date']))) ?>
+                                    <?php else: ?>
                                     <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/deferred-debits/<?= (int) $dd['id'] ?>/edit"
                                           style="display:flex;align-items:center;gap:0.3rem;">
                                         <?= csrf_field() ?>
@@ -1108,8 +1116,14 @@
                                             <i class="bi bi-check-lg"></i>
                                         </button>
                                     </form>
+                                    <?php endif; ?>
                                 </td>
                                 <td>
+                                    <?php if ($ddLocked): ?>
+                                        <i class="bi bi-lock" style="color:var(--text-muted);"></i>
+                                        <?= e(date('d/m/Y', strtotime($dd['period_end_date']))) ?>
+                                        <br><small class="text-muted" style="font-style:normal;" title="Verrouill&eacute; : plus de 7 jours apr&egrave;s la fin de p&eacute;riode">Verrouillé</small>
+                                    <?php else: ?>
                                     <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/deferred-debits/<?= (int) $dd['id'] ?>/edit"
                                           style="display:flex;align-items:center;gap:0.3rem;">
                                         <?= csrf_field() ?>
@@ -1129,6 +1143,7 @@
                                             <br><small class="text-danger" style="font-style:normal;">En attente</small>
                                         <?php endif; ?>
                                     </form>
+                                    <?php endif; ?>
                                 </td>
                                 <td><?= e($dd['category']) ?></td>
                                 <td>
@@ -1141,6 +1156,7 @@
                                     -<?= number_format((float) $dd['amount'], 2, ',', ' ') ?>
                                 </td>
                                 <td>
+                                    <?php if (!$ddLocked): ?>
                                     <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/deferred-debits/<?= (int) $dd['id'] ?>/cancel"
                                           style="display:inline">
                                         <?= csrf_field() ?>
@@ -1150,6 +1166,7 @@
                                             <i class="bi bi-x-circle"></i>
                                         </button>
                                     </form>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -1192,8 +1209,16 @@
                 </thead>
                 <tbody>
                     <?php foreach ($executedDeferredDebits as $dd): ?>
+                        <?php
+                            $periodEndTs = strtotime($dd['period_end_date'] ?? '');
+                            $ddLocked = $periodEndTs && (time() - $periodEndTs) > 7 * 86400;
+                        ?>
                         <tr>
                             <td>
+                                <?php if ($ddLocked): ?>
+                                    <i class="bi bi-credit-card-2-back" style="color:var(--success,#22c55e);"></i>
+                                    <?= e(date('d/m/Y H:i', strtotime($dd['operation_date']))) ?>
+                                <?php else: ?>
                                 <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/deferred-debits/<?= (int) $dd['id'] ?>/edit"
                                       style="display:flex;align-items:center;gap:0.3rem;">
                                     <?= csrf_field() ?>
@@ -1206,8 +1231,14 @@
                                         <i class="bi bi-check-lg"></i>
                                     </button>
                                 </form>
+                                <?php endif; ?>
                             </td>
                             <td>
+                                <?php if ($ddLocked): ?>
+                                    <i class="bi bi-lock" style="color:var(--text-muted);"></i>
+                                    <?= e(date('d/m/Y', strtotime($dd['period_end_date']))) ?>
+                                    <br><small class="text-muted" title="Verrouill&eacute; : plus de 7 jours apr&egrave;s la fin de p&eacute;riode">Verrouillé</small>
+                                <?php else: ?>
                                 <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/deferred-debits/<?= (int) $dd['id'] ?>/edit"
                                       style="display:flex;align-items:center;gap:0.3rem;">
                                     <?= csrf_field() ?>
@@ -1220,6 +1251,7 @@
                                         <i class="bi bi-check-lg"></i>
                                     </button>
                                 </form>
+                                <?php endif; ?>
                             </td>
                             <td><?= e($dd['category']) ?></td>
                             <td>

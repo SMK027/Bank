@@ -466,6 +466,14 @@ class TransactionController extends Controller
             return;
         }
 
+        // Verrou : plus aucune modification possible 7 jours après la fin de période
+        $periodEndTs = strtotime($dd['period_end_date'] ?? '');
+        if ($periodEndTs && (time() - $periodEndTs) > 7 * 86400) {
+            $this->setFlash('danger', 'Cette opération ne peut plus être annulée : la date de fin de période est dépassée de plus de 7 jours.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
         $this->deferredDebitModel->cancel($ddId);
         $this->setFlash('success', 'Opération à débit différé annulée.');
         $this->redirect('/accounts/' . $accountId);
@@ -505,14 +513,13 @@ class TransactionController extends Controller
             return;
         }
 
-        // Les utilisateurs ne peuvent modifier les DD exécutés que dans les 7 jours
-        if ($isExecuted && !$this->isModerator()) {
-            $executedAt = strtotime($dd['executed_at'] ?? '');
-            if (!$executedAt || (time() - $executedAt) > 7 * 86400) {
-                $this->setFlash('danger', 'Cette opération a été exécutée il y a plus de 7 jours et ne peut plus être modifiée.');
-                $this->redirect('/accounts/' . $accountId);
-                return;
-            }
+        // Verrou général : plus aucune modification possible (utilisateur ou modérateur)
+        // 7 jours après la date de fin de période définie
+        $periodEndTs = strtotime($dd['period_end_date'] ?? '');
+        if ($periodEndTs && (time() - $periodEndTs) > 7 * 86400) {
+            $this->setFlash('danger', 'Cette opération ne peut plus être modifiée : la date de fin de période est dépassée de plus de 7 jours.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
         }
 
         $data = $this->getPostData(['operation_date', 'period_end_date']);
