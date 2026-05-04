@@ -594,6 +594,18 @@ class AccountController extends Controller
             return;
         }
 
+        // Bloquer la résiliation si le solde est négatif (découvert)
+        $balance = $this->accountModel->getBalance($accountId);
+        if ($balance < 0) {
+            $this->setFlash('danger', sprintf(
+                'Impossible de résilier ce compte : le solde est négatif (%s %s). Le découvert doit être apuré avant la résiliation.',
+                number_format($balance, 2, ',', ' '),
+                $account['currency'] ?? 'EUR'
+            ));
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
         // Bloquer la résiliation si un crédit actif est lié au compte
         if ($this->loanModel->hasActiveLoanForAccount($accountId)) {
             $this->setFlash('danger', 'Impossible de résilier ce compte : un crédit actif y est associé. Remboursez entièrement le crédit avant de pouvoir résilier.');

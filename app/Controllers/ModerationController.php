@@ -219,6 +219,18 @@ class ModerationController extends Controller
             return;
         }
 
+        // Bloquer la résiliation si le solde est négatif (découvert)
+        $balance = $this->accountModel->getBalance($accountId);
+        if ($balance < 0) {
+            $this->setFlash('danger', sprintf(
+                'Impossible de résilier ce compte : le solde est négatif (%s %s). Le découvert doit être apuré avant la résiliation.',
+                number_format($balance, 2, ',', ' '),
+                $account['currency'] ?? 'EUR'
+            ));
+            $this->redirect(isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '/moderation');
+            return;
+        }
+
         // Bloquer la résiliation si des débits différés sont en attente
         $deferredDebitModel = new DeferredDebit();
         $pendingDD = $deferredDebitModel->getPendingByAccount($accountId);
