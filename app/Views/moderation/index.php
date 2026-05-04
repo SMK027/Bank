@@ -18,6 +18,27 @@
     </div>
 </div>
 
+<?php if (!empty($pendingClosureCount)): ?>
+<div class="card mb-2" style="border-left:4px solid var(--danger);">
+    <div class="card-body" style="padding:0.85rem 1.1rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+        <div style="flex:1;min-width:240px;">
+            <strong><i class="bi bi-slash-circle"></i> Clôture définitive en fin de mois</strong>
+            <div class="text-muted text-small" style="margin-top:0.2rem;">
+                <?= (int) $pendingClosureCount ?> compte(s) désactivé(s) en attente de suppression définitive
+                par le CRON mensuel. Vous pouvez forcer l'exécution immédiate sans attendre la fin du mois.
+            </div>
+        </div>
+        <form method="POST" action="/moderation/accounts/force-closures" style="margin:0;">
+            <?= csrf_field() ?>
+            <button type="submit" class="btn btn-danger btn-sm"
+                    onclick="return confirm('Forcer la clôture définitive de <?= (int) $pendingClosureCount ?> compte(s) désactivé(s) ?\n\nCette opération est irréversible : transactions, accès partagés, mandats, virements récurrents et prélèvements planifiés liés seront supprimés ou annulés.');">
+                <i class="bi bi-fast-forward-circle"></i> Forcer la clôture (<?= (int) $pendingClosureCount ?>)
+            </button>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
+
 <?php if (empty($allAccounts)): ?>
     <div class="empty-state"><div class="empty-icon">🏦</div><p>Aucun compte enregistré.</p></div>
 <?php else: ?>

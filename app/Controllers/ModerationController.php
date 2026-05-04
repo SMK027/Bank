@@ -87,6 +87,7 @@ class ModerationController extends Controller
         $this->render('moderation/index', [
             'title'       => 'Modération — Comptes',
             'allAccounts' => $allAccounts,
+            'pendingClosureCount' => $this->accountModel->countDisabled(),
         ]);
     }
 
@@ -241,6 +242,73 @@ class ModerationController extends Controller
         );
         $this->setFlash('success', 'Compte « ' . $account['name'] . ' » désactivé. Suppression en fin de mois.');
         $this->redirect(isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '/moderation');
+    }
+
+    /**
+     * Forcer immédiatement l'exécution du processus de clôture des comptes désactivés
+     * (équivalent du CRON mensuel, mais sans attendre la fin du mois).
+     */
+    public function forceCloseAccounts(): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $pending = $this->accountModel->countDisabled();
+        if ($pending === 0) {
+            $this->setFlash('info', 'Aucun compte désactivé à clôturer.');
+            $this->redirect('/moderation');
+            return;
+        }
+
+        // Inclusion du script de cron en mode forçage, sortie capturée pour le journal.
+        $forceClose = true;
+        ob_start();
+        try {
+            require dirname(__DIR__, 2) . '/database/process_account_closures.php';
+        } catch (\Throwable $e) {
+            ob_end_clean();
+            AuditLog::log(
+                $this->getCurrentUserId(),
+                'account.force_close_failed',
+                ['error' => $e->getMessage()]
+            );
+            $this->setFlash('danger', 'Erreur lors de la clôture forcée : ' . $e->getMessage());
+            $this->redirect('/moderation');
+            return;
+        }
+        $output = ob_get_clean();
+
+        // Persiste la sortie dans le même fichier de log que le CRON.
+        $logFile = dirname(__DIR__, 2) . '/data/closures-cron.log';
+        @file_put_contents(
+            $logFile,
+            sprintf("[%s] === Forçage manuel par modérateur #%d ===\n", date('Y-m-d H:i:s'), $this->getCurrentUserId())
+                . $output . "\n",
+            FILE_APPEND
+        );
+
+        $closed = $result['closed'] ?? 0;
+        $errors = $result['errors'] ?? 0;
+
+        AuditLog::log(
+            $this->getCurrentUserId(),
+            'account.force_close',
+            ['closed' => $closed, 'errors' => $errors, 'pending_before' => $pending]
+        );
+
+        if ($errors > 0) {
+            $this->setFlash('warning', sprintf(
+                'Clôture forcée terminée : %d compte(s) clôturé(s), %d erreur(s). Voir le journal.',
+                $closed, $errors
+            ));
+        } else {
+            $this->setFlash('success', sprintf(
+                'Clôture forcée terminée : %d compte(s) définitivement supprimé(s).',
+                $closed
+            ));
+        }
+
+        $this->redirect('/moderation');
     }
 
     /**

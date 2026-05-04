@@ -20,7 +20,12 @@ declare(strict_types=1);
  *   7. Journaliser dans AuditLog.
  *
  * Usage manuel : php database/process_account_closures.php
+ * Forçage     : php database/process_account_closures.php --force
+ *               (clôture immédiate de TOUS les comptes désactivés, sans attendre la fin du mois)
  * Cron : 0 2 * * * (quotidien à 02h00 — efficace à partir du 1er du mois suivant)
+ *
+ * Ce script peut aussi être inclus depuis un contrôleur en définissant
+ * la variable $forceClose = true avant l'inclusion pour forcer la clôture.
  */
 
 require_once dirname(__DIR__) . '/vendor/autoload.php';
@@ -49,11 +54,21 @@ $guardianshipModel      = new Guardianship();
 $closed = 0;
 $errors = 0;
 
-$accounts = $accountModel->getEligibleForClosure();
+// Détection du mode forçage :
+//   - via inclusion : $forceClose = true; require '...';
+//   - via CLI       : php process_account_closures.php --force
+$force = !empty($forceClose)
+    || (PHP_SAPI === 'cli' && isset($argv) && in_array('--force', $argv, true));
+
+$accounts = $accountModel->getEligibleForClosure($force);
+
+if ($force) {
+    echo sprintf("[%s] Mode FORÇAGE activé : clôture immédiate des comptes désactivés.\n", date('Y-m-d H:i:s'));
+}
 
 if (empty($accounts)) {
     echo sprintf("[%s] Aucun compte à clôturer.\n", date('Y-m-d H:i:s'));
-    exit(0);
+    return;
 }
 
 foreach ($accounts as $account) {
@@ -154,3 +169,6 @@ echo sprintf(
     "\n[%s] Résumé : %d compte(s) clôturé(s), %d erreur(s).\n",
     date('Y-m-d H:i:s'), $closed, $errors
 );
+
+// Variables exposées pour les appelants (inclusion depuis un contrôleur)
+$result = ['closed' => $closed, 'errors' => $errors, 'forced' => $force];

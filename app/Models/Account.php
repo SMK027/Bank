@@ -293,15 +293,35 @@ class Account extends Model
     /**
      * Retourne les comptes éligibles à la clôture définitive :
      * disabled_at IS NOT NULL ET disabled_at < premier jour du mois courant.
+     *
+     * Si $force = true, retourne tous les comptes avec disabled_at IS NOT NULL,
+     * sans contrainte de date (suppression forcée avant la fin du mois).
      */
-    public function getEligibleForClosure(): array
+    public function getEligibleForClosure(bool $force = false): array
     {
+        if ($force) {
+            $stmt = $this->getPdo()->query(
+                'SELECT * FROM `accounts` WHERE `disabled_at` IS NOT NULL'
+            );
+            return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        }
         $firstOfMonth = date('Y-m-01 00:00:00');
         $stmt = $this->getPdo()->prepare(
             'SELECT * FROM `accounts` WHERE `disabled_at` IS NOT NULL AND `disabled_at` < ?'
         );
         $stmt->execute([$firstOfMonth]);
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Compte les comptes actuellement désactivés (en attente de clôture définitive).
+     */
+    public function countDisabled(): int
+    {
+        $stmt = $this->getPdo()->query(
+            'SELECT COUNT(*) FROM `accounts` WHERE `disabled_at` IS NOT NULL'
+        );
+        return (int) $stmt->fetchColumn();
     }
 
     public function getAccessibleAccounts(int $userId): array

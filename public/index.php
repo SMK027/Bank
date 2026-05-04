@@ -129,6 +129,7 @@ $router->post('/moderation/accounts/{id}/unfreeze', ModerationController::class,
 $router->post('/moderation/accounts/{id}/disable', ModerationController::class, 'disableAccount');
 $router->post('/moderation/accounts/{id}/enable', ModerationController::class, 'enableAccount');
 $router->post('/moderation/accounts/{id}/toggle-deferred-debit', ModerationController::class, 'toggleDeferredDebit');
+$router->post('/moderation/accounts/force-closures', ModerationController::class, 'forceCloseAccounts');
 // Prélèvements
 $router->get('/moderation/direct-debits', ModerationController::class, 'directDebits');
 $router->get('/moderation/direct-debits/create', ModerationController::class, 'createDirectDebitForm');
