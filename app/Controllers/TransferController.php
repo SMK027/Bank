@@ -73,6 +73,7 @@ class TransferController extends Controller
                     'balance'      => $this->accountModel->getBalance((int) $acc['id']),
                     'frozen'       => !empty($acc['frozen']),
                     'no_overdraft' => !Account::typeAllowsOverdraft($acc['type'] ?? 'standard'),
+                    'internal'     => !empty($acc['internal']),
                     'user_id'      => $uid,
                     'user_name'    => $user ? ($user['username'] ?? 'Utilisateur #' . $uid) : 'Utilisateur #' . $uid,
                 ];

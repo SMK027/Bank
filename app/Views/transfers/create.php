@@ -77,6 +77,7 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                                                 data-overdraft="<?= (float) ($acc['overdraft'] ?? 0) ?>"
                                                 data-no-overdraft="<?= \App\Models\Account::typeAllowsOverdraft($acc['type'] ?? 'standard') ? '0' : '1' ?>"
                                                 data-currency="<?= e($acc['currency']) ?>"
+                                                data-internal="<?= !empty($acc['internal']) ? '1' : '0' ?>"
                                                 <?= $preselect === (int) $acc['id'] ? 'selected' : '' ?>>
                                             <?= e($acc['name']) ?>
                                             (<?= number_format((float) ($acc['balance'] ?? 0), 2, ',', ' ') ?> <?= e($acc['currency']) ?>)
@@ -92,6 +93,7 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                                                 data-overdraft="<?= (float) ($acc['overdraft'] ?? 0) ?>"
                                                 data-no-overdraft="<?= \App\Models\Account::typeAllowsOverdraft($acc['type'] ?? 'standard') ? '0' : '1' ?>"
                                                 data-currency="<?= e($acc['currency']) ?>"
+                                                data-internal="<?= !empty($acc['internal']) ? '1' : '0' ?>"
                                                 <?= $preselect === (int) $acc['id'] ? 'selected' : '' ?>>
                                             <?= e($acc['name']) ?>
                                             (<?= number_format((float) ($acc['balance'] ?? 0), 2, ',', ' ') ?> <?= e($acc['currency']) ?>)
@@ -117,7 +119,8 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                                 <optgroup label="Mes comptes">
                                     <?php foreach ($ownAccounts as $acc): ?>
                                         <option value="<?= (int) $acc['id'] ?>"
-                                                data-currency="<?= e($acc['currency']) ?>">
+                                                data-currency="<?= e($acc['currency']) ?>"
+                                                data-internal="<?= !empty($acc['internal']) ? '1' : '0' ?>">
                                             <?= e($acc['name']) ?>
                                             (<?= number_format((float) ($acc['balance'] ?? 0), 2, ',', ' ') ?> <?= e($acc['currency']) ?>)
                                         </option>
@@ -128,7 +131,8 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                                 <optgroup label="Comptes partagés">
                                     <?php foreach ($sharedAccounts as $acc): ?>
                                         <option value="<?= (int) $acc['id'] ?>"
-                                                data-currency="<?= e($acc['currency']) ?>">
+                                                data-currency="<?= e($acc['currency']) ?>"
+                                                data-internal="<?= !empty($acc['internal']) ? '1' : '0' ?>">
                                             <?= e($acc['name']) ?>
                                             (<?= number_format((float) ($acc['balance'] ?? 0), 2, ',', ' ') ?> <?= e($acc['currency']) ?>)
                                         </option>
@@ -495,8 +499,35 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
             submitBtn.disabled = sameAcc || fundErr || dateErr;
         }
 
-        fromEl.addEventListener('change', function () { updateFromInfo(); checkPersonal(); });
-        toEl.addEventListener('change', checkPersonal);
+        // ── Filtrage des comptes selon le caractère interne ──────────────────
+        var ALL_TO_OPTIONS   = Array.from(toEl.options);
+        var ALL_FROM_OPTIONS = Array.from(fromEl.options);
+
+        function filterByInternal(changedSel, otherSel, allOpts) {
+            var selOpt    = changedSel.options[changedSel.selectedIndex];
+            var isInt     = selOpt && selOpt.value && selOpt.dataset.internal === '1';
+            var prevOther = otherSel.value;
+            otherSel.innerHTML = '';
+            allOpts.forEach(function (opt) {
+                if (!opt.value) { otherSel.appendChild(opt.cloneNode(true)); return; }
+                var optInt = opt.dataset.internal === '1';
+                if (isInt === optInt) { otherSel.appendChild(opt.cloneNode(true)); }
+            });
+            // Restaurer la sélection si encore disponible
+            if (prevOther && otherSel.querySelector('option[value="' + prevOther + '"]')) {
+                otherSel.value = prevOther;
+            }
+        }
+
+        fromEl.addEventListener('change', function () {
+            filterByInternal(fromEl, toEl, ALL_TO_OPTIONS);
+            updateFromInfo();
+            checkPersonal();
+        });
+        toEl.addEventListener('change', function () {
+            filterByInternal(toEl, fromEl, ALL_FROM_OPTIONS);
+            checkPersonal();
+        });
         amountEl.addEventListener('input', checkPersonal);
         updateFromInfo();
         checkPersonal();
@@ -542,15 +573,18 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
         function buildOption(a) {
             var opt = document.createElement('option');
             opt.value = a.id;
-            var frozenLabel = a.frozen ? ' 🔒 Gelé' : '';
+            var frozenLabel    = a.frozen   ? ' 🔒 Gelé'    : '';
+            var internalLabel  = a.internal ? ' ⚙ Interne' : '';
             var balLabel = a.balance.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            opt.textContent = a.user_name + ' — ' + a.name + ' (' + balLabel + '\u00a0' + a.currency + ')' + frozenLabel;
+            opt.textContent = a.user_name + ' — ' + a.name + ' (' + balLabel + '\u00a0' + a.currency + ')' + frozenLabel + internalLabel;
             opt.dataset.balance     = a.balance;
             opt.dataset.overdraft   = a.overdraft;
             opt.dataset.noOverdraft = a.no_overdraft ? '1' : '0';
             opt.dataset.currency    = a.currency;
-            opt.dataset.frozen      = a.frozen ? '1' : '0';
-            if (a.frozen) opt.style.color = 'var(--text-muted)';
+            opt.dataset.frozen      = a.frozen    ? '1' : '0';
+            opt.dataset.internal    = a.internal  ? '1' : '0';
+            if (a.frozen)   opt.style.color = 'var(--text-muted)';
+            if (a.internal) opt.style.fontStyle = 'italic';
             return opt;
         }
 
@@ -588,6 +622,28 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
 
             updateFromInfoM();
             checkMod();
+        }
+
+        function filterModByInternal(changedSel, otherSel) {
+            var selOpt = changedSel.options[changedSel.selectedIndex];
+            if (!selOpt || !selOpt.value) { rebuildSelects(); return; }
+            var isInt    = selOpt.dataset.internal === '1';
+            var prevOther = otherSel.value;
+            // Reconstruire l'autre select en filtrant par interne/normal
+            var accounts = filteredAccounts().filter(function (a) {
+                return a.internal === isInt;
+            });
+            var selectedId = changedSel.value;
+            otherSel.innerHTML = '<option value="">\u2014 S\u00e9lectionner un compte \u2014</option>';
+            accounts.forEach(function (a) {
+                if (String(a.id) !== String(selectedId)) {
+                    otherSel.appendChild(buildOption(a));
+                }
+            });
+            addOutOfFilterOption(otherSel, prevOther);
+            if (prevOther && otherSel.querySelector('option[value="' + prevOther + '"]')) {
+                otherSel.value = prevOther;
+            }
         }
 
         function getModFromData() {
@@ -715,8 +771,15 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                 }
             });
         }
-        modFrom.addEventListener('change', function () { updateFromInfoM(); checkMod(); });
-        modTo.addEventListener('change', checkMod);
+        modFrom.addEventListener('change', function () {
+            filterModByInternal(modFrom, modTo);
+            updateFromInfoM();
+            checkMod();
+        });
+        modTo.addEventListener('change', function () {
+            filterModByInternal(modTo, modFrom);
+            checkMod();
+        });
         if (amountMEl) amountMEl.addEventListener('input', checkMod);
 
         rebuildSelects();
