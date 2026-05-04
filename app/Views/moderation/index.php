@@ -162,6 +162,11 @@
                             <td>
                                 <?php if ($frozen): ?>
                                     <span class="badge badge-frozen"><i class="bi bi-snow"></i> Gelé</span>
+                                    <?php if (!empty($acc['frozen_until'])): ?>
+                                        <span class="badge" style="background:rgba(59,130,246,0.12);color:#1d4ed8;font-size:0.72em;" title="Dégel automatique">
+                                            <i class="bi bi-clock"></i> jusqu'au <?= e((new DateTime($acc['frozen_until']))->format('d/m/Y')) ?>
+                                        </span>
+                                    <?php endif; ?>
                                 <?php elseif ($disabled): ?>
                                     <span class="badge" style="background:var(--danger);color:#fff;"><i class="bi bi-slash-circle"></i> Résiliation prévue</span>
                                 <?php else: ?>
@@ -186,14 +191,11 @@
                                             </button>
                                         </form>
                                     <?php else: ?>
-                                        <form method="POST" action="/moderation/accounts/<?= (int) $acc['id'] ?>/freeze" style="display:inline">
-                                            <?= csrf_field() ?>
-                                            <button type="submit" class="btn btn-sm btn-freeze"
-                                                    title="Geler"
-                                                    onclick="return confirm('Geler le compte « <?= e(addslashes($acc['name'])) ?> » ? Les opérations sortantes seront bloquées.')">
-                                                <i class="bi bi-snow"></i> Geler
-                                            </button>
-                                        </form>
+                                        <button type="button" class="btn btn-sm btn-freeze"
+                                                title="Geler ce compte"
+                                                onclick="openFreezeModal(<?= (int) $acc['id'] ?>, <?= htmlspecialchars(json_encode($acc['name']), ENT_QUOTES) ?>)">
+                                            <i class="bi bi-snow"></i> Geler
+                                        </button>
                                     <?php endif; ?>
 
                                     <?php if (\App\Models\Account::typeAllowsDeferredDebit($acc['type'] ?? 'standard')): ?>
@@ -351,6 +353,59 @@
 
     applyFilters();
 })();
+</script>
+
+<!-- ── Modal Gel de compte ──────────────────────────────────────── -->
+<div id="freezeModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:var(--card-bg,#fff);border-radius:var(--border-radius);box-shadow:0 8px 32px rgba(0,0,0,0.18);padding:1.5rem 1.75rem;width:100%;max-width:420px;margin:1rem;">
+        <h3 style="margin:0 0 0.25rem;font-size:1.05rem;display:flex;align-items:center;gap:0.5rem;">
+            <i class="bi bi-snow" style="color:#3b82f6;"></i>
+            Geler le compte <span id="freezeModalName" style="font-weight:700;"></span>
+        </h3>
+        <p style="font-size:0.82rem;color:var(--text-muted);margin:0 0 1rem;">Les opérations sortantes seront bloquées.</p>
+        <form id="freezeModalForm" method="POST" action="">
+            <?= csrf_field() ?>
+            <div style="margin-bottom:0.9rem;">
+                <label style="display:block;font-size:0.83rem;font-weight:600;margin-bottom:0.3rem;">
+                    Motif <span style="font-weight:400;color:var(--text-muted)">(facultatif)</span>
+                </label>
+                <textarea name="reason" rows="2" maxlength="500"
+                    placeholder="Ex. : fraude suspectée, demande judiciaire…"
+                    style="width:100%;font-size:0.84rem;padding:0.4rem 0.6rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);resize:vertical;"></textarea>
+            </div>
+            <div style="margin-bottom:1.1rem;">
+                <label style="display:block;font-size:0.83rem;font-weight:600;margin-bottom:0.3rem;">
+                    Durée — dégel automatique le <span style="font-weight:400;color:var(--text-muted)">(facultatif)</span>
+                </label>
+                <input type="datetime-local" name="frozen_until"
+                    style="font-size:0.84rem;padding:0.4rem 0.6rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);width:100%;">
+                <span style="font-size:0.76rem;color:var(--text-muted)">Laisser vide pour un gel indéfini.</span>
+            </div>
+            <div style="display:flex;gap:0.6rem;justify-content:flex-end;">
+                <button type="button" onclick="closeFreezeModal()" class="btn btn-outline btn-sm">Annuler</button>
+                <button type="submit" class="btn btn-freeze btn-sm"><i class="bi bi-snow"></i> Confirmer le gel</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+function openFreezeModal(accountId, accountName) {
+    document.getElementById('freezeModalName').textContent = accountName;
+    document.getElementById('freezeModalForm').action = '/moderation/accounts/' + accountId + '/freeze';
+    document.querySelector('#freezeModalForm textarea[name="reason"]').value = '';
+    document.querySelector('#freezeModalForm input[name="frozen_until"]').value = '';
+    var overlay = document.getElementById('freezeModalOverlay');
+    overlay.style.display = 'flex';
+}
+function closeFreezeModal() {
+    document.getElementById('freezeModalOverlay').style.display = 'none';
+}
+document.getElementById('freezeModalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeFreezeModal();
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeFreezeModal();
+});
 </script>
 
 <?php endif; ?>

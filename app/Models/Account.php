@@ -274,14 +274,36 @@ class Account extends Model
         return $account !== null && !empty($account['frozen']);
     }
 
-    public function freezeAccount(int $accountId): bool
+    public function freezeAccount(int $accountId, ?string $reason = null, ?string $frozenUntil = null, ?int $frozenBy = null): bool
     {
-        return $this->update($accountId, ['frozen' => 1]);
+        return $this->update($accountId, [
+            'frozen'        => 1,
+            'frozen_reason' => $reason,
+            'frozen_until'  => $frozenUntil,
+            'frozen_by'     => $frozenBy,
+        ]);
     }
 
     public function unfreezeAccount(int $accountId): bool
     {
-        return $this->update($accountId, ['frozen' => 0]);
+        return $this->update($accountId, [
+            'frozen'        => 0,
+            'frozen_reason' => null,
+            'frozen_until'  => null,
+            'frozen_by'     => null,
+        ]);
+    }
+
+    /**
+     * Retourne les comptes dont le gel temporaire a expiré (frozen_until passé).
+     */
+    public function getAccountsToAutoUnfreeze(): array
+    {
+        $stmt = $this->getPdo()->prepare(
+            "SELECT * FROM `accounts` WHERE frozen = 1 AND frozen_until IS NOT NULL AND frozen_until <= NOW()"
+        );
+        $stmt->execute();
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 
     public function isDisabled(int $accountId): bool

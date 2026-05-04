@@ -121,13 +121,36 @@
                     </button>
                 </form>
             <?php else: ?>
-                <form method="POST" action="/moderation/accounts/<?= (int) $account['id'] ?>/freeze" style="display:inline">
-                    <?= csrf_field() ?>
-                    <button type="submit" class="btn btn-freeze btn-sm"
-                            onclick="return confirm('Geler ce compte ? Les opérations sortantes seront bloquées.')">
-                        <i class="bi bi-snow"></i> Geler
-                    </button>
-                </form>
+                <button type="button" class="btn btn-freeze btn-sm"
+                        onclick="document.getElementById('showFreezeForm').style.display=
+                            document.getElementById('showFreezeForm').style.display==='none'?'block':'none'">
+                    <i class="bi bi-snow"></i> Geler
+                </button>
+                <div id="showFreezeForm" style="display:none;margin-top:0.5rem;padding:1rem;background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.25);border-radius:var(--border-radius);min-width:280px;">
+                    <form method="POST" action="/moderation/accounts/<?= (int) $account['id'] ?>/freeze">
+                        <?= csrf_field() ?>
+                        <div style="margin-bottom:0.7rem;">
+                            <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:0.25rem;">
+                                Motif <span style="font-weight:400;color:var(--text-muted)">(facultatif)</span>
+                            </label>
+                            <textarea name="reason" rows="2" maxlength="500"
+                                placeholder="Ex. : fraude suspectée, demande judiciaire…"
+                                style="width:100%;font-size:0.83rem;padding:0.35rem 0.5rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);resize:vertical;"></textarea>
+                        </div>
+                        <div style="margin-bottom:0.8rem;">
+                            <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:0.25rem;">
+                                Dégel automatique le <span style="font-weight:400;color:var(--text-muted)">(facultatif)</span>
+                            </label>
+                            <input type="datetime-local" name="frozen_until"
+                                style="font-size:0.83rem;padding:0.35rem 0.5rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);width:100%;">
+                        </div>
+                        <div style="display:flex;gap:0.5rem;">
+                            <button type="submit" class="btn btn-freeze btn-sm"><i class="bi bi-snow"></i> Confirmer</button>
+                            <button type="button" class="btn btn-outline btn-sm"
+                                    onclick="document.getElementById('showFreezeForm').style.display='none'">Annuler</button>
+                        </div>
+                    </form>
+                </div>
             <?php endif; ?>
             <?php if ($isDisabled): ?>
                 <form method="POST" action="/moderation/accounts/<?= (int) $account['id'] ?>/enable" style="display:inline">
@@ -157,6 +180,14 @@
         <strong>Compte gelé.</strong>
         Les opérations sortantes et les virements débiteurs sont bloqués.
         Ce compte peut encore recevoir des versements.
+        <?php if (!empty($account['frozen_reason'])): ?>
+            <br><span style="font-size:0.85em;"><i class="bi bi-chat-left-text"></i> <strong>Motif :</strong> <?= e($account['frozen_reason']) ?></span>
+        <?php endif; ?>
+        <?php if (!empty($account['frozen_until'])): ?>
+            <br><span style="font-size:0.85em;"><i class="bi bi-clock"></i> Dégel automatique prévu le
+                <strong><?= e((new DateTime($account['frozen_until']))->format('d/m/Y à H\hi')) ?></strong>.
+            </span>
+        <?php endif; ?>
     </div>
 </div>
 <?php endif; ?>

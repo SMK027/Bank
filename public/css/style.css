@@ -845,6 +845,27 @@ select.form-control {
     background: rgba(96, 165, 250, 0.28);
 }
 
+/* -----------------------------------------------------------
+   Modal de gel de compte (moderation/index)
+   ----------------------------------------------------------- */
+#freezeModalOverlay {
+    animation: fadeInOverlay 0.15s ease;
+}
+
+#freezeModalOverlay > div {
+    animation: slideUpModal 0.18s ease;
+}
+
+@keyframes fadeInOverlay {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes slideUpModal {
+    from { transform: translateY(18px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+}
+
 .navbar-link-mod {
     color: #6d28d9 !important;
 }

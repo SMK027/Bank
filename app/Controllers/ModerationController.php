@@ -108,17 +108,52 @@ class ModerationController extends Controller
             return;
         }
 
-        $this->accountModel->freezeAccount($accountId);
-        AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_ACCOUNT_FREEZE, ['name' => $account['name']], targetUserId: (int) $account['user_id'], targetAccountId: $accountId);
-        // Notifier le propriétaire du compte (et ses tuteurs si compte mineur)
+        // Motif (facultatif)
+        $reason = trim((string) ($_POST['reason'] ?? ''));
+        $reason = $reason !== '' ? $reason : null;
+
+        // Date de fin de gel (facultatif) — vient d'un input datetime-local (Y-m-dTH:i)
+        $frozenUntil = null;
+        $frozenUntilRaw = trim((string) ($_POST['frozen_until'] ?? ''));
+        if ($frozenUntilRaw !== '') {
+            try {
+                $dt = new \DateTime($frozenUntilRaw);
+                if ($dt <= new \DateTime()) {
+                    $this->setFlash('danger', 'La date de fin de gel doit être dans le futur.');
+                    $this->redirect(isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '/moderation');
+                    return;
+                }
+                $frozenUntil = $dt->format('Y-m-d H:i:s');
+            } catch (\Exception) {
+                // date invalide : on ignore et on gèle sans durée
+            }
+        }
+
+        $this->accountModel->freezeAccount($accountId, $reason, $frozenUntil, $this->getCurrentUserId());
+
+        $auditDetails = ['name' => $account['name']];
+        if ($reason !== null)     { $auditDetails['reason']      = $reason; }
+        if ($frozenUntil !== null) { $auditDetails['frozen_until'] = $frozenUntil; }
+        AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_ACCOUNT_FREEZE, $auditDetails, targetUserId: (int) $account['user_id'], targetAccountId: $accountId);
+
+        $notifBody = 'Votre compte a été gelé par la modération. Les opérations sortantes sont bloquées.';
+        if ($reason !== null)     { $notifBody .= ' Motif : ' . $reason; }
+        if ($frozenUntil !== null) {
+            $notifBody .= ' Le gel prendra fin automatiquement le ' . (new \DateTime($frozenUntil))->format('d/m/Y à H\hi') . '.';
+        }
         $this->notifyAccountOwner(
             (int) $account['user_id'],
             $accountId,
             'account_frozen',
             'Compte « ' . $account['name'] . ' » gelé',
-            'Votre compte a été gelé par la modération. Les opérations sortantes sont bloquées.'
+            $notifBody
         );
-        $this->setFlash('success', 'Compte « ' . $account['name'] . ' » gelé avec succès.');
+
+        $msg = 'Compte « ' . $account['name'] . ' » gelé avec succès.';
+        if ($frozenUntil !== null) {
+            $msg .= ' Dégel automatique le ' . (new \DateTime($frozenUntil))->format('d/m/Y à H\hi') . '.';
+        }
+        $this->setFlash('success', $msg);
         $this->redirect(isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '/moderation');
     }
 

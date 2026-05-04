@@ -749,6 +749,33 @@ foreach ($transactionModel->findAll('scheduled_at', 'ASC') as $t) {
 }
 
 /* ─────────────────────────────────────────────────────────────────
+   N. Dégel automatique des comptes dont la durée de gel a expiré
+   ───────────────────────────────────────────────────────────────── */
+foreach ($accountModel->getAccountsToAutoUnfreeze() as $frozenAcc) {
+    $fAccId = (int) $frozenAcc['id'];
+    $accountModel->unfreezeAccount($fAccId);
+    AuditLog::log(
+        null,
+        AuditLog::ACTION_ACCOUNT_UNFREEZE,
+        ['name' => $frozenAcc['name'], 'auto' => true],
+        targetUserId:    (int) $frozenAcc['user_id'],
+        targetAccountId: $fAccId
+    );
+    $notifyWithGuardians(
+        (int) $frozenAcc['user_id'],
+        $fAccId,
+        'account_unfrozen',
+        'Compte « ' . $frozenAcc['name'] . ' » dégelé automatiquement',
+        'Le gel temporaire de votre compte « ' . $frozenAcc['name'] . ' » a expiré. Les opérations sortantes sont à nouveau autorisées.'
+    );
+    echo sprintf(
+        "[%s] Compte #%d « %s » dégelé automatiquement (frozen_until expiré).\n",
+        date('Y-m-d H:i:s'), $fAccId, $frozenAcc['name']
+    );
+    $executed++;
+}
+
+/* ─────────────────────────────────────────────────────────────────
    Résumé
    ───────────────────────────────────────────────────────────────── */
 if ($executed > 0 || $errors > 0) {
