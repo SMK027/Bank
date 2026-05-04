@@ -243,4 +243,27 @@ class DirectDebit extends Model
     {
         return $this->update($id, ['scheduled_at' => $scheduledAt]);
     }
+
+    /**
+     * Vérifie si un prélèvement annulé peut être réactivé.
+     * Conditions : statut cancelled ET scheduled_at dans le futur.
+     */
+    public function canReactivate(array $directDebit): bool
+    {
+        if (($directDebit['status'] ?? '') !== self::STATUS_CANCELLED) {
+            return false;
+        }
+        if (empty($directDebit['scheduled_at'])) {
+            return false;
+        }
+        return strtotime($directDebit['scheduled_at']) > time();
+    }
+
+    /**
+     * Réactive un prélèvement annulé en le repassant en statut scheduled.
+     */
+    public function reactivate(int $id): bool
+    {
+        return $this->update($id, ['status' => self::STATUS_SCHEDULED]);
+    }
 }

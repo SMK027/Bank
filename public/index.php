@@ -137,6 +137,7 @@ $router->post('/moderation/direct-debits', ModerationController::class, 'createD
 $router->post('/moderation/direct-debits/{id}/cancel', ModerationController::class, 'cancelDirectDebit');
 $router->post('/moderation/direct-debits/{id}/reject', ModerationController::class, 'rejectDirectDebit');
 $router->post('/moderation/direct-debits/{id}/retry', ModerationController::class, 'retryDirectDebit');
+$router->post('/moderation/direct-debits/{id}/reactivate', ModerationController::class, 'reactivateDirectDebit');
 $router->get('/moderation/direct-debits/accounts/search', ModerationController::class, 'searchAccounts');
 $router->get('/moderation/users/search', ModerationController::class, 'searchUsers');
 // Mandats professionnels

@@ -279,6 +279,20 @@ function renderTable() {
                 + '<i class="bi bi-arrow-repeat"></i> Réexécuter</button>'
                 + '</div>'
                 + '</form>';
+        } else if (d.status === 'cancelled') {
+            var scheduledMs = d.scheduled_at ? new Date(d.scheduled_at.replace(' ', 'T')).getTime() : 0;
+            if (scheduledMs && scheduledMs > Date.now()) {
+                actionCell =
+                    '<form method="POST" action="/moderation/direct-debits/' + esc(String(d.id)) + '/reactivate"'
+                    + ' style="display:inline"'
+                    + ' onsubmit="return confirm(\'Réactiver le prélèvement #' + d.id + ' (mandat ' + esc(d.mandate_number) + ') ?\\nIl repassera en statut Planifié et sera exécuté le ' + esc(fmtDate(d.scheduled_at)) + '.\')">'
+                    + '<input type="hidden" name="csrf_token" value="' + esc(DD_CSRF) + '">'
+                    + '<button type="submit" class="btn btn-success btn-sm" style="padding:0.25rem 0.6rem;font-size:0.76rem;" title="Réactiver ce prélèvement">'
+                    + '<i class="bi bi-arrow-clockwise"></i> Réactiver</button>'
+                    + '</form>';
+            } else {
+                actionCell = '<span style="color:var(--text-muted);font-size:0.76rem;">—</span>';
+            }
         } else {
             actionCell = '<span style="color:var(--text-muted);font-size:0.76rem;">—</span>';
         }

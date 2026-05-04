@@ -1036,6 +1036,62 @@ class ModerationController extends Controller
     }
 
     /**
+     * Réactiver un prélèvement annulé avant sa date d'exécution (POST).
+     */
+    public function reactivateDirectDebit(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $debitId     = (int) $id;
+        $directDebit = $this->directDebitModel->find($debitId);
+
+        if (!$directDebit) {
+            $this->setFlash('danger', 'Prélèvement introuvable.');
+            $this->redirect('/moderation/direct-debits');
+            return;
+        }
+
+        if (!$this->directDebitModel->canReactivate($directDebit)) {
+            $this->setFlash('danger', 'Ce prélèvement ne peut pas être réactivé (il doit être annulé et sa date d\'exécution doit être dans le futur).');
+            $this->redirect('/moderation/direct-debits');
+            return;
+        }
+
+        $this->directDebitModel->reactivate($debitId);
+
+        AuditLog::log(
+            $this->getCurrentUserId(),
+            'direct_debit.reactivate',
+            ['mandate_number' => $directDebit['mandate_number'], 'amount' => (float) $directDebit['amount']],
+            targetAccountId: (int) $directDebit['to_account_id']
+        );
+
+        $toAccount = $this->accountModel->find((int) $directDebit['to_account_id']);
+        if ($toAccount) {
+            $scheduledDate = (new \DateTime($directDebit['scheduled_at']))->format('d/m/Y à H\hi');
+            $this->notifyAccountOwner(
+                (int) $toAccount['user_id'],
+                (int) $directDebit['to_account_id'],
+                'direct_debit_reactivated',
+                'Prélèvement #' . $debitId . ' réactivé',
+                'Le prélèvement (mandat ' . $directDebit['mandate_number'] . ') de '
+                    . number_format((float) $directDebit['amount'], 2, ',', ' ') . ' €'
+                    . ' sur votre compte « ' . $toAccount['name'] . ' »'
+                    . ' a été réactivé par la modération et sera exécuté le ' . $scheduledDate . '.'
+            );
+        }
+
+        $this->setFlash('success', sprintf(
+            'Prélèvement #%d (mandat %s) réactivé — exécution prévue le %s.',
+            $debitId,
+            $directDebit['mandate_number'],
+            (new \DateTime($directDebit['scheduled_at']))->format('d/m/Y à H\hi')
+        ));
+        $this->redirect('/moderation/direct-debits');
+    }
+
+    /**
      * Réexécute un prélèvement rejeté ou échoué (POST).
      */
     public function retryDirectDebit(string $id): void
