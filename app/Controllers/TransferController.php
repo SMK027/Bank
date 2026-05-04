@@ -149,11 +149,11 @@ class TransferController extends Controller
             return;
         }
 
-        // Bloquer tout transfert entre un compte interne et un compte normal (hors mode modération)
+        // Bloquer les virements mixtes entre un compte interne et un compte normal (hors mode modération)
         if (!$modMode) {
             $fromInternal = Account::isInternal($fromAccount);
             $toInternal   = Account::isInternal($toAccount);
-            if ($fromInternal || $toInternal) {
+            if ($fromInternal !== $toInternal) {
                 $this->setFlash('danger', 'Virement impossible : les comptes internes de modération ne peuvent pas échanger directement avec des comptes normaux.');
                 $this->redirect('/transfers/create?tab=personal');
                 return;
