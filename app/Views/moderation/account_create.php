@@ -113,7 +113,7 @@
                     <i class="bi bi-percent"></i> Taux d'intérêt annuel (%)
                 </label>
                 <input type="number" id="interest_rate" name="interest_rate" class="form-control"
-                       min="0" step="0.0001" placeholder="Ex : 3.00"
+                       step="0.0001" placeholder="Ex : 3.00"
                        id="interest_rate_input">
                 <span class="form-hint" id="interest-rate-hint">Laisser vide pour ne pas appliquer d'intérêts.</span>
             </div>

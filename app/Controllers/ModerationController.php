@@ -2118,9 +2118,6 @@ class ModerationController extends Controller
             if ($maxRate !== null && $interestRate > $maxRate) {
                 $interestRate = $maxRate;
             }
-            if ($interestRate < 0) {
-                $interestRate = 0.0;
-            }
         }
 
         $moderatorId = $this->getCurrentUserId();
@@ -2207,9 +2204,6 @@ class ModerationController extends Controller
             $rawPct       = (float) str_replace(',', '.', $data['interest_rate']);
             $interestRate = round($rawPct / 100, 5);
             // Comptes internes : aucun plafonnement au taux de modération
-            if ($interestRate < 0) {
-                $interestRate = 0.0;
-            }
         }
 
         $moderatorId = $this->getCurrentUserId();

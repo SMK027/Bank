@@ -492,9 +492,6 @@ class AccountController extends Controller
                         $interestRate = $maxRate;
                     }
                 }
-                if ($interestRate < 0) {
-                    $interestRate = 0.0;
-                }
             }
             $this->accountModel->update($accountId, [
                 'name'                    => $data['name'],

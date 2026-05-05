@@ -99,7 +99,7 @@
                     </label>
                     <input type="number" id="interest_rate" name="interest_rate" class="form-control"
                            value="<?= e($currentInterestRatePct) ?>"
-                           min="0" step="0.0001" placeholder="Ex : 3.00"
+                           step="0.0001" placeholder="Ex : 3.00"
                            <?php if (!empty($isInternal)): ?>
                            <?php elseif ($maxRate !== null): ?>
                            max="<?= htmlspecialchars(number_format($maxRate * 100, 4, '.', ''), ENT_QUOTES) ?>"
