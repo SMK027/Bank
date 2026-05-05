@@ -257,8 +257,9 @@ $router->post('/api/v1/payments/credit', PaymentApiController::class, 'credit');
 $router->post('/api/v1/cards/verify',    PaymentApiController::class, 'verify');
 
 // --- Terminal de paiement électronique (TPE) ---
-$router->get('/pos',         PosController::class, 'index');
-$router->post('/pos/charge', PosController::class, 'charge');
+$router->get('/pos',             PosController::class, 'index');
+$router->post('/pos/charge',     PosController::class, 'charge');
+$router->get('/pos/verify-card', PosController::class, 'verifyCard');
 $router->get('/moderation/pos-payments',                PosController::class, 'moderationIndex');
 $router->post('/moderation/pos-payments/{id}/cancel',   PosController::class, 'moderationCancel');
 

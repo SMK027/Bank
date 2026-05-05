@@ -124,20 +124,22 @@ class PosController extends Controller
         if ($amount <= 0)                          { $errors[] = 'Le montant doit être strictement positif.'; }
         if ($label === '')                         { $errors[] = 'L\'intitulé de l\'opération est obligatoire.'; }
         if ($merchant === '')                      { $errors[] = 'Le nom du commerçant est obligatoire.'; }
-        if ($accountId <= 0)                       { $errors[] = 'Sélectionnez le compte d\'encaissement.'; }
         if (mb_strlen($label) > 120)               { $errors[] = 'L\'intitulé est trop long (120 caractères max).'; }
         if (mb_strlen($merchant) > 120)            { $errors[] = 'Le nom du commerçant est trop long (120 caractères max).'; }
 
-        // Le compte d'encaissement doit appartenir au commerçant et être professionnel
+        // Compte d'encaissement : facultatif. S'il est fourni, il doit
+        // appartenir au commerçant et être professionnel.
         $merchantAccount = null;
-        foreach ($merchantAccounts as $a) {
-            if ((int) $a['id'] === $accountId) {
-                $merchantAccount = $a;
-                break;
+        if ($accountId > 0) {
+            foreach ($merchantAccounts as $a) {
+                if ((int) $a['id'] === $accountId) {
+                    $merchantAccount = $a;
+                    break;
+                }
             }
-        }
-        if ($accountId > 0 && !$merchantAccount) {
-            $errors[] = 'Compte d\'encaissement invalide.';
+            if (!$merchantAccount) {
+                $errors[] = 'Compte d\'encaissement invalide.';
+            }
         }
 
         if (!empty($errors)) {
@@ -166,7 +168,7 @@ class PosController extends Controller
         // appartenant : on bloque uniquement si le compte associé à la carte
         // est le même que le compte d'encaissement (transfert vers soi-même
         // sur le même compte = absurde).
-        if ((int) $card['account_id'] === (int) $merchantAccount['id']) {
+        if ($merchantAccount && (int) $card['account_id'] === (int) $merchantAccount['id']) {
             $this->logFailure($user, $merchantAccount, $amount, $label, $merchant, 'same_account', $card);
             $errors[] = 'Le compte associé à la carte est identique au compte d\'encaissement.';
             $this->renderForm($user, $merchantAccounts, $form, $errors);
@@ -202,9 +204,10 @@ class PosController extends Controller
             return;
         }
 
-        // Conversion de devise éventuelle (montant saisi = devise du commerçant)
-        $merchantCurrency = $merchantAccount['currency'] ?? 'EUR';
+        // Conversion de devise éventuelle (montant saisi = devise du commerçant
+        // si fourni, sinon devise du compte client par défaut).
         $customerCurrency = $customerAccount['currency'] ?? 'EUR';
+        $merchantCurrency = $merchantAccount['currency'] ?? $customerCurrency;
         $merchantAmount   = round($amount, 2);
         $customerAmount   = $merchantAmount;
         $exchangeRate     = 1.0;
@@ -275,15 +278,18 @@ class PosController extends Controller
                     null
                 );
             }
-            $creditTxId = $this->transactionModel->addTransaction(
-                (int) $merchantAccount['id'],
-                'income',
-                $merchantAmount,
-                'Encaissement',
-                $credCmt,
-                (int) $merchantAccount['user_id'],
-                null
-            );
+            $creditTxId = null;
+            if ($merchantAccount) {
+                $creditTxId = $this->transactionModel->addTransaction(
+                    (int) $merchantAccount['id'],
+                    'income',
+                    $merchantAmount,
+                    'Encaissement',
+                    $credCmt,
+                    (int) $merchantAccount['user_id'],
+                    null
+                );
+            }
         } catch (\Throwable $e) {
             $this->logFailure($user, $merchantAccount, $amount, $label, $merchant, 'transaction_failed', $card);
             $errors[] = 'Erreur interne lors de l\'enregistrement de la transaction.';
@@ -318,7 +324,7 @@ class PosController extends Controller
                 'amount'             => $merchantAmount,
                 'currency'           => $merchantCurrency,
                 'card_last4'         => $card['last4'] ?? '',
-                'merchant_account'   => (int) $merchantAccount['id'],
+                'merchant_account'   => $merchantAccount ? (int) $merchantAccount['id'] : null,
                 'customer_account'   => (int) $customerAccount['id'],
                 'debit_transaction'  => $debitTxId,
                 'credit_transaction' => $creditTxId,
@@ -347,28 +353,30 @@ class PosController extends Controller
                 ),
                 '/accounts/' . (int) $customerAccount['id']
             );
-            $notif->notify(
-                (int) $user['id'],
-                'card',
-                'Encaissement TPE',
-                sprintf(
-                    'Encaissement de %.2f %s — %s (carte %s).',
-                    $merchantAmount, $merchantCurrency, $label, $masked
-                ),
-                '/accounts/' . (int) $merchantAccount['id']
-            );
+            if ($merchantAccount) {
+                $notif->notify(
+                    (int) $user['id'],
+                    'card',
+                    'Encaissement TPE',
+                    sprintf(
+                        'Encaissement de %.2f %s — %s (carte %s).',
+                        $merchantAmount, $merchantCurrency, $label, $masked
+                    ),
+                    '/accounts/' . (int) $merchantAccount['id']
+                );
+            }
         } catch (\Throwable $e) {
             // Notifications best-effort
         }
 
         // Reçu pour la prochaine page
-        $_SESSION['pos_receipt'] = [
+        $receipt = [
             'merchant'         => $merchant,
             'label'            => $label,
             'amount'           => $merchantAmount,
             'currency'         => $merchantCurrency,
             'card_masked'      => $masked,
-            'merchant_account' => $merchantAccount['name'] ?? '',
+            'merchant_account' => $merchantAccount['name'] ?? null,
             'datetime'         => date('d/m/Y H:i:s'),
             'reference'        => $debitTxId !== null
                 ? 'TX-' . $debitTxId
@@ -379,12 +387,21 @@ class PosController extends Controller
                 : null,
         ];
 
-        $this->setFlash(
-            'success',
-            $deferred
-                ? 'Paiement accepté — débit différé enregistré.'
-                : 'Paiement accepté.'
-        );
+        $message = $deferred
+            ? 'Paiement accepté — débit différé enregistré.'
+            : 'Paiement accepté.';
+
+        if ($this->isAjax()) {
+            $this->jsonResponse([
+                'success' => true,
+                'message' => $message,
+                'receipt' => $receipt,
+            ]);
+            return;
+        }
+
+        $_SESSION['pos_receipt'] = $receipt;
+        $this->setFlash('success', $message);
         $this->redirect('/pos');
     }
 
@@ -418,6 +435,15 @@ class PosController extends Controller
 
     private function renderForm(array $user, array $merchantAccounts, array $form, array $errors): void
     {
+        if ($this->isAjax()) {
+            $this->jsonResponse([
+                'success' => false,
+                'errors'  => $errors,
+                'message' => $errors[0] ?? 'Paiement refusé.',
+            ], 422);
+            return;
+        }
+
         $this->render('pos/index', [
             'title'            => 'Terminal de paiement (TPE)',
             'user'             => $user,
@@ -426,6 +452,78 @@ class PosController extends Controller
             'errors'           => $errors,
             'receipt'          => null,
         ]);
+    }
+
+    /**
+     * Vérification temps réel d'un numéro de carte (JSON).
+     * Retourne le statut sans révéler d'informations sensibles.
+     */
+    public function verifyCard(): void
+    {
+        $this->requirePosAccess();
+
+        $raw        = (string) ($_GET['number'] ?? $_POST['number'] ?? '');
+        $normalized = PaymentCard::normalize($raw);
+
+        $payload = [
+            'success'   => false,
+            'state'     => 'invalid',  // invalid | unknown | blocked | unusable | ok
+            'message'   => '',
+            'masked'    => null,
+            'currency'  => null,
+            'last4'     => null,
+        ];
+
+        if ($normalized === '' || strlen($normalized) < 13) {
+            $payload['message'] = 'Numéro incomplet.';
+            $this->jsonResponse($payload);
+            return;
+        }
+
+        if (!PaymentCard::isValidLuhn($normalized)) {
+            $payload['message'] = 'Numéro invalide (Luhn).';
+            $this->jsonResponse($payload);
+            return;
+        }
+
+        $card = $this->cardModel->findByNumber($normalized);
+        if (!$card) {
+            $payload['state']   = 'unknown';
+            $payload['message'] = 'Carte inconnue.';
+            $this->jsonResponse($payload);
+            return;
+        }
+
+        if (($card['status'] ?? '') !== 'active') {
+            $payload['state']   = 'blocked';
+            $payload['masked']  = PaymentCard::mask($card['card_number']);
+            $payload['last4']   = $card['last4'] ?? null;
+            $payload['message'] = 'Carte bloquée.';
+            $this->jsonResponse($payload);
+            return;
+        }
+
+        $account = $this->accountModel->find((int) $card['account_id']);
+        if (!$account
+            || !Account::typeAllowsCard($account['type'] ?? '')
+            || !empty($account['disabled_at'])
+            || !empty($account['frozen'])
+        ) {
+            $payload['state']   = 'unusable';
+            $payload['masked']  = PaymentCard::mask($card['card_number']);
+            $payload['last4']   = $card['last4'] ?? null;
+            $payload['message'] = 'Compte associé indisponible.';
+            $this->jsonResponse($payload);
+            return;
+        }
+
+        $payload['success']  = true;
+        $payload['state']    = 'ok';
+        $payload['masked']   = PaymentCard::mask($card['card_number']);
+        $payload['last4']    = $card['last4'] ?? null;
+        $payload['currency'] = $account['currency'] ?? 'EUR';
+        $payload['message']  = 'Carte valide.';
+        $this->jsonResponse($payload);
     }
 
     /** Récupère (ou crée) le client API système associé au TPE interne. */
