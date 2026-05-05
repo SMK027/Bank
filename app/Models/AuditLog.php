@@ -123,6 +123,7 @@ class AuditLog extends Model
     public const ACTION_API_PAYMENT_FAIL    = 'api_payment.fail';
     public const ACTION_POS_CHARGE          = 'pos.charge';
     public const ACTION_POS_CHARGE_FAIL     = 'pos.charge_fail';
+    public const ACTION_POS_CANCEL          = 'pos.cancel';
 
     // ── Labels lisibles ─────────────────────────────────────────────────────
 
@@ -185,6 +186,7 @@ class AuditLog extends Model
         'api_payment.fail'         => 'Paiement API échoué',
         'pos.charge'               => 'Encaissement TPE',
         'pos.charge_fail'          => 'Encaissement TPE échoué',
+        'pos.cancel'               => 'Paiement TPE annulé',
     ];
 
     /** Couleur Bootstrap associée à chaque catégorie. */

@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Core\Database;
 use App\Models\Account;
+use App\Models\ApiPayment;
 use App\Models\AuditLog;
 use App\Models\DeferredDebit;
 use App\Models\Notification;
@@ -30,6 +31,7 @@ class PosController extends Controller
     private Transaction $transactionModel;
     private User $userModel;
     private DeferredDebit $deferredDebitModel;
+    private ApiPayment $paymentModel;
 
     public function __construct()
     {
@@ -38,6 +40,7 @@ class PosController extends Controller
         $this->transactionModel   = new Transaction();
         $this->userModel          = new User();
         $this->deferredDebitModel = new DeferredDebit();
+        $this->paymentModel       = new ApiPayment();
     }
 
     /**
@@ -291,16 +294,18 @@ class PosController extends Controller
         // Journal api_payments via le client API système (lazy-créé)
         $apiClientId = $this->getSystemApiClientId();
         $this->logApiPayment([
-            'api_client_id'  => $apiClientId,
-            'card_id'        => (int) $card['id'],
-            'account_id'     => (int) $customerAccount['id'],
-            'transaction_id' => $debitTxId,
-            'operation'      => 'debit',
-            'amount'         => $customerAmount,
-            'currency'       => $customerCurrency,
-            'status'         => 'success',
-            'reason'         => $deferred ? 'deferred' : '',
-            'comment'        => mb_substr($merchant . ' • ' . $label, 0, 255),
+            'api_client_id'         => $apiClientId,
+            'card_id'               => (int) $card['id'],
+            'account_id'            => (int) $customerAccount['id'],
+            'transaction_id'        => $debitTxId,
+            'credit_transaction_id' => $creditTxId,
+            'deferred_debit_id'     => $deferredId,
+            'operation'             => 'debit',
+            'amount'                => $customerAmount,
+            'currency'              => $customerCurrency,
+            'status'                => 'success',
+            'reason'                => $deferred ? 'deferred' : '',
+            'comment'               => mb_substr($merchant . ' • ' . $label, 0, 255),
         ]);
 
         // Audit
@@ -450,14 +455,16 @@ class PosController extends Controller
         $pdo = Database::getInstance();
         $stmt = $pdo->prepare(
             'INSERT INTO api_payments
-                (api_client_id, card_id, account_id, transaction_id, operation, amount, currency, status, reason, comment)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                (api_client_id, card_id, account_id, transaction_id, credit_transaction_id, deferred_debit_id, operation, amount, currency, status, reason, comment)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
             $data['api_client_id'],
-            $data['card_id']        ?? null,
-            $data['account_id']     ?? null,
-            $data['transaction_id'] ?? null,
+            $data['card_id']               ?? null,
+            $data['account_id']            ?? null,
+            $data['transaction_id']        ?? null,
+            $data['credit_transaction_id'] ?? null,
+            $data['deferred_debit_id']     ?? null,
             $data['operation'],
             $data['amount'],
             $data['currency'],
@@ -505,5 +512,178 @@ class PosController extends Controller
                 'card_last4' => $card['last4'] ?? null,
             ]
         );
+    }
+
+    // ── Modération ─────────────────────────────────────────────────────────
+
+    /** Liste des paiements TPE (modération uniquement). */
+    public function moderationIndex(): void
+    {
+        $this->requireModerator();
+
+        $apiClientId = $this->getSystemApiClientId();
+        $payments    = $this->paymentModel->getRecent(200, $apiClientId);
+
+        // Charger les cartes pour afficher les last4
+        $cardIds = array_filter(array_column($payments, 'card_id'));
+        $cardsById = [];
+        if (!empty($cardIds)) {
+            $ph   = implode(',', array_fill(0, count($cardIds), '?'));
+            $stmt = Database::getInstance()->prepare("SELECT id, last4 FROM payment_cards WHERE id IN ($ph)");
+            $stmt->execute(array_values($cardIds));
+            foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+                $cardsById[(int) $row['id']] = $row;
+            }
+        }
+
+        $this->render('moderation/pos_payments', [
+            'title'     => 'Paiements TPE',
+            'payments'  => $payments,
+            'cardsById' => $cardsById,
+        ]);
+    }
+
+    /**
+     * Annule un paiement TPE (modération uniquement).
+     *
+     * - Débit immédiat : crée 2 transactions de contre-passation
+     *   (remboursement client + récupération sur le compte commerçant).
+     * - Débit différé encore en attente : marque le différé comme annulé
+     *   et contre-passe uniquement le crédit du commerçant.
+     */
+    public function moderationCancel(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $paymentId = (int) $id;
+        $payment   = $this->paymentModel->find($paymentId);
+
+        if (!$payment || ($payment['status'] ?? '') !== ApiPayment::STATUS_SUCCESS) {
+            $this->setFlash('danger', 'Paiement introuvable ou déjà invalidé.');
+            $this->redirect('/moderation/pos-payments');
+            return;
+        }
+        if ($this->paymentModel->isCancelled($payment)) {
+            $this->setFlash('danger', 'Ce paiement a déjà été annulé.');
+            $this->redirect('/moderation/pos-payments');
+            return;
+        }
+
+        $reason      = trim((string) ($_POST['reason'] ?? ''));
+        $moderatorId = $this->getCurrentUserId();
+        $amount      = (float) $payment['amount'];
+        $currency    = (string) ($payment['currency'] ?? 'EUR');
+        $motif       = sprintf('Annulation paiement TPE #%d', $paymentId);
+
+        $customerAccountId = (int) ($payment['account_id'] ?? 0);
+        $customerAccount   = $customerAccountId ? $this->accountModel->find($customerAccountId) : null;
+
+        // 1) Côté client
+        $deferredId = (int) ($payment['deferred_debit_id'] ?? 0);
+        $reverseDebitTxId = null;
+        if ($deferredId > 0) {
+            $dd = $this->deferredDebitModel->find($deferredId);
+            if ($dd && $dd['status'] === DeferredDebit::STATUS_PENDING) {
+                $this->deferredDebitModel->cancel($deferredId);
+            } elseif ($dd && $dd['status'] === DeferredDebit::STATUS_EXECUTED) {
+                // Le différé a déjà été exécuté → contre-passation classique
+                $reverseDebitTxId = $this->transactionModel->addTransaction(
+                    $customerAccountId,
+                    'income',
+                    $amount,
+                    'Achats',
+                    $motif,
+                    0
+                );
+            }
+        } else {
+            // Débit immédiat → remboursement
+            if ($customerAccountId > 0) {
+                $reverseDebitTxId = $this->transactionModel->addTransaction(
+                    $customerAccountId,
+                    'income',
+                    $amount,
+                    'Achats',
+                    $motif,
+                    0
+                );
+            }
+        }
+
+        // 2) Côté commerçant : récupération du crédit
+        $merchantAccountId = null;
+        $reverseCreditTxId = null;
+        $creditTxId = (int) ($payment['credit_transaction_id'] ?? 0);
+        if ($creditTxId > 0) {
+            $creditTx = $this->transactionModel->find($creditTxId);
+            if ($creditTx) {
+                $merchantAccountId = (int) $creditTx['account_id'];
+                $reverseCreditTxId = $this->transactionModel->addTransaction(
+                    $merchantAccountId,
+                    'expense',
+                    (float) $creditTx['amount'],
+                    'Encaissement',
+                    $motif,
+                    0
+                );
+            }
+        }
+
+        // 3) Marquer le paiement comme annulé
+        $this->paymentModel->markCancelled($paymentId, $moderatorId, $reason);
+
+        // 4) Audit + notifications
+        AuditLog::log(
+            $moderatorId,
+            AuditLog::ACTION_POS_CANCEL,
+            [
+                'payment_id'           => $paymentId,
+                'amount'               => $amount,
+                'currency'             => $currency,
+                'reason'               => $reason,
+                'reverse_debit_tx'     => $reverseDebitTxId,
+                'reverse_credit_tx'    => $reverseCreditTxId,
+                'cancelled_deferred'   => $deferredId > 0,
+            ],
+            targetAccountId: $customerAccountId ?: null
+        );
+
+        try {
+            $notif = new Notification();
+            if ($customerAccount) {
+                $notif->notify(
+                    (int) $customerAccount['user_id'],
+                    'card',
+                    'Paiement TPE annulé',
+                    sprintf(
+                        'Le paiement de %.2f %s a été annulé par la modération%s.',
+                        $amount, $currency,
+                        $reason !== '' ? ' (motif : ' . $reason . ')' : ''
+                    ),
+                    '/accounts/' . $customerAccountId
+                );
+            }
+            if ($merchantAccountId) {
+                $merchantAccount = $this->accountModel->find($merchantAccountId);
+                if ($merchantAccount) {
+                    $notif->notify(
+                        (int) $merchantAccount['user_id'],
+                        'card',
+                        'Encaissement TPE annulé',
+                        sprintf(
+                            'Un encaissement TPE de %.2f %s a été annulé par la modération.',
+                            $amount, $currency
+                        ),
+                        '/accounts/' . $merchantAccountId
+                    );
+                }
+            }
+        } catch (\Throwable $e) {
+            // best-effort
+        }
+
+        $this->setFlash('success', sprintf('Paiement TPE #%d annulé.', $paymentId));
+        $this->redirect('/moderation/pos-payments');
     }
 }

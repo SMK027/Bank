@@ -111,6 +111,9 @@
                                 <a href="/moderation/api-clients" class="navbar-mod-item" role="menuitem">
                                     <i class="bi bi-plug"></i> Clients API
                                 </a>
+                                <a href="/moderation/pos-payments" class="navbar-mod-item" role="menuitem">
+                                    <i class="bi bi-shop"></i> Paiements TPE
+                                </a>
                             </div>
                         </div>
                     </div>

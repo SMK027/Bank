@@ -260,6 +260,14 @@ class TransactionController extends Controller
             return;
         }
 
+        // Opérations réservées à la modération (paiement TPE, annulation de
+        // virement…) : un utilisateur ne peut ni les éditer ni les annuler.
+        if (!$this->isModerator() && Transaction::isModerationOnly($transaction)) {
+            $this->setFlash('danger', 'Cette opération relève de la modération et ne peut pas être modifiée.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
         // Utilisateurs : uniquement les transactions des 7 derniers jours
         if (!$this->isModerator()) {
             $createdAt = strtotime($transaction['created_at'] ?? '');
@@ -466,6 +474,13 @@ class TransactionController extends Controller
             return;
         }
 
+        // Différés issus d'un paiement TPE : annulation réservée à la modération.
+        if (!$this->isModerator() && str_starts_with((string) ($dd['comment'] ?? ''), '[TPE')) {
+            $this->setFlash('danger', 'Ce débit différé provient d\'un paiement par carte (TPE) et ne peut être annulé que par la modération.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
         // Verrou : plus aucune modification possible 7 jours après la fin de période
         $periodEndTs = strtotime($dd['period_end_date'] ?? '');
         if ($periodEndTs && (time() - $periodEndTs) > 7 * 86400) {
@@ -500,6 +515,13 @@ class TransactionController extends Controller
         $dd = $this->deferredDebitModel->find($ddId);
         if (!$dd || (int) $dd['account_id'] !== $accId) {
             $this->setFlash('danger', 'Opération introuvable.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        // Différés issus d'un paiement TPE : édition réservée à la modération.
+        if (!$this->isModerator() && str_starts_with((string) ($dd['comment'] ?? ''), '[TPE')) {
+            $this->setFlash('danger', 'Ce débit différé provient d\'un paiement par carte (TPE) et ne peut être modifié que par la modération.');
             $this->redirect('/accounts/' . $accountId);
             return;
         }

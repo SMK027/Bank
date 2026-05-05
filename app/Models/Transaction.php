@@ -109,6 +109,19 @@ class Transaction extends Model
         return strtotime($transaction['scheduled_at']) > time();
     }
 
+    /**
+     * Indique si une transaction est issue d'une opération réservée à la
+     * modération (paiement TPE, annulation de virement, annulation de TPE).
+     * Les utilisateurs ne peuvent ni l'éditer, ni l'annuler eux-mêmes.
+     */
+    public static function isModerationOnly(array $transaction): bool
+    {
+        $comment = (string) ($transaction['comment'] ?? '');
+        return str_starts_with($comment, '[TPE')
+            || str_starts_with($comment, 'Annulation virement')
+            || str_starts_with($comment, 'Annulation paiement TPE');
+    }
+
     public function getByAccount(int $accountId, string $orderBy = 'created_at', string $direction = 'DESC'): array
     {
         return $this->findBy(['account_id' => (string) $accountId], $orderBy, $direction);

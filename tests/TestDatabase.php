@@ -238,18 +238,23 @@ class TestDatabase
             );
 
             CREATE TABLE IF NOT EXISTS api_payments (
-                id             INTEGER PRIMARY KEY AUTOINCREMENT,
-                api_client_id  INTEGER NOT NULL,
-                card_id        INTEGER DEFAULT NULL,
-                account_id     INTEGER DEFAULT NULL,
-                transaction_id INTEGER DEFAULT NULL,
-                operation      TEXT    NOT NULL,
-                amount         REAL    NOT NULL,
-                currency       TEXT    NOT NULL DEFAULT 'EUR',
-                status         TEXT    NOT NULL,
-                reason         TEXT    NOT NULL DEFAULT '',
-                comment        TEXT    NOT NULL DEFAULT '',
-                created_at     TEXT
+                id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+                api_client_id         INTEGER NOT NULL,
+                card_id               INTEGER DEFAULT NULL,
+                account_id            INTEGER DEFAULT NULL,
+                transaction_id        INTEGER DEFAULT NULL,
+                credit_transaction_id INTEGER DEFAULT NULL,
+                deferred_debit_id     INTEGER DEFAULT NULL,
+                operation             TEXT    NOT NULL,
+                amount                REAL    NOT NULL,
+                currency              TEXT    NOT NULL DEFAULT 'EUR',
+                status                TEXT    NOT NULL,
+                reason                TEXT    NOT NULL DEFAULT '',
+                comment               TEXT    NOT NULL DEFAULT '',
+                cancelled_at          TEXT    DEFAULT NULL,
+                cancelled_by          INTEGER DEFAULT NULL,
+                cancel_reason         TEXT    NOT NULL DEFAULT '',
+                created_at            TEXT
             );
         SQL;
     }
