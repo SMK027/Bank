@@ -37,6 +37,7 @@
                         <a href="/tickets" class="navbar-link"><i class="bi bi-ticket-perforated"></i> <span class="nav-label">Demandes</span></a>
                         <a href="/loans/simulator" class="navbar-link"><i class="bi bi-calculator-fill"></i> <span class="nav-label">Simulateur</span></a>
                         <a href="/loans" class="navbar-link"><i class="bi bi-cash-coin"></i> <span class="nav-label">Crédits</span></a>
+                        <a href="/cards" class="navbar-link"><i class="bi bi-credit-card-2-front"></i> <span class="nav-label">Cartes</span></a>
                     </div>
 
                     <?php if (is_moderator()): ?>
@@ -103,6 +104,9 @@
                                 <div class="navbar-mod-group-label">Support</div>
                                 <a href="/moderation/tickets" class="navbar-mod-item" role="menuitem">
                                     <i class="bi bi-ticket-perforated"></i> Tickets
+                                </a>
+                                <a href="/moderation/api-clients" class="navbar-mod-item" role="menuitem">
+                                    <i class="bi bi-plug"></i> Clients API
                                 </a>
                             </div>
                         </div>

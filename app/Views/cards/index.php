@@ -1,0 +1,118 @@
+<?php
+/** @var array $cards */
+/** @var array $accountsById */
+/** @var array $eligibleAccounts */
+
+$justCreated = $_SESSION['card_just_created'] ?? null;
+unset($_SESSION['card_just_created']);
+?>
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;">
+    <h1><i class="bi bi-credit-card-2-front"></i> Mes cartes bancaires</h1>
+    <a href="/cards/create" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> Enregistrer une carte
+    </a>
+</div>
+
+<?php if ($justCreated): ?>
+<div class="alert alert-success" role="alert" style="display:flex;align-items:flex-start;gap:0.75rem;margin-bottom:1rem;">
+    <i class="bi bi-check-circle-fill" style="font-size:1.3rem;flex-shrink:0;"></i>
+    <div style="flex:1">
+        <strong>Carte enregistrée !</strong>
+        Voici votre numéro complet (visible une seule fois) :
+        <div style="margin-top:0.5rem;">
+            <code style="font-size:1.2rem;letter-spacing:0.15em;background:#fff;padding:0.45rem 0.8rem;border-radius:6px;border:1px solid var(--gray-light);">
+                <?= e(chunk_split($justCreated['number'], 4, ' ')) ?>
+            </code>
+        </div>
+        <p class="text-muted text-small" style="margin-top:0.4rem;margin-bottom:0;">
+            Conservez ce numéro pour le communiquer aux plateformes tierces. Il ne sera plus jamais affiché en clair.
+        </p>
+    </div>
+</div>
+<?php endif; ?>
+
+<div class="card">
+    <div class="card-body">
+        <?php if (empty($cards)): ?>
+            <p class="text-muted text-center" style="padding:1.5rem 0;margin:0;">
+                <i class="bi bi-credit-card" style="font-size:2rem;display:block;margin-bottom:0.5rem;"></i>
+                Vous n'avez encore aucune carte bancaire enregistrée.
+            </p>
+        <?php else: ?>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Carte</th>
+                            <th>Libellé</th>
+                            <th>Compte associé</th>
+                            <th>Statut</th>
+                            <th>Créée le</th>
+                            <th style="text-align:right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($cards as $card):
+                        $acc = $accountsById[(int) $card['account_id']] ?? null;
+                    ?>
+                        <tr>
+                            <td>
+                                <code style="letter-spacing:0.1em;">
+                                    <?= e(\App\Models\PaymentCard::mask($card['card_number'])) ?>
+                                </code>
+                            </td>
+                            <td><?= e($card['label'] ?? '') ?: '<span class="text-muted">—</span>' ?></td>
+                            <td>
+                                <?php if ($acc): ?>
+                                    <a href="/accounts/<?= (int) $acc['id'] ?>"><?= e($acc['name']) ?></a>
+                                    <span class="text-muted text-small"> (<?= e($acc['currency'] ?? '') ?>)</span>
+                                <?php else: ?>
+                                    <span class="text-muted">Compte introuvable</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if (($card['status'] ?? '') === 'active'): ?>
+                                    <span class="badge badge-success">Active</span>
+                                <?php else: ?>
+                                    <span class="badge badge-danger">Bloquée</span>
+                                <?php endif; ?>
+                            </td>
+                            <td><?= date('d/m/Y', strtotime($card['created_at'])) ?></td>
+                            <td style="text-align:right;">
+                                <details style="display:inline-block;text-align:left;">
+                                    <summary class="btn btn-sm btn-secondary" style="cursor:pointer;">
+                                        <i class="bi bi-pencil"></i> Changer de compte
+                                    </summary>
+                                    <form method="POST" action="/cards/<?= (int) $card['id'] ?>/account"
+                                          style="display:flex;gap:0.4rem;align-items:center;margin-top:0.5rem;">
+                                        <?= csrf_field() ?>
+                                        <select name="account_id" class="form-control form-control-sm" required>
+                                            <?php foreach ($eligibleAccounts as $a): ?>
+                                                <option value="<?= (int) $a['id'] ?>"
+                                                    <?= (int) $a['id'] === (int) $card['account_id'] ? 'selected' : '' ?>>
+                                                    <?= e($a['name']) ?> (<?= e($a['currency']) ?>)
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <button type="submit" class="btn btn-sm btn-primary">
+                                            <i class="bi bi-check-lg"></i>
+                                        </button>
+                                    </form>
+                                </details>
+                                <form method="POST" action="/cards/<?= (int) $card['id'] ?>/delete"
+                                      style="display:inline;"
+                                      onsubmit="return confirm('Supprimer définitivement cette carte ?');">
+                                    <?= csrf_field() ?>
+                                    <button type="submit" class="btn btn-sm btn-danger">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>

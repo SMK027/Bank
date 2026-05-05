@@ -31,6 +31,9 @@ use App\Controllers\SavingsInterestController;
 use App\Controllers\MessageController;
 use App\Controllers\LoanController;
 use App\Controllers\ModerationLoanController;
+use App\Controllers\CardController;
+use App\Controllers\ApiClientController;
+use App\Controllers\Api\PaymentApiController;
 
 // Démarrer la session
 Session::start();
@@ -232,6 +235,23 @@ $router->post('/notifications/read-all', NotificationController::class, 'markAll
 $router->post('/notifications/delete-read', NotificationController::class, 'deleteRead');
 $router->post('/notifications/{id}/read', NotificationController::class, 'markRead');
 $router->post('/notifications/{id}/delete', NotificationController::class, 'delete');
+
+// --- Cartes bancaires (utilisateur) ---
+$router->get('/cards', CardController::class, 'index');
+$router->get('/cards/create', CardController::class, 'createForm');
+$router->post('/cards', CardController::class, 'create');
+$router->post('/cards/{id}/account', CardController::class, 'updateAccount');
+$router->post('/cards/{id}/delete', CardController::class, 'delete');
+
+// --- Clients API (modération) ---
+$router->get('/moderation/api-clients', ApiClientController::class, 'index');
+$router->post('/moderation/api-clients', ApiClientController::class, 'create');
+$router->post('/moderation/api-clients/{id}/revoke', ApiClientController::class, 'revoke');
+
+// --- API REST de paiement par carte ---
+$router->post('/api/v1/payments/debit',  PaymentApiController::class, 'debit');
+$router->post('/api/v1/payments/credit', PaymentApiController::class, 'credit');
+$router->post('/api/v1/cards/verify',    PaymentApiController::class, 'verify');
 
 // Dispatcher la requête
 $router->dispatch();

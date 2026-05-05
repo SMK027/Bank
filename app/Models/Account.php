@@ -120,6 +120,15 @@ class Account extends Model
     }
 
     /**
+     * Indique si un type de compte peut être associé à une carte bancaire.
+     * Les comptes d'épargne sont exclus.
+     */
+    public static function typeAllowsCard(string $type): bool
+    {
+        return $type !== 'savings';
+    }
+
+    /**
      * Indique si une opération vient de faire franchir le seuil d'alerte à la baisse.
      * Retourne true uniquement si le solde était >= seuil avant et < seuil après l'opération.
      */

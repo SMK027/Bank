@@ -213,6 +213,44 @@ class TestDatabase
                 created_at        TEXT,
                 updated_at        TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS payment_cards (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     INTEGER NOT NULL DEFAULT 0,
+                account_id  INTEGER NOT NULL DEFAULT 0,
+                card_number TEXT    NOT NULL UNIQUE,
+                last4       TEXT    NOT NULL,
+                label       TEXT    NOT NULL DEFAULT '',
+                status      TEXT    NOT NULL DEFAULT 'active',
+                created_at  TEXT,
+                updated_at  TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS api_clients (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                name            TEXT    NOT NULL,
+                api_key         TEXT    NOT NULL UNIQUE,
+                api_secret_hash TEXT    NOT NULL,
+                status          TEXT    NOT NULL DEFAULT 'active',
+                created_by      INTEGER DEFAULT NULL,
+                created_at      TEXT,
+                updated_at      TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS api_payments (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                api_client_id  INTEGER NOT NULL,
+                card_id        INTEGER DEFAULT NULL,
+                account_id     INTEGER DEFAULT NULL,
+                transaction_id INTEGER DEFAULT NULL,
+                operation      TEXT    NOT NULL,
+                amount         REAL    NOT NULL,
+                currency       TEXT    NOT NULL DEFAULT 'EUR',
+                status         TEXT    NOT NULL,
+                reason         TEXT    NOT NULL DEFAULT '',
+                comment        TEXT    NOT NULL DEFAULT '',
+                created_at     TEXT
+            );
         SQL;
     }
 }

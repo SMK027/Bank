@@ -110,6 +110,16 @@ class AuditLog extends Model
     public const ACTION_TRANSFER_RECURRING_EXEC = 'transfer_recurring.execute';
     public const ACTION_TRANSFER_RECURRING_FAIL = 'transfer_recurring.fail';
 
+    // Cartes bancaires & API de paiement
+    public const ACTION_CARD_CREATE         = 'card.create';
+    public const ACTION_CARD_UPDATE_ACCOUNT = 'card.update_account';
+    public const ACTION_CARD_DELETE         = 'card.delete';
+    public const ACTION_API_CLIENT_CREATE   = 'api_client.create';
+    public const ACTION_API_CLIENT_REVOKE   = 'api_client.revoke';
+    public const ACTION_API_PAYMENT_DEBIT   = 'api_payment.debit';
+    public const ACTION_API_PAYMENT_CREDIT  = 'api_payment.credit';
+    public const ACTION_API_PAYMENT_FAIL    = 'api_payment.fail';
+
     // ── Labels lisibles ─────────────────────────────────────────────────────
 
     public const LABELS = [
@@ -159,6 +169,14 @@ class AuditLog extends Model
         'loan.installment_paid'    => 'Mensualité de crédit prélevée',
         'loan.installment_failed'  => 'Mensualité de crédit échouée',
         'loan.closed'              => 'Crédit soldé',
+        'card.create'              => 'Carte bancaire enregistrée',
+        'card.update_account'      => 'Compte associé à la carte modifié',
+        'card.delete'              => 'Carte bancaire supprimée',
+        'api_client.create'        => 'Client API créé',
+        'api_client.revoke'        => 'Client API révoqué',
+        'api_payment.debit'        => 'Paiement API : débit',
+        'api_payment.credit'       => 'Paiement API : crédit',
+        'api_payment.fail'         => 'Paiement API échoué',
     ];
 
     /** Couleur Bootstrap associée à chaque catégorie. */
@@ -175,9 +193,10 @@ class AuditLog extends Model
         'guardianship'     => 'bg-success',
         'minor_account'    => 'bg-success',
         'loan'             => 'bg-purple',
+        'card'             => 'bg-info text-dark',
+        'api_client'       => 'bg-secondary',
+        'api_payment'      => 'bg-info text-dark',
     ];
-
-    // ── Écriture ─────────────────────────────────────────────────────────────
 
     /**
      * Enregistre une entrée de journal.
