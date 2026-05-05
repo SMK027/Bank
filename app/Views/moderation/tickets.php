@@ -56,7 +56,7 @@
 <?php else: ?>
 <div class="card" style="padding:0;overflow:hidden;">
     <div class="table-responsive">
-        <table class="table" style="margin:0;">
+        <table class="table moderation-tickets" style="margin:0;">
             <thead>
                 <tr>
                     <th style="width:3rem">#</th>

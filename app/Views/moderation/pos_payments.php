@@ -16,7 +16,7 @@
             </p>
         <?php else: ?>
             <div class="table-responsive">
-                <table class="table">
+                <table class="table moderation-pos-table">
                     <thead>
                         <tr>
                             <th>#</th>

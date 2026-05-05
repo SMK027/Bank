@@ -155,7 +155,7 @@ function auditQueryString(array $overrides = []): string
 <div class="card">
     <div class="card-body" style="padding:0">
         <div class="table-responsive">
-            <table class="table" style="font-size:0.85rem;margin:0">
+            <table class="table moderation-audit-table" style="font-size:0.85rem;margin:0">
                 <thead>
                     <tr>
                         <th class="text-nowrap" style="width:155px">Date</th>

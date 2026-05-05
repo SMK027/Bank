@@ -2787,3 +2787,204 @@ pre,
     h1 { font-size: 1.25rem !important; }
     h2 { font-size: 1.1rem !important; }
 }
+
+/* ===========================================================
+   PAGES DE MODÉRATION — affinages responsive et compacité
+   ===========================================================
+   Les vues de modération partagent des patterns inline-stylés
+   (toolbar de navigation, barres de filtres, tables denses).
+   On les cible via attribute selectors pour éviter d'éditer
+   chaque vue.
+   =========================================================== */
+
+/* ---- Toolbar dans .page-header (≥ 8 btn-sm en file) ----- */
+.page-header > div[style*="flex-wrap:wrap"],
+.page-header > div[style*="flex-wrap: wrap"] {
+    gap: 0.4rem !important;
+}
+
+/* Cards avec lignes "frozen" / "disabled" — couleurs déjà
+   définies, mais on garantit un contraste stable sur mobile. */
+.row-frozen td { background: rgba(59, 130, 246, 0.06); }
+.row-disabled td { background: rgba(239, 68, 68, 0.05); }
+
+/* ---- Tables de modération : densité + ergonomie ----------- */
+.moderation-table th,
+.moderation-table td,
+.card-body > .table-responsive > .table th,
+.card-body > .table-responsive > .table td {
+    vertical-align: middle;
+}
+
+/* Cellule "Actions" : toujours empilable, gap réduit. */
+.page-header ~ * td > div[style*="display:flex"][style*="flex-wrap:wrap"],
+.page-header ~ * td > div[style*="display: flex"][style*="flex-wrap: wrap"] {
+    gap: 0.35rem !important;
+}
+
+/* ---- Cartes "filtres" type accounts/users/audit ---------- */
+.card .card-body > div[style*="align-items:flex-end"][style*="flex-wrap:wrap"] {
+    align-items: stretch !important;
+}
+
+/* ----- ≤ 992 px (tablette) -------------------------------- */
+@media (max-width: 992px) {
+    /* Toolbar de page-header : passe en bandeau scrollable
+       horizontal pour éviter la grosse pile de 10 boutons. */
+    .page-header > div[style*="flex-wrap:wrap"],
+    .page-header > div[style*="flex-wrap: wrap"] {
+        flex-wrap: nowrap !important;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        max-width: 100%;
+        padding-bottom: 0.4rem;
+        margin: 0 -0.25rem;
+        padding-left: 0.25rem;
+        padding-right: 0.25rem;
+        scrollbar-width: thin;
+    }
+
+    .page-header > div[style*="flex-wrap:wrap"] > .btn,
+    .page-header > div[style*="flex-wrap:wrap"] > a,
+    .page-header > div[style*="flex-wrap:wrap"] > span,
+    .page-header > div[style*="flex-wrap:wrap"] > form {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+
+    .page-header > div[style*="flex-wrap:wrap"]::-webkit-scrollbar {
+        height: 4px;
+    }
+    .page-header > div[style*="flex-wrap:wrap"]::-webkit-scrollbar-thumb {
+        background: var(--gray-light, #e5e7eb);
+        border-radius: 2px;
+    }
+}
+
+/* ----- ≤ 768 px (mobile) ---------------------------------- */
+@media (max-width: 768px) {
+    /* Page-header : bloc titre puis toolbar pleine largeur. */
+    .page-header > div:first-child {
+        width: 100%;
+    }
+
+    .page-header h1 {
+        font-size: 1.25rem;
+    }
+
+    .page-header .page-description {
+        font-size: 0.82rem;
+        margin-top: 0.15rem;
+    }
+
+    /* Filtres : grille auto, labels condensés. */
+    .card .card-body > div[style*="align-items:flex-end"][style*="flex-wrap:wrap"] {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem !important;
+    }
+
+    .card .card-body > div[style*="align-items:flex-end"] > .form-group {
+        flex: unset !important;
+        min-width: 0 !important;
+    }
+
+    .card .card-body > div[style*="align-items:flex-end"] > div:last-child {
+        grid-column: 1 / -1;
+    }
+
+    /* Bouton "Réinitialiser" plein écran sur mobile. */
+    #filter-reset {
+        width: 100%;
+    }
+
+    /* Tables denses : police plus petite, padding compact,
+       pas de scroll vertical inutile. */
+    .table-responsive > .table {
+        font-size: 0.82rem;
+    }
+
+    .table-responsive > .table th,
+    .table-responsive > .table td {
+        padding: 0.45rem 0.55rem;
+    }
+
+    /* Champs de saisie en cellule (saisie de taux, motifs…)
+       — stretch pleine largeur. */
+    td input.form-control,
+    td select.form-control {
+        min-width: 0;
+        width: 100% !important;
+    }
+
+    td form[style*="display:flex"] {
+        flex-wrap: wrap !important;
+    }
+
+    /* Détails repliables (annulation TPE, cancel API key…)
+       — laisser le formulaire interne respirer. */
+    details > form[style*="display:flex"],
+    td details > form {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.4rem !important;
+        width: 100%;
+    }
+
+    details > form[style*="display:flex"] > .form-control,
+    td details > form > .form-control {
+        width: 100% !important;
+    }
+
+    /* Tickets : éviter qu'un sujet long pousse la table. */
+    .moderation-tickets td {
+        word-break: break-word;
+    }
+
+    /* Audit log : masquer la colonne IP sur mobile. */
+    .moderation-audit-table th:nth-child(6),
+    .moderation-audit-table td:nth-child(6) {
+        display: none;
+    }
+
+    /* Bandeau d'alerte (clôtures forcées etc.) : empilage. */
+    .card .card-body[style*="align-items:center"][style*="flex-wrap:wrap"] {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+    }
+}
+
+/* ----- ≤ 600 px ------------------------------------------- */
+@media (max-width: 600px) {
+    /* Filtres : 1 colonne sur très petit écran. */
+    .card .card-body > div[style*="align-items:flex-end"][style*="flex-wrap:wrap"] {
+        grid-template-columns: 1fr;
+    }
+
+    /* Page-header : titre et toolbar en colonnes serrées. */
+    .page-header > div:first-child h1 {
+        font-size: 1.15rem;
+    }
+
+    /* Comptes en modération : masquer la colonne Devise (5)
+       et Type (4) au profit du nom + solde. */
+    #accounts-table th:nth-child(4),
+    #accounts-table td:nth-child(4),
+    #accounts-table th:nth-child(5),
+    #accounts-table td:nth-child(5) {
+        display: none;
+    }
+
+    /* Audit : masquer Acteur (3) en plus de IP. */
+    .moderation-audit-table th:nth-child(3),
+    .moderation-audit-table td:nth-child(3) {
+        display: none;
+    }
+
+    /* Paiements TPE : masquer Commerçant (col 4) et compte (5) */
+    .moderation-pos-table th:nth-child(4),
+    .moderation-pos-table td:nth-child(4) {
+        display: none;
+    }
+}
