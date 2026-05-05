@@ -65,7 +65,7 @@ foreach ($savings as $account) {
         ? (float) $account['interest_rate']
         : null;
 
-    if ($accountRate === null || $accountRate <= 0) {
+    if ($accountRate === null || $accountRate === 0.0) {
         echo sprintf("[%s] Compte #%d (%s) : aucun taux d'intérêt défini, ignoré.\n",
             date('Y-m-d H:i:s'), $accountId, $account['name']);
         $skipped++;

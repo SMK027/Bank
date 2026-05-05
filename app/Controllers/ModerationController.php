@@ -1933,8 +1933,8 @@ class ModerationController extends Controller
 
                     $accountRate = isset($account['interest_rate']) && $account['interest_rate'] !== null
                         ? (float) $account['interest_rate']
-                        : 0.0;
-                    if ($accountRate <= 0) {
+                        : null;
+                    if ($accountRate === null || $accountRate === 0.0) {
                         continue;
                     }
                     $accrued = SavingsInterest::calculateAccrued($accountId, $accountRate, $this->transactionModel, $typeSegments[$accountType] ?? []);
@@ -2368,7 +2368,7 @@ class ModerationController extends Controller
             ? (float) $account['interest_rate']
             : null;
 
-        if ($accountRate === null || $accountRate <= 0) {
+        if ($accountRate === null) {
             $this->setFlash('danger', 'Aucun taux d\'intérêt défini sur ce compte.');
             $this->redirect('/accounts/' . $accountId);
             return;
