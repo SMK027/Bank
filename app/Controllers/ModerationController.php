@@ -2390,8 +2390,10 @@ class ModerationController extends Controller
 
         $txModel = new Transaction();
 
-        // Comptes internes : segments vides → pas de plafonnement au taux de modération
-        $calculatedAmount = SavingsInterest::calculateProrata($accountId, $year, $accountRate, $txModel, []);
+        // Simulation en cours d'année : on utilise calculateAccrued (borné à aujourd'hui)
+        // plutôt que calculateProrata (qui calcule jusqu'au 31 décembre).
+        // Comptes internes : segments vides → pas de plafonnement au taux de modération.
+        $calculatedAmount = SavingsInterest::calculateAccrued($accountId, $accountRate, $txModel, []);
 
         $balanceBefore = $this->accountModel->getBalance($accountId);
         $maxAmount     = SavingsInterest::computeMaxAmount($balanceBefore, $accountRate, null);
