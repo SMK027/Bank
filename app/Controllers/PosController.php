@@ -156,10 +156,13 @@ class PosController extends Controller
             return;
         }
 
-        // Empêcher un commerçant de s'auto-encaisser
-        if ((int) $card['user_id'] === (int) $user['id']) {
-            $this->logFailure($user, $merchantAccount, $amount, $label, $merchant, 'self_charge', $card);
-            $errors[] = 'Vous ne pouvez pas encaisser votre propre carte.';
+        // On autorise les commerçants/modérateurs à débiter une carte leur
+        // appartenant : on bloque uniquement si le compte associé à la carte
+        // est le même que le compte d'encaissement (transfert vers soi-même
+        // sur le même compte = absurde).
+        if ((int) $card['account_id'] === (int) $merchantAccount['id']) {
+            $this->logFailure($user, $merchantAccount, $amount, $label, $merchant, 'same_account', $card);
+            $errors[] = 'Le compte associé à la carte est identique au compte d\'encaissement.';
             $this->renderForm($user, $merchantAccounts, $form, $errors);
             return;
         }
