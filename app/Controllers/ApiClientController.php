@@ -69,11 +69,12 @@ class ApiClientController extends Controller
         $this->redirect('/moderation/api-clients');
     }
 
-    public function revoke(int $id): void
+    public function revoke(string $id): void
     {
         $this->requireModerator();
         $this->validateCSRF();
 
+        $id = (int) $id;
         $client = $this->clientModel->find($id);
         if (!$client) {
             $this->setFlash('danger', 'Client introuvable.');

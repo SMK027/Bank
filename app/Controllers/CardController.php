@@ -153,12 +153,13 @@ class CardController extends Controller
     }
 
     /** Modifie le compte associé à une carte. */
-    public function updateAccount(int $id): void
+    public function updateAccount(string $id): void
     {
         $this->requireAuth();
         $this->validateCSRF();
         $userId = $this->getCurrentUserId();
 
+        $id = (int) $id;
         $card = $this->cardModel->find($id);
         if (!$card || (int) $card['user_id'] !== $userId) {
             $this->setFlash('danger', 'Carte introuvable.');
@@ -199,12 +200,13 @@ class CardController extends Controller
     }
 
     /** Supprime une carte. */
-    public function delete(int $id): void
+    public function delete(string $id): void
     {
         $this->requireAuth();
         $this->validateCSRF();
         $userId = $this->getCurrentUserId();
 
+        $id = (int) $id;
         $card = $this->cardModel->find($id);
         if (!$card || (int) $card['user_id'] !== $userId) {
             $this->setFlash('danger', 'Carte introuvable.');
