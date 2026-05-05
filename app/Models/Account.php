@@ -509,12 +509,19 @@ class Account extends Model
      */
     public function searchByQuery(string $q, int $limit = 15, ?string $type = null): array
     {
-        $term = '%' . $q . '%';
-        $sql = 'SELECT a.id, a.name, a.currency, a.type, u.username
-                FROM accounts a
-                LEFT JOIN users u ON u.id = a.user_id
-                WHERE (a.name LIKE ? OR u.username LIKE ?)';
-        $params = [$term, $term];
+        $term   = '%' . $q . '%';
+        $sql    = 'SELECT a.id, a.name, a.currency, a.type,
+                          u.username, u.email, u.company_name, u.siret
+                   FROM accounts a
+                   LEFT JOIN users u ON u.id = a.user_id
+                   WHERE (
+                       a.name         LIKE ?
+                    OR u.username     LIKE ?
+                    OR u.email        LIKE ?
+                    OR u.company_name LIKE ?
+                    OR u.siret        LIKE ?
+                   )';
+        $params = [$term, $term, $term, $term, $term];
 
         if ($type !== null) {
             $sql .= ' AND a.type = ?';

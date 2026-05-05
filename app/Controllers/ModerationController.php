@@ -1200,12 +1200,28 @@ class ModerationController extends Controller
         $rows    = $this->accountModel->searchByQuery($q, 15, $type);
         $results = [];
         foreach ($rows as $row) {
+            // Construire une ligne de sous-texte avec les infos du titulaire
+            $ownerParts = [$row['username']];
+            if (!empty($row['email'])) {
+                $ownerParts[] = $row['email'];
+            }
+            if (!empty($row['company_name'])) {
+                $ownerParts[] = $row['company_name'];
+            }
+            if (!empty($row['siret'])) {
+                $ownerParts[] = 'SIRET ' . $row['siret'];
+            }
+            $ownerDetail = implode(' · ', $ownerParts);
+
             $results[] = [
-                'id'       => (int) $row['id'],
-                'label'    => $row['name'] . ' (' . $row['username'] . ') — ' . strtoupper((string) $row['currency']),
-                'name'     => $row['name'],
-                'currency' => $row['currency'],
-                'owner'    => $row['username'],
+                'id'           => (int) $row['id'],
+                'label'        => $row['name'] . ' (' . strtoupper((string) $row['currency']) . ') — ' . $ownerDetail,
+                'name'         => $row['name'],
+                'currency'     => $row['currency'],
+                'owner'        => $row['username'],
+                'email'        => $row['email']        ?? '',
+                'company_name' => $row['company_name'] ?? '',
+                'siret'        => $row['siret']        ?? '',
             ];
         }
 

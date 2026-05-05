@@ -165,17 +165,34 @@ $f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? 
                   style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.6rem;align-items:end;margin-top:0.75rem;"
                   onsubmit="
                     var id = document.getElementById('pos-suspend-account-id').value;
-                    if (!id) { alert('Saisissez un identifiant de compte.'); return false; }
+                    if (!id) { alert('Sélectionnez un compte professionnel dans la liste.'); return false; }
                     this.action = '/moderation/pos-payments/merchant/' + id + '/suspend';
                     return confirm('Suspendre ce compte du TPE ?');
                   ">
                 <?= csrf_field() ?>
-                <div>
-                    <label class="form-label text-small" for="pos-suspend-account-id">
-                        ID du compte professionnel <span class="text-danger">*</span>
+                <!-- Champ caché qui reçoit l'ID sélectionné -->
+                <input type="hidden" id="pos-suspend-account-id">
+                <!-- Autocomplete -->
+                <div style="grid-column:1 / -1;position:relative;">
+                    <label class="form-label text-small" for="pos-suspend-account-search">
+                        Compte professionnel <span class="text-danger">*</span>
                     </label>
-                    <input type="number" id="pos-suspend-account-id" min="1"
-                           class="form-control form-control-sm" placeholder="ex. 42" required>
+                    <input type="text" id="pos-suspend-account-search"
+                           class="form-control form-control-sm"
+                           placeholder="Rechercher par nom de compte, titulaire, e-mail, société, SIRET…"
+                           autocomplete="off">
+                    <div id="pos-suspend-account-suggestions"
+                         style="display:none;position:absolute;z-index:400;width:100%;
+                                background:var(--card-bg,#fff);border:1px solid var(--border-color);
+                                border-radius:4px;max-height:200px;overflow-y:auto;
+                                box-shadow:0 4px 12px rgba(0,0,0,.15);top:calc(100% + 2px);left:0;">
+                    </div>
+                    <div id="pos-suspend-account-badge" style="display:none;margin-top:0.35rem;font-size:0.82rem;">
+                        <span class="badge bg-success" id="pos-suspend-account-label"></span>
+                        <a href="#" id="pos-suspend-account-clear" style="margin-left:0.4rem;font-size:0.78rem;">
+                            <i class="bi bi-x-circle"></i> Effacer
+                        </a>
+                    </div>
                 </div>
                 <div style="grid-column:1 / -1;">
                     <label class="form-label text-small" for="pos-suspend-reason">
@@ -374,3 +391,93 @@ $f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? 
         <?php endif; ?>
     </div>
 </div>
+
+<script>
+(function () {
+    'use strict';
+
+    var searchInput  = document.getElementById('pos-suspend-account-search');
+    var hiddenId     = document.getElementById('pos-suspend-account-id');
+    var suggestions  = document.getElementById('pos-suspend-account-suggestions');
+    var badge        = document.getElementById('pos-suspend-account-badge');
+    var badgeLabel   = document.getElementById('pos-suspend-account-label');
+    var clearBtn     = document.getElementById('pos-suspend-account-clear');
+
+    if (!searchInput) return;
+
+    var timer = null;
+
+    function selectAccount(acc) {
+        hiddenId.value = acc.id;
+        var detail = acc.name + ' #' + acc.id;
+        if (acc.company_name) detail += ' · ' + acc.company_name;
+        if (acc.email)        detail += ' · ' + acc.email;
+        badgeLabel.textContent = detail;
+        badge.style.display = 'inline';
+        searchInput.style.display = 'none';
+        suggestions.style.display = 'none';
+    }
+
+    function clearSelection() {
+        hiddenId.value = '';
+        badgeLabel.textContent = '';
+        badge.style.display = 'none';
+        searchInput.style.display = '';
+        searchInput.value = '';
+        searchInput.focus();
+    }
+
+    clearBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        clearSelection();
+    });
+
+    searchInput.addEventListener('input', function () {
+        clearTimeout(timer);
+        var q = searchInput.value.trim();
+        if (q.length < 2) { suggestions.style.display = 'none'; return; }
+
+        timer = setTimeout(function () {
+            fetch('/moderation/direct-debits/accounts/search?q=' + encodeURIComponent(q) + '&type=pro')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.length) { suggestions.style.display = 'none'; return; }
+                    suggestions.innerHTML = '';
+                    data.forEach(function (acc) {
+                        var item = document.createElement('div');
+                        item.style.cssText = 'padding:0.5rem 0.8rem;cursor:pointer;border-bottom:1px solid var(--border-color);';
+
+                        var mainLine = document.createElement('div');
+                        mainLine.style.cssText = 'font-size:0.92rem;font-weight:600;';
+                        mainLine.textContent = acc.name + ' (' + acc.currency.toUpperCase() + ')';
+
+                        var subLine = document.createElement('div');
+                        subLine.style.cssText = 'font-size:0.78rem;color:var(--text-muted,#6c757d);margin-top:0.1rem;';
+                        var parts = [];
+                        if (acc.owner)        parts.push(acc.owner);
+                        if (acc.email)        parts.push(acc.email);
+                        if (acc.company_name) parts.push(acc.company_name);
+                        if (acc.siret)        parts.push('SIRET\u00a0' + acc.siret);
+                        parts.push('#' + acc.id);
+                        subLine.textContent = parts.join(' · ');
+
+                        item.appendChild(mainLine);
+                        item.appendChild(subLine);
+
+                        item.addEventListener('mouseenter', function () { item.style.background = 'var(--hover-bg,#f0f0f0)'; });
+                        item.addEventListener('mouseleave', function () { item.style.background = ''; });
+                        item.addEventListener('click', function () { selectAccount(acc); });
+                        suggestions.appendChild(item);
+                    });
+                    suggestions.style.display = 'block';
+                });
+        }, 250);
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!suggestions.contains(e.target) && e.target !== searchInput) {
+            suggestions.style.display = 'none';
+        }
+    });
+}());
+</script>
