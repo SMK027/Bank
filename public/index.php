@@ -156,6 +156,7 @@ $router->get('/moderation/accounts/create', ModerationController::class, 'create
 $router->post('/moderation/accounts', ModerationController::class, 'createAccountForUser');
 $router->get('/moderation/internal-accounts/create', ModerationController::class, 'createInternalAccountForm');
 $router->post('/moderation/internal-accounts', ModerationController::class, 'createInternalAccount');
+$router->post('/moderation/accounts/{id}/compute-interests', ModerationController::class, 'computeInternalInterests');
 $router->get('/moderation/minor-accounts/create', ModerationController::class, 'createMinorAccountForm');
 $router->post('/moderation/minor-accounts', ModerationController::class, 'createMinorAccount');
 $router->get('/moderation/guardianships', ModerationController::class, 'guardianships');

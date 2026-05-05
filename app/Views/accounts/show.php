@@ -143,6 +143,16 @@
                     </button>
                 </form>
             <?php endif; ?>
+            <?php if (!empty($account['internal']) && ($account['type'] ?? '') === 'savings' && !empty($account['interest_rate'])): ?>
+                <form method="POST" action="/moderation/accounts/<?= (int) $account['id'] ?>/compute-interests" style="display:inline">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="btn btn-sm"
+                            style="background:#10b981;color:#fff;border:none;"
+                            onclick="return confirm('Recalculer et créer une entrée d\'intérêts en attente pour ce compte interne ?')">
+                        <i class="bi bi-graph-up-arrow"></i> Simuler intérêts
+                    </button>
+                </form>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>

@@ -2341,5 +2341,86 @@ class ModerationController extends Controller
         ));
         $this->redirect('/moderation/recurring-transfers');
     }
+
+    /**
+     * Calcule et crée une entrée d'intérêts en attente pour un compte interne d'épargne.
+     * Réservé aux modérateurs — permet de tester le versement d'intérêts à tout moment
+     * sans attendre le cron du 1er janvier.
+     */
+    public function computeInternalInterests(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $accountId = (int) $id;
+        $account   = $this->accountModel->find($accountId);
+
+        if (!$account) {
+            $this->setFlash('danger', 'Compte introuvable.');
+            $this->redirect('/moderation');
+            return;
+        }
+
+        if (!Account::isInternal($account)) {
+            $this->setFlash('danger', 'Cette action est réservée aux comptes internes.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        if (!Account::typeHasInterest($account['type'] ?? '')) {
+            $this->setFlash('danger', 'Ce type de compte ne supporte pas les intérêts.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $accountRate = isset($account['interest_rate']) && $account['interest_rate'] !== null
+            ? (float) $account['interest_rate']
+            : null;
+
+        if ($accountRate === null || $accountRate <= 0) {
+            $this->setFlash('danger', 'Aucun taux d\'intérêt défini sur ce compte.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $year = (int) date('Y');
+
+        // Supprime l'éventuelle entrée pending existante (permet de recalculer)
+        $this->interestModel->deletePendingForAccount($accountId, $year);
+
+        $txModel = new Transaction();
+
+        // Comptes internes : segments vides → pas de plafonnement au taux de modération
+        $calculatedAmount = SavingsInterest::calculateProrata($accountId, $year, $accountRate, $txModel, []);
+
+        $balanceBefore = $this->accountModel->getBalance($accountId);
+        $maxAmount     = SavingsInterest::computeMaxAmount($balanceBefore, $accountRate, null);
+        $calculatedAmount = min($calculatedAmount, $maxAmount);
+
+        if ($calculatedAmount <= 0) {
+            $this->setFlash('danger', 'Le montant calculé est nul ou négatif (solde insuffisant ou aucune activité).');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $interestId = $this->interestModel->create([
+            'account_id'        => $accountId,
+            'account_type'      => $account['type'],
+            'year'              => $year,
+            'rate'              => $accountRate,
+            'calculated_amount' => $calculatedAmount,
+            'max_amount'        => $maxAmount,
+            'status'            => SavingsInterest::STATUS_PENDING,
+        ]);
+
+        AuditLog::log(
+            $this->getCurrentUserId(),
+            AuditLog::ACTION_INTEREST_RUN,
+            ['account_id' => $accountId, 'year' => $year, 'amount' => $calculatedAmount],
+            targetAccountId: $accountId
+        );
+
+        $this->redirect('/interests/' . $interestId . '/confirm');
+    }
 }
 

@@ -49,6 +49,19 @@ class SavingsInterest extends Model
         return (int) $stmt->fetchColumn() > 0;
     }
 
+    /**
+     * Supprime toute entrée en statut 'pending' pour ce compte et cette année.
+     * Utilisé pour recalculer les intérêts à la demande sur les comptes internes.
+     */
+    public function deletePendingForAccount(int $accountId, int $year): void
+    {
+        $stmt = $this->getPdo()->prepare(
+            "DELETE FROM `savings_interests`
+             WHERE `account_id` = ? AND `year` = ? AND `status` = 'pending'"
+        );
+        $stmt->execute([$accountId, $year]);
+    }
+
     // ── Calculs ───────────────────────────────────────────────────────────────
 
     /**

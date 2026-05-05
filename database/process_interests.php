@@ -73,10 +73,20 @@ foreach ($savings as $account) {
     }
 
     if ($interestModel->existsForAccountYear($accountId, $year)) {
-        echo sprintf("[%s] Compte #%d (%s) : intérêts %d déjà enregistrés, ignoré.\n",
-            date('Y-m-d H:i:s'), $accountId, $account['name'], $year);
-        $skipped++;
-        continue;
+        if (Account::isInternal($account)) {
+            // Comptes internes : on supprime l'éventuelle entrée pending et on recalcule
+            $interestModel->deletePendingForAccount($accountId, $year);
+            // Si une entrée confirmée existe toujours, on passe quand même
+            if ($interestModel->existsForAccountYear($accountId, $year)) {
+                echo sprintf("[%s] Compte interne #%d (%s) : intérêts %d déjà confirmés, nouveau calcul créé en plus.\n",
+                    date('Y-m-d H:i:s'), $accountId, $account['name'], $year);
+            }
+        } else {
+            echo sprintf("[%s] Compte #%d (%s) : intérêts %d déjà enregistrés, ignoré.\n",
+                date('Y-m-d H:i:s'), $accountId, $account['name'], $year);
+            $skipped++;
+            continue;
+        }
     }
 
     try {
