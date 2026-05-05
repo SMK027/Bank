@@ -80,7 +80,7 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                                                 data-internal="<?= !empty($acc['internal']) ? '1' : '0' ?>"
                                                 <?= $preselect === (int) $acc['id'] ? 'selected' : '' ?>>
                                             <?= e($acc['name']) ?>
-                                            (<?= number_format((float) ($acc['balance'] ?? 0), 2, ',', ' ') ?> <?= e($acc['currency']) ?>)
+                                            (<?= fmt_amount_smart((float) ($acc['balance'] ?? 0)) ?> <?= e($acc['currency']) ?>)
                                         </option>
                                     <?php endforeach; ?>
                                 </optgroup>
@@ -96,7 +96,7 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                                                 data-internal="<?= !empty($acc['internal']) ? '1' : '0' ?>"
                                                 <?= $preselect === (int) $acc['id'] ? 'selected' : '' ?>>
                                             <?= e($acc['name']) ?>
-                                            (<?= number_format((float) ($acc['balance'] ?? 0), 2, ',', ' ') ?> <?= e($acc['currency']) ?>)
+                                            (<?= fmt_amount_smart((float) ($acc['balance'] ?? 0)) ?> <?= e($acc['currency']) ?>)
                                         </option>
                                     <?php endforeach; ?>
                                 </optgroup>
@@ -122,7 +122,7 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                                                 data-currency="<?= e($acc['currency']) ?>"
                                                 data-internal="<?= !empty($acc['internal']) ? '1' : '0' ?>">
                                             <?= e($acc['name']) ?>
-                                            (<?= number_format((float) ($acc['balance'] ?? 0), 2, ',', ' ') ?> <?= e($acc['currency']) ?>)
+                                            (<?= fmt_amount_smart((float) ($acc['balance'] ?? 0)) ?> <?= e($acc['currency']) ?>)
                                         </option>
                                     <?php endforeach; ?>
                                 </optgroup>
@@ -134,7 +134,7 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                                                 data-currency="<?= e($acc['currency']) ?>"
                                                 data-internal="<?= !empty($acc['internal']) ? '1' : '0' ?>">
                                             <?= e($acc['name']) ?>
-                                            (<?= number_format((float) ($acc['balance'] ?? 0), 2, ',', ' ') ?> <?= e($acc['currency']) ?>)
+                                            (<?= fmt_amount_smart((float) ($acc['balance'] ?? 0)) ?> <?= e($acc['currency']) ?>)
                                         </option>
                                     <?php endforeach; ?>
                                 </optgroup>

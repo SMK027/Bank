@@ -52,7 +52,7 @@ $items = $items ?? [];
                             <strong><?= e($r['to_account_name']) ?></strong>
                         </td>
                         <td class="text-right font-bold text-danger">
-                            <?= number_format((float) $r['amount'], 2, ',', ' ') ?> €
+                            <?= fmt_amount_smart((float) $r['amount']) ?> €
                         </td>
                         <td style="white-space:nowrap;">
                             <i class="bi bi-arrow-clockwise" style="font-size:0.8rem;opacity:0.6;"></i>

@@ -38,7 +38,7 @@
                     <td><?= number_format((float) $i['rate'] * 100, 2, ',', ' ') ?> %</td>
                     <td>
                         <strong class="text-success">
-                            <?= number_format((float) $i['calculated_amount'], 2, ',', ' ') ?> <?= e($i['currency']) ?>
+                            <?= fmt_amount_smart((float) $i['calculated_amount']) ?> <?= e($i['currency']) ?>
                         </strong>
                     </td>
                     <td>

@@ -157,7 +157,7 @@
                             </td>
                             <td><?= e($acc['currency']) ?></td>
                             <td class="text-right font-bold <?= $acc['balance'] >= 0 ? 'text-success' : 'text-danger' ?>">
-                                <?= number_format($acc['balance'], 2, ',', ' ') ?>
+                                <?= fmt_amount_smart($acc['balance']) ?>
                             </td>
                             <td>
                                 <?php if ($frozen): ?>

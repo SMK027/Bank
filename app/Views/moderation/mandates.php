@@ -83,7 +83,7 @@
                     <a href="/accounts/<?= (int) $m['recipient_account_id'] ?>"><?= e($m['recipient_name']) ?></a>
                     <br><small class="text-muted"><?= e($m['recipient_owner']) ?></small>
                 </td>
-                <td style="white-space:nowrap;"><?= number_format((float) $m['amount'], 2, ',', ' ') ?> €</td>
+                <td style="white-space:nowrap;"><?= fmt_amount_smart((float) $m['amount']) ?> €</td>
                 <td>
                     <?php if ($m['type'] === 'recurring'): ?>
                         <span class="badge badge-info"><i class="bi bi-arrow-repeat"></i> Récurrent</span>

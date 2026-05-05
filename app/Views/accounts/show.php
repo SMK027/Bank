@@ -214,43 +214,43 @@
 <div class="stats-grid">
     <div class="stat-card">
         <div class="stat-value <?= $balance >= 0 ? 'text-success' : 'text-danger' ?>">
-            <?= number_format($balance, 2, ',', ' ') ?>
+            <?= fmt_amount_smart($balance) ?>
         </div>
         <div class="stat-label">Solde actuel (<?= e($account['currency']) ?>)</div>
     </div>
     <?php if ($hasPending): ?>
     <div class="stat-card" style="border-left:3px solid var(--warning, #f59e0b);">
         <div class="stat-value <?= $futureBalance >= 0 ? 'text-success' : 'text-danger' ?>" style="display:flex;align-items:center;gap:0.4rem;">
-            <?= number_format($futureBalance, 2, ',', ' ') ?>
+            <?= fmt_amount_smart($futureBalance) ?>
             <i class="bi bi-clock" style="font-size:0.7em;opacity:0.7;"></i>
         </div>
         <div class="stat-label">Solde à venir (<?= e($account['currency']) ?>)</div>
     </div>
     <?php endif; ?>
     <div class="stat-card stat-hide-mobile">
-        <div class="stat-value text-success"><?= number_format($totalIncome, 2, ',', ' ') ?></div>
-        <div class="stat-label">Total entrées<?= $hasPending && $totalIncomeFuture > $totalIncome ? ' <span style="font-size:0.75em;opacity:0.7;">(' . number_format($totalIncomeFuture, 2, ',', ' ') . ' à venir)</span>' : '' ?></div>
+        <div class="stat-value text-success"><?= fmt_amount_smart($totalIncome) ?></div>
+        <div class="stat-label">Total entrées<?= $hasPending && $totalIncomeFuture > $totalIncome ? ' <span style="font-size:0.75em;opacity:0.7;">(' . fmt_amount_smart($totalIncomeFuture) . ' à venir)</span>' : '' ?></div>
     </div>
     <div class="stat-card stat-hide-mobile">
-        <div class="stat-value text-danger"><?= number_format($totalExpense, 2, ',', ' ') ?></div>
-        <div class="stat-label">Total dépenses<?= $hasPending && $totalExpenseFuture > $totalExpense ? ' <span style="font-size:0.75em;opacity:0.7;">(' . number_format($totalExpenseFuture, 2, ',', ' ') . ' à venir)</span>' : '' ?></div>
+        <div class="stat-value text-danger"><?= fmt_amount_smart($totalExpense) ?></div>
+        <div class="stat-label">Total dépenses<?= $hasPending && $totalExpenseFuture > $totalExpense ? ' <span style="font-size:0.75em;opacity:0.7;">(' . fmt_amount_smart($totalExpenseFuture) . ' à venir)</span>' : '' ?></div>
     </div>
     <?php if ((float) $account['overdraft'] > 0): ?>
         <div class="stat-card">
-            <div class="stat-value"><?= number_format((float) $account['overdraft'], 2, ',', ' ') ?></div>
+            <div class="stat-value"><?= fmt_amount_smart((float) $account['overdraft']) ?></div>
             <div class="stat-label">Découvert autorisé (<?= e($account['currency']) ?>)</div>
         </div>
     <?php endif; ?>
     <?php if (\App\Models\Account::typeHasCap($account['type'] ?? '') && (float) ($account['cap'] ?? 0) > 0): ?>
         <div class="stat-card" style="border-left:3px solid var(--primary)">
-            <div class="stat-value"><?= number_format((float) $account['cap'], 2, ',', ' ') ?></div>
+            <div class="stat-value"><?= fmt_amount_smart((float) $account['cap']) ?></div>
             <div class="stat-label">Plafond d'épargne (<?= e($account['currency']) ?>)</div>
         </div>
     <?php endif; ?>
     <?php if ($accruedInterest !== null): ?>
         <div class="stat-card" style="border-left:3px solid #10b981;" title="Intérêts calculés au prorata temporis depuis le 1er janvier. Remis à zéro chaque 1er janvier.">
             <div class="stat-value text-success" style="display:flex;align-items:center;gap:0.4rem;">
-                +<?= number_format($accruedInterest, 2, ',', ' ') ?>
+                +<?= fmt_amount_smart($accruedInterest) ?>
                 <i class="bi bi-graph-up-arrow" style="font-size:0.7em;opacity:0.7;"></i>
             </div>
             <div class="stat-label">
@@ -263,7 +263,7 @@
     <?php endif; ?>
     <?php if (!empty($account['balance_alert_threshold'])): ?>
         <div class="stat-card" style="border-left:3px solid var(--warning, #f59e0b)">
-            <div class="stat-value" style="font-size:1.1rem;"><?= number_format((float) $account['balance_alert_threshold'], 2, ',', ' ') ?></div>
+            <div class="stat-value" style="font-size:1.1rem;"><?= fmt_amount_smart((float) $account['balance_alert_threshold']) ?></div>
             <div class="stat-label"><i class="bi bi-bell-fill"></i> Seuil d'alerte (<?= e($account['currency']) ?>)</div>
         </div>
     <?php endif; ?>
@@ -294,8 +294,8 @@
             </div>
             <?php if ($_od > 0): ?>
             <div style="display:flex; justify-content:space-between; margin-top:0.3rem; font-size:0.7rem; color: var(--text-muted);">
-                <span><?= number_format(abs($balance), 2, ',', ' ') ?> <?= e($account['currency']) ?> utilisés</span>
-                <span>Limite : <?= number_format($_od, 2, ',', ' ') ?> <?= e($account['currency']) ?></span>
+                <span><?= fmt_amount_smart(abs($balance)) ?> <?= e($account['currency']) ?> utilisés</span>
+                <span>Limite : <?= fmt_amount_smart($_od) ?> <?= e($account['currency']) ?></span>
             </div>
             <?php endif; ?>
         </div>
@@ -308,9 +308,9 @@
     <i class="bi bi-bell-fill text-warning" style="font-size:1.3rem;"></i>
     <div>
         <strong>Solde sous le seuil d'alerte.</strong>
-        Le solde actuel (<?= number_format($balance, 2, ',', ' ') ?> <?= e($account['currency']) ?>)
+        Le solde actuel (<?= fmt_amount_smart($balance) ?> <?= e($account['currency']) ?>)
         est inférieur au seuil configuré
-        (<?= number_format((float) $account['balance_alert_threshold'], 2, ',', ' ') ?> <?= e($account['currency']) ?>).
+        (<?= fmt_amount_smart((float) $account['balance_alert_threshold']) ?> <?= e($account['currency']) ?>).
     </div>
 </div>
 <?php endif; ?>
@@ -343,7 +343,7 @@
             <?php if (\App\Models\Account::typeHasCap($account['type'] ?? '') && (float) ($account['cap'] ?? 0) > 0 && !$isModerator): ?>
             <div class="alert alert-info" style="margin-bottom:1rem;">
                 <i class="bi bi-piggy-bank"></i>
-                Plafond d'épargne : <strong><?= number_format((float) $account['cap'], 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>.
+                Plafond d'épargne : <strong><?= fmt_amount_smart((float) $account['cap']) ?> <?= e($account['currency']) ?></strong>.
                 Les crédits dépassant ce plafond sont bloqués.
             </div>
             <?php endif; ?>
@@ -861,7 +861,7 @@
                                 </td>
                                 <td><?= e($t['comment'] ?? '') ?></td>
                                 <td class="text-right font-bold <?= $t['type'] === 'income' ? 'text-success' : 'text-danger' ?>">
-                                    <?= $t['type'] === 'income' ? '+' : '-' ?><?= number_format((float) $t['amount'], 2, ',', ' ') ?>
+                                    <?= $t['type'] === 'income' ? '+' : '-' ?><?= fmt_amount_smart((float) $t['amount']) ?>
                                 </td>
                                 <td>
                                     <?php if ($isModerator && !in_array((int) $t['id'], $linkedTxIds ?? [])): ?>
@@ -934,7 +934,7 @@
                                 <td><?= e($d['counterparty_name'] ?? '—') ?></td>
                                 <td><?= e($d['motif'] ?? '—') ?></td>
                                 <td class="text-right font-bold <?= $isCredit ? 'text-success' : 'text-danger' ?>">
-                                    <?= $isCredit ? '+' : '-' ?><?= number_format((float) $d['amount'], 2, ',', ' ') ?>
+                                    <?= $isCredit ? '+' : '-' ?><?= fmt_amount_smart((float) $d['amount']) ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -986,11 +986,11 @@
                                 <br><small class="text-muted" style="font-style:normal;">Crédit #<?= (int)$inst['loan_id'] ?></small>
                             </td>
                             <td class="text-right font-bold text-danger">
-                                -<?= number_format((float)$inst['amount'], 2, ',', ' ') ?> €
+                                -<?= fmt_amount_smart((float)$inst['amount']) ?> €
                                 <?php if ((float)($inst['penalty'] ?? 0) > 0): ?>
                                 <div style="font-size:0.72rem;font-weight:400;color:var(--danger);margin-top:2px;white-space:nowrap">
                                     <i class="bi bi-exclamation-triangle-fill" style="font-size:0.65rem"></i>
-                                    dont <?= number_format((float)$inst['penalty'], 2, ',', ' ') ?> € de pénalité de retard
+                                    dont <?= fmt_amount_smart((float)$inst['penalty']) ?> € de pénalité de retard
                                 </div>
                                 <?php endif; ?>
                             </td>
@@ -1011,7 +1011,7 @@
                     foreach ($pendingDeferredDebits as $dd) $totalEncours += (float) $dd['amount'];
                 ?>
                 <span style="font-size:0.8rem;font-weight:400;color:var(--danger);margin-left:0.4rem;">
-                    Total : <?= number_format($totalEncours, 2, ',', ' ') ?> <?= e($account['currency']) ?>
+                    Total : <?= fmt_amount_smart($totalEncours) ?> <?= e($account['currency']) ?>
                 </span>
             </h4>
             <?php
@@ -1040,7 +1040,7 @@
                     <span><?= e($groupLabel) ?></span>
                     <span class="badge badge-secondary"><?= count($groupItems) ?></span>
                     <span style="font-weight:400;color:var(--danger);">
-                        Total : <?= number_format($groupTotal, 2, ',', ' ') ?> <?= e($account['currency']) ?>
+                        Total : <?= fmt_amount_smart($groupTotal) ?> <?= e($account['currency']) ?>
                     </span>
                 </h5>
             <div class="table-responsive" style="margin-bottom:1.25rem;">
@@ -1118,7 +1118,7 @@
                                 </td>
                                 <td><?= e($dd['comment'] ?? '') ?: '<span style="color:var(--text-muted)">—</span>' ?></td>
                                 <td class="text-right font-bold text-danger">
-                                    -<?= number_format((float) $dd['amount'], 2, ',', ' ') ?>
+                                    -<?= fmt_amount_smart((float) $dd['amount']) ?>
                                 </td>
                                 <td>
                                     <?php if (!$ddLocked): ?>
@@ -1226,7 +1226,7 @@
                             </td>
                             <td><?= e($dd['comment'] ?? '') ?: '<span style="color:var(--text-muted)">—</span>' ?></td>
                             <td class="text-right font-bold text-danger">
-                                -<?= number_format((float) $dd['amount'], 2, ',', ' ') ?>
+                                -<?= fmt_amount_smart((float) $dd['amount']) ?>
                             </td>
                             <td style="font-size:0.8rem;color:var(--text-muted);">
                                 <?= $dd['executed_at'] ? date('d/m/Y H:i', strtotime($dd['executed_at'])) : '—' ?>
@@ -1370,7 +1370,7 @@
                                 </td>
                                 <td><?= e($t['comment'] ?? '') ?></td>
                                 <td class="text-right font-bold <?= $t['type'] === 'income' ? 'text-success' : 'text-danger' ?>">
-                                    <?= $t['type'] === 'income' ? '+' : '-' ?><?= number_format((float) $t['amount'], 2, ',', ' ') ?>
+                                    <?= $t['type'] === 'income' ? '+' : '-' ?><?= fmt_amount_smart((float) $t['amount']) ?>
                                 </td>
                                 <td style="white-space:nowrap;">
                                     <?php if ($txEditable): ?>
@@ -1607,7 +1607,7 @@
                         </td>
                         <td class="text-right font-bold <?= $isEmitter ? 'text-danger' : 'text-success' ?>">
                             <?= $isEmitter ? '−' : '+' ?>
-                            <?= number_format((float) $r['amount'], 2, ',', ' ') ?>
+                            <?= fmt_amount_smart((float) $r['amount']) ?>
                             <?= e($account['currency']) ?>
                         </td>
                         <td style="white-space:nowrap;font-size:0.88rem;">

@@ -192,7 +192,7 @@ foreach (Account::TYPES as $key => $def) { $typeMap[$key] = $def['label']; }
                         <td><?= number_format($row['rate'] * 100, 2, ',', ' ') ?> %</td>
                         <td style="text-align:right;font-weight:600;color:var(--success,#16a34a);">
                             <?php if ($row['accrued'] > 0): ?>
-                                +<?= number_format($row['accrued'], 2, ',', ' ') ?> <?= e($row['currency']) ?>
+                                +<?= fmt_amount_smart($row['accrued']) ?> <?= e($row['currency']) ?>
                             <?php else: ?>
                                 <span class="text-muted">0,00</span>
                             <?php endif; ?>
@@ -209,7 +209,7 @@ foreach (Account::TYPES as $key => $def) { $typeMap[$key] = $def['label']; }
                     <tr style="font-weight:700;border-top:2px solid var(--border-color,#e5e7eb);">
                         <td colspan="4" style="text-align:right;">Total</td>
                         <td style="text-align:right;color:var(--success,#16a34a);">
-                            +<?= number_format($total, 2, ',', ' ') ?> <?= e($currencies[0]) ?>
+                            +<?= fmt_amount_smart($total) ?> <?= e($currencies[0]) ?>
                         </td>
                     </tr>
                 </tfoot>
