@@ -906,6 +906,11 @@ class PosController extends Controller
         $currency    = (string) ($payment['currency'] ?? 'EUR');
         $motif       = sprintf('Annulation paiement TPE #%d', $paymentId);
 
+        // Déduire les remboursements partiels déjà effectués :
+        // seul le solde restant est à contre-passer côté client et commerçant.
+        $alreadyRefunded   = $this->paymentModel->getTotalRefunded($paymentId);
+        $remainingAmount   = round($amount - $alreadyRefunded, 2);
+
         $customerAccountId = (int) ($payment['account_id'] ?? 0);
         $customerAccount   = $customerAccountId ? $this->accountModel->find($customerAccountId) : null;
 
@@ -917,23 +922,25 @@ class PosController extends Controller
             if ($dd && $dd['status'] === DeferredDebit::STATUS_PENDING) {
                 $this->deferredDebitModel->cancel($deferredId);
             } elseif ($dd && $dd['status'] === DeferredDebit::STATUS_EXECUTED) {
-                // Le différé a déjà été exécuté → contre-passation classique
-                $reverseDebitTxId = $this->transactionModel->addTransaction(
-                    $customerAccountId,
-                    'income',
-                    $amount,
-                    'Achats',
-                    $motif,
-                    0
-                );
+                // Le différé a déjà été exécuté → contre-passation du solde restant
+                if ($remainingAmount > 0.001 && $customerAccountId > 0) {
+                    $reverseDebitTxId = $this->transactionModel->addTransaction(
+                        $customerAccountId,
+                        'income',
+                        $remainingAmount,
+                        'Achats',
+                        $motif,
+                        0
+                    );
+                }
             }
         } else {
-            // Débit immédiat → remboursement
-            if ($customerAccountId > 0) {
+            // Débit immédiat → remboursement du solde restant uniquement
+            if ($remainingAmount > 0.001 && $customerAccountId > 0) {
                 $reverseDebitTxId = $this->transactionModel->addTransaction(
                     $customerAccountId,
                     'income',
-                    $amount,
+                    $remainingAmount,
                     'Achats',
                     $motif,
                     0
@@ -941,18 +948,20 @@ class PosController extends Controller
             }
         }
 
-        // 2) Côté commerçant : récupération du crédit
+        // 2) Côté commerçant : récupération du crédit résiduel
+        // Le commerçant a été crédité du montant original, puis débité à chaque
+        // remboursement partiel. On ne récupère donc que le solde restant.
         $merchantAccountId = null;
         $reverseCreditTxId = null;
         $creditTxId = (int) ($payment['credit_transaction_id'] ?? 0);
-        if ($creditTxId > 0) {
+        if ($creditTxId > 0 && $remainingAmount > 0.001) {
             $creditTx = $this->transactionModel->find($creditTxId);
             if ($creditTx) {
                 $merchantAccountId = (int) $creditTx['account_id'];
                 $reverseCreditTxId = $this->transactionModel->addTransaction(
                     $merchantAccountId,
                     'expense',
-                    (float) $creditTx['amount'],
+                    $remainingAmount,
                     'Encaissement',
                     $motif,
                     0
@@ -970,6 +979,8 @@ class PosController extends Controller
             [
                 'payment_id'           => $paymentId,
                 'amount'               => $amount,
+                'already_refunded'     => $alreadyRefunded,
+                'remaining_cancelled'  => $remainingAmount,
                 'currency'             => $currency,
                 'reason'               => $reason,
                 'reverse_debit_tx'     => $reverseDebitTxId,
@@ -982,15 +993,25 @@ class PosController extends Controller
         try {
             $notif = new Notification();
             if ($customerAccount) {
+                // Indiquer dans la notif si un remboursement partiel avait déjà eu lieu
+                $notifAmount = $remainingAmount > 0.001 ? $remainingAmount : 0.0;
+                $notifMsg = $notifAmount > 0
+                    ? sprintf(
+                        'Le paiement de %.2f %s a été annulé par la modération. %.2f %s vous ont été recrédités%s.',
+                        $amount, $currency,
+                        $notifAmount, $currency,
+                        $reason !== '' ? ' (motif : ' . $reason . ')' : ''
+                    )
+                    : sprintf(
+                        'Le paiement de %.2f %s a été annulé par la modération%s. Le montant total avait déjà été remboursé.',
+                        $amount, $currency,
+                        $reason !== '' ? ' (motif : ' . $reason . ')' : ''
+                    );
                 $notif->notify(
                     (int) $customerAccount['user_id'],
                     'card',
                     'Paiement TPE annulé',
-                    sprintf(
-                        'Le paiement de %.2f %s a été annulé par la modération%s.',
-                        $amount, $currency,
-                        $reason !== '' ? ' (motif : ' . $reason . ')' : ''
-                    ),
+                    $notifMsg,
                     '/accounts/' . $customerAccountId
                 );
             }
