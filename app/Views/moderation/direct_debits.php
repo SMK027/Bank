@@ -121,7 +121,7 @@
 </div>
 
 <!-- Tableau -->
-<div class="table-responsive" style="border-radius:6px;border:1px solid var(--border-color,#e2e8f0);overflow:hidden">
+<div class="table-responsive" style="border-radius:6px;border:1px solid var(--border-color,#e2e8f0);">
     <table class="table table-hover moderation-dd-table" style="margin:0;font-size:0.83rem;">
         <thead style="background:var(--bg-secondary,#f8fafc);">
             <tr>
