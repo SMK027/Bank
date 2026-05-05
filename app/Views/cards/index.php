@@ -147,7 +147,7 @@ unset($_SESSION['card_just_created']);
                                                        style="width:90px;"
                                                        maxlength="12" placeholder="Ex : 500"
                                                        inputmode="decimal"
-                                                       value="<?= isset($card['monthly_limit']) && $card['monthly_limit'] !== null ? number_format((float) $card['monthly_limit'], 2, ',', ' ') : '' ?>">
+                                                       value="<?= isset($card['monthly_limit']) && $card['monthly_limit'] !== null ? number_format((float) $card['monthly_limit'], 2, ',', '') : '' ?>">
                                                 <label style="font-size:0.78rem;display:flex;align-items:center;gap:0.25rem;white-space:nowrap;cursor:pointer;">
                                                     <input type="checkbox" name="clear_limit" value="1">
                                                     Supprimer

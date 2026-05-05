@@ -271,7 +271,7 @@ class CardController extends Controller
         if ($clearLimit) {
             $changes['monthly_limit'] = null;
         } elseif ($limitRaw !== '') {
-            $limit = (float) str_replace(',', '.', $limitRaw);
+            $limit = (float) str_replace([' ', "\xc2\xa0", ','], ['', '', '.'], $limitRaw);
             if ($limit <= 0) {
                 $this->setFlash('danger', 'Le plafond mensuel doit être strictement positif.');
                 $this->redirect('/cards');
