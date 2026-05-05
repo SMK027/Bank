@@ -266,6 +266,7 @@ $router->post('/moderation/pos-payments/enable',                PosController::c
 $router->post('/moderation/pos-payments/merchant/{id}/suspend', PosController::class, 'moderationMerchantSuspend');
 $router->post('/moderation/pos-payments/merchant/{id}/resume',  PosController::class, 'moderationMerchantResume');
 $router->post('/moderation/pos-payments/{id}/cancel',           PosController::class, 'moderationCancel');
+$router->post('/moderation/pos-payments/{id}/refund',           PosController::class, 'moderationRefund');
 
 // Dispatcher la requête
 $router->dispatch();

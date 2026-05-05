@@ -308,13 +308,18 @@ $f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? 
                     </thead>
                     <tbody>
                     <?php foreach ($payments as $p):
-                        $cancelled = !empty($p['cancelled_at']);
-                        $failed    = ($p['status'] ?? '') === 'failed';
-                        $deferred  = !empty($p['deferred_debit_id']);
-                        $cardLast4 = $cardsById[(int) ($p['card_id'] ?? 0)]['last4'] ?? '----';
+                        $cancelled        = !empty($p['cancelled_at']);
+                        $failed           = ($p['status'] ?? '') === 'failed';
+                        $deferred         = !empty($p['deferred_debit_id']);
+                        $cardLast4        = $cardsById[(int) ($p['card_id'] ?? 0)]['last4'] ?? '----';
+                        $pid              = (int) $p['id'];
+                        $origAmount       = (float) $p['amount'];
+                        $alreadyRefunded  = (float) ($refundsMap[$pid] ?? 0);
+                        $refundable       = round($origAmount - $alreadyRefunded, 2);
+                        $currency         = e($p['currency'] ?? 'EUR');
                     ?>
                         <tr>
-                            <td><?= (int) $p['id'] ?></td>
+                            <td><?= $pid ?></td>
                             <td>
                                 <span class="text-small"><?= date('d/m/Y H:i', strtotime($p['created_at'])) ?></span>
                             </td>
@@ -344,8 +349,15 @@ $f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? 
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <strong><?= number_format((float) $p['amount'], 2, ',', ' ') ?></strong>
-                                <span class="text-muted text-small"><?= e($p['currency']) ?></span>
+                                <strong><?= number_format($origAmount, 2, ',', ' ') ?></strong>
+                                <span class="text-muted text-small"><?= $currency ?></span>
+                                <?php if ($alreadyRefunded > 0): ?>
+                                    <br><span class="text-small" style="color:var(--warning,#d97706);"
+                                              title="Montant remboursé">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                        <?= number_format($alreadyRefunded, 2, ',', ' ') ?> <?= $currency ?>
+                                    </span>
+                                <?php endif; ?>
                             </td>
                             <td>
                                 <?php if ($cancelled): ?>
@@ -356,15 +368,55 @@ $f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? 
                                     <span class="badge bg-warning text-dark">Différé</span>
                                 <?php else: ?>
                                     <span class="badge badge-success">Succès</span>
+                                    <?php if ($alreadyRefunded > 0 && $refundable > 0): ?>
+                                        <br><span class="badge bg-warning text-dark text-small" style="margin-top:0.2rem;">Remb. partiel</span>
+                                    <?php elseif ($alreadyRefunded >= $origAmount - 0.001): ?>
+                                        <br><span class="badge bg-secondary text-small" style="margin-top:0.2rem;">Remb. total</span>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                             </td>
-                            <td style="text-align:right;">
+                            <td style="text-align:right;white-space:nowrap;">
                                 <?php if (!$cancelled && !$failed): ?>
+                                    <div style="display:flex;flex-direction:column;gap:0.3rem;align-items:flex-end;">
+
+                                    <?php if ($refundable > 0.001): ?>
+                                        <!-- Remboursement partiel -->
+                                        <details style="display:inline-block;text-align:left;">
+                                            <summary class="btn btn-sm btn-warning" style="cursor:pointer;color:#000;">
+                                                <i class="bi bi-arrow-counterclockwise"></i> Rembourser
+                                            </summary>
+                                            <div style="margin-top:0.5rem;min-width:260px;padding:0.6rem;background:var(--bg-secondary,#f8f9fa);border:1px solid var(--border-color);border-radius:4px;">
+                                                <p class="text-small" style="margin:0 0 0.4rem;">
+                                                    Remboursable&nbsp;: <strong><?= number_format($refundable, 2, ',', ' ') ?> <?= $currency ?></strong>
+                                                </p>
+                                                <form method="POST" action="/moderation/pos-payments/<?= $pid ?>/refund"
+                                                      onsubmit="return confirm('Confirmer le remboursement ?');">
+                                                    <?= csrf_field() ?>
+                                                    <div style="display:flex;gap:0.4rem;flex-direction:column;">
+                                                        <input type="number" name="refund_amount"
+                                                               class="form-control form-control-sm"
+                                                               min="0.01" max="<?= $refundable ?>"
+                                                               step="0.01"
+                                                               placeholder="Montant (max <?= number_format($refundable, 2, ',', ' ') ?> <?= $currency ?>)"
+                                                               required>
+                                                        <input type="text" name="reason"
+                                                               class="form-control form-control-sm"
+                                                               placeholder="Motif (facultatif)" maxlength="255">
+                                                        <button type="submit" class="btn btn-sm btn-warning" style="color:#000;">
+                                                            <i class="bi bi-check-lg"></i> Valider
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </details>
+                                    <?php endif; ?>
+
+                                    <!-- Annulation complète -->
                                     <details style="display:inline-block;text-align:left;">
                                         <summary class="btn btn-sm btn-danger" style="cursor:pointer;">
                                             <i class="bi bi-x-circle"></i> Annuler
                                         </summary>
-                                        <form method="POST" action="/moderation/pos-payments/<?= (int) $p['id'] ?>/cancel"
+                                        <form method="POST" action="/moderation/pos-payments/<?= $pid ?>/cancel"
                                               style="display:flex;gap:0.4rem;align-items:center;margin-top:0.5rem;"
                                               onsubmit="return confirm('Annuler définitivement ce paiement TPE ?');">
                                             <?= csrf_field() ?>
@@ -375,6 +427,8 @@ $f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? 
                                             </button>
                                         </form>
                                     </details>
+
+                                    </div>
                                 <?php elseif ($cancelled): ?>
                                     <span class="text-muted text-small" title="<?= e((string) ($p['cancel_reason'] ?? '')) ?>">
                                         <?= date('d/m/Y H:i', strtotime($p['cancelled_at'])) ?>

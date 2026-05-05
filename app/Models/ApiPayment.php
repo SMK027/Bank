@@ -168,4 +168,86 @@ class ApiPayment extends Model
             'cancel_reason' => mb_substr($reason, 0, 255),
         ]);
     }
+
+    // ─── Remboursements partiels ──────────────────────────────
+
+    /**
+     * Retourne la somme déjà remboursée pour un paiement.
+     */
+    public function getTotalRefunded(int $paymentId): float
+    {
+        $stmt = $this->getPdo()->prepare(
+            'SELECT COALESCE(SUM(amount), 0) FROM api_payment_refunds WHERE payment_id = ?'
+        );
+        $stmt->execute([$paymentId]);
+        return (float) $stmt->fetchColumn();
+    }
+
+    /**
+     * Retourne [payment_id => total_refunded] pour une liste de paiement_ids.
+     * Évite N+1 requêtes dans moderationIndex().
+     */
+    public function getRefundsMap(array $paymentIds): array
+    {
+        if (empty($paymentIds)) {
+            return [];
+        }
+        $ph   = implode(',', array_fill(0, count($paymentIds), '?'));
+        $stmt = $this->getPdo()->prepare(
+            "SELECT payment_id, COALESCE(SUM(amount), 0) AS total
+               FROM api_payment_refunds
+              WHERE payment_id IN ($ph)
+              GROUP BY payment_id"
+        );
+        $stmt->execute(array_values($paymentIds));
+        $map = [];
+        foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+            $map[(int) $row['payment_id']] = (float) $row['total'];
+        }
+        return $map;
+    }
+
+    /**
+     * Retourne les remboursements d'un paiement, triés du plus récent au plus ancien.
+     */
+    public function getRefundsForPayment(int $paymentId): array
+    {
+        $stmt = $this->getPdo()->prepare(
+            'SELECT r.*, u.username AS refunded_by_name
+               FROM api_payment_refunds r
+               LEFT JOIN users u ON u.id = r.refunded_by
+              WHERE r.payment_id = ?
+              ORDER BY r.refunded_at DESC'
+        );
+        $stmt->execute([$paymentId]);
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Enregistre un remboursement partiel et retourne son id.
+     */
+    public function addRefund(
+        int     $paymentId,
+        float   $amount,
+        int     $moderatorId,
+        string  $reason,
+        ?int    $customerTxId,
+        ?int    $merchantTxId
+    ): int {
+        $pdo  = $this->getPdo();
+        $stmt = $pdo->prepare(
+            'INSERT INTO api_payment_refunds
+               (payment_id, amount, reason, refunded_by, refunded_at, customer_tx_id, merchant_tx_id)
+             VALUES (?, ?, ?, ?, NOW(), ?, ?)'
+        );
+        $stmt->execute([
+            $paymentId,
+            $amount,
+            mb_substr($reason, 0, 255),
+            $moderatorId,
+            $customerTxId,
+            $merchantTxId,
+        ]);
+        return (int) $pdo->lastInsertId();
+    }
 }

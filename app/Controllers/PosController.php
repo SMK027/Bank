@@ -703,6 +703,10 @@ class PosController extends Controller
             }
         }
 
+        // Montants déjà remboursés par paiement (évite N+1)
+        $paymentIds = array_map('intval', array_column($payments, 'id'));
+        $refundsMap = $this->paymentModel->getRefundsMap($paymentIds);
+
         $this->render('moderation/pos_payments', [
             'title'             => 'Paiements TPE',
             'payments'          => $payments,
@@ -711,6 +715,7 @@ class PosController extends Controller
             'hasFilters'        => $hasFilters,
             'posStatus'         => PosStatus::current(),
             'suspendedAccounts' => $this->accountModel->getPosSuspendedAccounts(),
+            'refundsMap'        => $refundsMap,
         ]);
     }
 
@@ -1009,6 +1014,163 @@ class PosController extends Controller
         }
 
         $this->setFlash('success', sprintf('Paiement TPE #%d annulé.', $paymentId));
+        $this->redirect('/moderation/pos-payments');
+    }
+
+    /**
+     * Effectue un remboursement partiel (ou total) d'un paiement TPE.
+     *
+     * - Crédite le compte client du montant demandé.
+     * - Débite le compte commerçant du même montant (si un crédit existait).
+     * - Enregistre un ligne dans api_payment_refunds.
+     * - Le cumul des remboursements ne peut pas dépasser le montant original.
+     * - Impossible si le paiement est annulé, échoué ou encore en débit différé
+     *   en attente (utiliser l'annulation complète dans ce cas).
+     */
+    public function moderationRefund(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $paymentId = (int) $id;
+        $payment   = $this->paymentModel->find($paymentId);
+
+        if (!$payment || ($payment['status'] ?? '') !== ApiPayment::STATUS_SUCCESS) {
+            $this->setFlash('danger', 'Paiement introuvable ou non valide.');
+            $this->redirect('/moderation/pos-payments');
+            return;
+        }
+        if ($this->paymentModel->isCancelled($payment)) {
+            $this->setFlash('danger', 'Ce paiement a déjà été annulé ; le remboursement partiel n\'est pas applicable.');
+            $this->redirect('/moderation/pos-payments');
+            return;
+        }
+
+        // Débit différé encore en attente → impossible de rembourser partiellement
+        $deferredId = (int) ($payment['deferred_debit_id'] ?? 0);
+        if ($deferredId > 0) {
+            $dd = $this->deferredDebitModel->find($deferredId);
+            if ($dd && ($dd['status'] ?? '') === DeferredDebit::STATUS_PENDING) {
+                $this->setFlash('danger', 'Impossible de rembourser partiellement un débit différé en attente. Utilisez l\'annulation complète.');
+                $this->redirect('/moderation/pos-payments');
+                return;
+            }
+        }
+
+        $rawAmount    = str_replace(',', '.', (string) ($_POST['refund_amount'] ?? ''));
+        $refundAmount = round((float) $rawAmount, 2);
+        $reason       = mb_substr(trim((string) ($_POST['reason'] ?? '')), 0, 255);
+
+        if ($refundAmount <= 0) {
+            $this->setFlash('danger', 'Le montant du remboursement doit être positif.');
+            $this->redirect('/moderation/pos-payments');
+            return;
+        }
+
+        $originalAmount  = (float) $payment['amount'];
+        $alreadyRefunded = $this->paymentModel->getTotalRefunded($paymentId);
+        $refundable      = round($originalAmount - $alreadyRefunded, 2);
+        $currency        = (string) ($payment['currency'] ?? 'EUR');
+
+        if ($refundAmount > $refundable + 0.001) {
+            $this->setFlash('danger', sprintf(
+                'Le montant dépasse le plafond remboursable (%.2f %s).',
+                $refundable,
+                $currency
+            ));
+            $this->redirect('/moderation/pos-payments');
+            return;
+        }
+
+        $moderatorId       = $this->getCurrentUserId();
+        $motif             = sprintf('[TPE] Remboursement partiel paiement #%d', $paymentId);
+        $customerAccountId = (int) ($payment['account_id'] ?? 0);
+
+        // 1) Crédit côté client
+        $customerTxId = null;
+        if ($customerAccountId > 0) {
+            $customerTxId = $this->transactionModel->addTransaction(
+                $customerAccountId,
+                'income',
+                $refundAmount,
+                'Achats',
+                $motif,
+                0
+            );
+        }
+
+        // 2) Débit côté commerçant
+        $merchantTxId = null;
+        $creditTxId   = (int) ($payment['credit_transaction_id'] ?? 0);
+        if ($creditTxId > 0) {
+            $creditTx = $this->transactionModel->find($creditTxId);
+            if ($creditTx) {
+                $merchantTxId = $this->transactionModel->addTransaction(
+                    (int) $creditTx['account_id'],
+                    'expense',
+                    $refundAmount,
+                    'Encaissement',
+                    $motif,
+                    0
+                );
+            }
+        }
+
+        // 3) Enregistrement du remboursement
+        $this->paymentModel->addRefund(
+            $paymentId,
+            $refundAmount,
+            $moderatorId,
+            $reason,
+            $customerTxId,
+            $merchantTxId
+        );
+
+        // 4) Audit
+        AuditLog::log(
+            $moderatorId,
+            AuditLog::ACTION_POS_REFUND,
+            [
+                'payment_id'     => $paymentId,
+                'amount'         => $refundAmount,
+                'currency'       => $currency,
+                'reason'         => $reason,
+                'customer_tx'    => $customerTxId,
+                'merchant_tx'    => $merchantTxId,
+                'total_refunded' => round($alreadyRefunded + $refundAmount, 2),
+                'original'       => $originalAmount,
+            ],
+            targetAccountId: $customerAccountId ?: null
+        );
+
+        // 5) Notification client
+        try {
+            $customerAccount = $customerAccountId ? $this->accountModel->find($customerAccountId) : null;
+            if ($customerAccount) {
+                $notif = new Notification();
+                $notif->notify(
+                    (int) $customerAccount['user_id'],
+                    'card',
+                    'Remboursement TPE',
+                    sprintf(
+                        'Un remboursement de %.2f %s a été effectué par la modération%s.',
+                        $refundAmount,
+                        $currency,
+                        $reason !== '' ? ' (motif : ' . $reason . ')' : ''
+                    ),
+                    '/accounts/' . $customerAccountId
+                );
+            }
+        } catch (\Throwable) {
+            // best-effort
+        }
+
+        $this->setFlash('success', sprintf(
+            'Remboursement de %.2f %s effectué pour le paiement TPE #%d.',
+            $refundAmount,
+            $currency,
+            $paymentId
+        ));
         $this->redirect('/moderation/pos-payments');
     }
 }
