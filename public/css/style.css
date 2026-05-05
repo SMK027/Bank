@@ -2567,3 +2567,223 @@ select.form-control {
         grid-template-columns: 1fr;
     }
 }
+
+/* ===========================================================
+   AMÉLIORATIONS MOBILE GLOBALES
+   ===========================================================
+   Règles transverses pour tous les écrans, complétant les
+   blocs @media existants. Ne casse aucun comportement desktop.
+   =========================================================== */
+
+/* Empêche les débordements horizontaux dus aux contenus longs
+   (numéros de carte, longs commentaires, code). */
+html, body {
+    overflow-x: hidden;
+}
+
+img,
+svg,
+video,
+iframe {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Codes / numéros longs : autorise le retour à la ligne. */
+code,
+pre,
+.text-mono {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+/* Toutes les tables larges sont scrollables horizontalement
+   (au lieu de pousser toute la page). */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Boutons de la barre de navigation : zone tactile minimale. */
+.btn,
+.navbar-link,
+.navbar-icon-link {
+    touch-action: manipulation;
+}
+
+/* ----- ≤ 768 px -------------------------------------------- */
+@media (max-width: 768px) {
+    /* Page-header : icône + titre toujours wrap proprement,
+       y compris quand la vue applique un style inline. */
+    .page-header[style*="display"] {
+        flex-wrap: wrap !important;
+        gap: 0.5rem !important;
+    }
+
+    .page-header h1 {
+        font-size: 1.4rem;
+        word-break: break-word;
+    }
+
+    /* Cards & alerts : padding plus compact + meilleur retour à la ligne. */
+    .card-body {
+        padding: 0.85rem;
+    }
+
+    .alert {
+        padding: 0.7rem 0.85rem;
+    }
+
+    .alert [style*="grid-template-columns"] {
+        grid-template-columns: 1fr !important;
+        gap: 0.15rem 0.5rem !important;
+    }
+
+    /* Boutons : ne pas dépasser de la fenêtre. */
+    .btn {
+        max-width: 100%;
+        white-space: normal;
+    }
+
+    .btn-group .btn {
+        flex: 1 1 auto;
+    }
+
+    /* Formulaires : champs et selects plein écran, taille de police
+       suffisante pour empêcher le zoom auto sur iOS (≥ 16 px). */
+    .form-control,
+    select.form-control,
+    textarea.form-control {
+        width: 100%;
+        font-size: 16px;
+    }
+
+    /* Boutons d'action en ligne dans les tables (cards, TPE, API…). */
+    details summary.btn,
+    details summary.btn-sm {
+        white-space: nowrap;
+    }
+
+    details > form {
+        flex-wrap: wrap !important;
+        gap: 0.4rem !important;
+    }
+
+    details > form > .form-control {
+        flex: 1 1 100%;
+    }
+
+    /* Reçu TPE / numéro de carte révélé : grille 1 colonne,
+       et les <code> volumineux passent à la ligne. */
+    .alert code {
+        display: inline-block;
+        max-width: 100%;
+        word-break: break-all;
+        white-space: normal;
+        line-height: 1.3;
+    }
+
+    /* Tables sans wrapper .table-responsive : ajoute le scroll. */
+    .card-body > .table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+    }
+
+    .card-body > .table thead,
+    .card-body > .table tbody,
+    .card-body > .table tr {
+        white-space: normal;
+    }
+
+    /* Modals / dialogs : marges minimales pour le viewport. */
+    .modal,
+    .dialog {
+        width: calc(100vw - 1rem);
+        max-width: calc(100vw - 1rem);
+    }
+
+    /* Stat-cards : éviter que les icônes flottantes débordent. */
+    .stat-card {
+        min-width: 0;
+    }
+
+    .stat-card .stat-value,
+    .stat-card .stat-label {
+        word-break: break-word;
+    }
+}
+
+/* ----- ≤ 480 px (téléphones étroits) ----------------------- */
+@media (max-width: 480px) {
+    html {
+        font-size: 14.5px;
+    }
+
+    .navbar-brand {
+        font-size: 1.05rem;
+    }
+
+    /* En-têtes de cartes/sections : compacts. */
+    .card-header {
+        padding: 0.75rem;
+    }
+
+    /* Boutons groupés (.btn + .btn) : empilage vertical quand
+       la barre d'actions est trop large. */
+    .actions-stack-mobile {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .actions-stack-mobile > .btn {
+        width: 100%;
+    }
+
+    /* Tables génériques : version super-compacte. */
+    .table th,
+    .table td {
+        padding: 0.45rem 0.55rem;
+        font-size: 0.82rem;
+    }
+
+    /* Badges plus petits. */
+    .badge {
+        font-size: 0.72rem;
+        padding: 0.2em 0.45em;
+    }
+
+    /* Forms : labels au-dessus, marges réduites. */
+    .form-group {
+        margin-bottom: 0.85rem;
+    }
+
+    /* Alertes : icône seule + texte sans flex inline. */
+    .alert[role="alert"] {
+        flex-direction: column;
+        gap: 0.35rem !important;
+        align-items: flex-start !important;
+    }
+}
+
+/* ----- ≤ 360 px (très petits écrans) ----------------------- */
+@media (max-width: 360px) {
+    html {
+        font-size: 14px;
+    }
+
+    .navbar-brand {
+        font-size: 0.95rem;
+    }
+
+    .btn-sm,
+    .btn-xs {
+        padding: 0.25rem 0.45rem;
+        font-size: 0.78rem;
+    }
+
+    h1 { font-size: 1.25rem !important; }
+    h2 { font-size: 1.1rem !important; }
+}
