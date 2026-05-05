@@ -123,6 +123,41 @@ function current_global_role(): string
 }
 
 /**
+ * Formate un montant avec notation compacte pour les grandes valeurs.
+ *
+ * - En dessous de 1 000 000 : formatage standard (1 234,56)
+ * - Au-delà : notation compacte avec suffixe (M / Md / Bn / Bd …)
+ *   La valeur exacte est toujours accessible via l'attribut title du <abbr>.
+ *
+ * @param float  $amount   Montant brut
+ * @param int    $decimals Décimales pour la partie compacte (défaut : 2)
+ * @return string          Chaîne HTML (avec <abbr> si compaction active)
+ */
+function fmt_amount_smart(float $amount, int $decimals = 2): string
+{
+    $exact = number_format($amount, $decimals, ',', ' ');
+    $abs   = abs($amount);
+
+    if ($abs >= 1_000_000_000_000_000_000) {
+        $compact = number_format($amount / 1_000_000_000_000_000_000, $decimals, ',', ' ') . '&nbsp;Tn';
+    } elseif ($abs >= 1_000_000_000_000_000) {
+        $compact = number_format($amount / 1_000_000_000_000_000, $decimals, ',', ' ') . '&nbsp;Bd';
+    } elseif ($abs >= 1_000_000_000_000) {
+        $compact = number_format($amount / 1_000_000_000_000, $decimals, ',', ' ') . '&nbsp;Bn';
+    } elseif ($abs >= 1_000_000_000) {
+        $compact = number_format($amount / 1_000_000_000, $decimals, ',', ' ') . '&nbsp;Md';
+    } elseif ($abs >= 1_000_000) {
+        $compact = number_format($amount / 1_000_000, $decimals, ',', ' ') . '&nbsp;M';
+    } else {
+        return $exact;
+    }
+
+    return '<abbr title="' . htmlspecialchars($exact, ENT_QUOTES, 'UTF-8') . '" style="text-decoration:underline dotted;cursor:help;">'
+        . $compact
+        . '</abbr>';
+}
+
+/**
  * Formate une date pour l'affichage.
  */
 function format_date(?string $date, string $format = 'd/m/Y H:i'): string

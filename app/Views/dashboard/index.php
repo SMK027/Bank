@@ -12,7 +12,7 @@
 <div class="stats-grid">
     <div class="stat-card">
         <div class="stat-value <?= $totalBalance >= 0 ? 'text-success' : 'text-danger' ?>">
-            <?= number_format($totalBalance, 2, ',', ' ') ?> €
+            <?= fmt_amount_smart($totalBalance) ?> €
         </div>
         <div class="stat-label">Solde total (comptes personnels)</div>
     </div>
@@ -66,7 +66,7 @@
                             </div>
                         </div>
                         <div class="account-balance <?= $account['balance'] >= 0 ? 'balance-positive' : 'balance-negative' ?>">
-                            <?= number_format($account['balance'], 2, ',', ' ') ?> <?= e($account['currency']) ?>
+                            <?= fmt_amount_smart($account['balance']) ?> <?= e($account['currency']) ?>
                         </div>
                         <?php
                             $_od  = (float) $account['overdraft'];
@@ -87,12 +87,12 @@
                         <?php endif; ?>
                         <?php if ((float) $account['overdraft'] > 0 && $account['balance'] >= 0): ?>
                             <div class="text-small text-muted mt-1">
-                                <i class="bi bi-shield-check"></i> Découvert autorisé : <?= number_format((float) $account['overdraft'], 2, ',', ' ') ?> <?= e($account['currency']) ?>
+                                <i class="bi bi-shield-check"></i> Découvert autorisé : <?= fmt_amount_smart((float) $account['overdraft']) ?> <?= e($account['currency']) ?>
                             </div>
                         <?php endif; ?>
                         <?php if (abs(($account['future_balance'] ?? $account['balance']) - $account['balance']) > 0.001): ?>
                         <div class="text-small mt-1" style="color:var(--warning,#f59e0b);">
-                            <i class="bi bi-clock"></i> À venir&nbsp;: <strong><?= number_format($account['future_balance'], 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>
+                            <i class="bi bi-clock"></i> À venir&nbsp;: <strong><?= fmt_amount_smart($account['future_balance']) ?> <?= e($account['currency']) ?></strong>
                         </div>
                         <?php endif; ?>
                     </div>
@@ -134,11 +134,11 @@
                             </div>
                         </div>
                         <div class="account-balance <?= $account['balance'] >= 0 ? 'balance-positive' : 'balance-negative' ?>">
-                            <?= number_format($account['balance'], 2, ',', ' ') ?> <?= e($account['currency']) ?>
+                            <?= fmt_amount_smart($account['balance']) ?> <?= e($account['currency']) ?>
                         </div>
                         <?php if (abs(($account['future_balance'] ?? $account['balance']) - $account['balance']) > 0.001): ?>
                         <div class="text-small mt-1" style="color:var(--warning,#f59e0b);">
-                            <i class="bi bi-clock"></i> À venir&nbsp;: <strong><?= number_format($account['future_balance'], 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>
+                            <i class="bi bi-clock"></i> À venir&nbsp;: <strong><?= fmt_amount_smart($account['future_balance']) ?> <?= e($account['currency']) ?></strong>
                         </div>
                         <?php endif; ?>
                     </div>
@@ -186,11 +186,11 @@
                         </div>
                         <?php endif; ?>
                         <div class="account-balance <?= $account['balance'] >= 0 ? 'balance-positive' : 'balance-negative' ?>">
-                            <?= number_format($account['balance'], 2, ',', ' ') ?> <?= e($account['currency']) ?>
+                            <?= fmt_amount_smart($account['balance']) ?> <?= e($account['currency']) ?>
                         </div>
                         <?php if (abs(($account['future_balance'] ?? $account['balance']) - $account['balance']) > 0.001): ?>
                         <div class="text-small mt-1" style="color:var(--warning,#f59e0b);">
-                            <i class="bi bi-clock"></i> À venir&nbsp;: <strong><?= number_format($account['future_balance'], 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>
+                            <i class="bi bi-clock"></i> À venir&nbsp;: <strong><?= fmt_amount_smart($account['future_balance']) ?> <?= e($account['currency']) ?></strong>
                         </div>
                         <?php endif; ?>
                         <?php if (!empty($account['_access_expires'])): ?>

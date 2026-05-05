@@ -17,23 +17,44 @@
             <tbody>
                 <tr>
                     <td class="text-muted">Solde actuel du compte</td>
-                    <td><strong><?= number_format($balance, 2, ',', ' ') ?> <?= e($account['currency']) ?></strong></td>
+                    <td>
+                        <strong><?= fmt_amount_smart($balance) ?> <?= e($account['currency']) ?></strong>
+                        <?php if (abs($balance) >= 1_000_000): ?>
+                            <br><small class="text-muted" style="font-size:0.75em;"><?= number_format($balance, 2, ',', ' ') ?> <?= e($account['currency']) ?></small>
+                        <?php endif; ?>
+                    </td>
                 </tr>
                 <tr>
                     <td class="text-muted">Taux annuel appliqué</td>
-                    <td><?= number_format((float) $interest['rate'] * 100, 2, ',', ' ') ?> %</td>
+                    <?php $ratePct = (float) $interest['rate'] * 100; ?>
+                    <td>
+                        <?= number_format($ratePct, 2, ',', ' ') ?>&nbsp;%
+                        <?php if ($ratePct >= 1_000_000): ?>
+                            <br><small class="text-muted" style="font-size:0.75em;"><?= fmt_amount_smart($ratePct) ?>&nbsp;%</small>
+                        <?php endif; ?>
+                    </td>
                 </tr>
                 <tr>
                     <td class="text-muted">Intérêts calculés (prorata <?= (int) $interest['year'] ?>)</td>
+                    <?php $calcAmt = (float) $interest['calculated_amount']; ?>
                     <td>
                         <strong class="text-success">
-                            <?= number_format((float) $interest['calculated_amount'], 2, ',', ' ') ?> <?= e($account['currency']) ?>
+                            <?= fmt_amount_smart($calcAmt) ?> <?= e($account['currency']) ?>
                         </strong>
+                        <?php if ($calcAmt >= 1_000_000): ?>
+                            <br><small class="text-muted" style="font-size:0.75em;"><?= number_format($calcAmt, 2, ',', ' ') ?> <?= e($account['currency']) ?></small>
+                        <?php endif; ?>
                     </td>
                 </tr>
                 <tr>
                     <td class="text-muted">Maximum théorique autorisé</td>
-                    <td><?= number_format((float) $interest['max_amount'], 2, ',', ' ') ?> <?= e($account['currency']) ?></td>
+                    <?php $maxAmt = (float) $interest['max_amount']; ?>
+                    <td>
+                        <?= fmt_amount_smart($maxAmt) ?> <?= e($account['currency']) ?>
+                        <?php if ($maxAmt >= 1_000_000): ?>
+                            <br><small class="text-muted" style="font-size:0.75em;"><?= number_format($maxAmt, 2, ',', ' ') ?> <?= e($account['currency']) ?></small>
+                        <?php endif; ?>
+                    </td>
                 </tr>
             </tbody>
         </table>
@@ -44,7 +65,7 @@
 
             <p style="font-size:1.05rem;margin-bottom:1rem;">
                 Le montant calculé
-                (<strong><?= number_format((float) $interest['calculated_amount'], 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>)
+                (<strong><?= fmt_amount_smart($calcAmt) ?> <?= e($account['currency']) ?></strong>)
                 vous convient-il ?
             </p>
 
@@ -68,7 +89,10 @@
                            placeholder="<?= htmlspecialchars(number_format((float) $interest['calculated_amount'], 2, '.', ''), ENT_QUOTES) ?>">
                     <span class="form-hint">
                         Maximum autorisé :
-                        <strong><?= number_format((float) $interest['max_amount'], 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>
+                        <strong><?= fmt_amount_smart((float) $interest['max_amount']) ?> <?= e($account['currency']) ?></strong>
+                        <?php if ((float) $interest['max_amount'] >= 1_000_000): ?>
+                            <br><?= number_format((float) $interest['max_amount'], 2, ',', ' ') ?> <?= e($account['currency']) ?>
+                        <?php endif; ?>
                     </span>
                 </div>
                 <button type="submit" class="btn btn-primary btn-block">
