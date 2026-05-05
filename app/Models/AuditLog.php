@@ -114,6 +114,8 @@ class AuditLog extends Model
     public const ACTION_CARD_CREATE         = 'card.create';
     public const ACTION_CARD_UPDATE_ACCOUNT = 'card.update_account';
     public const ACTION_CARD_DELETE         = 'card.delete';
+    public const ACTION_CARD_REVEAL         = 'card.reveal';
+    public const ACTION_CARD_REVEAL_FAIL    = 'card.reveal_fail';
     public const ACTION_API_CLIENT_CREATE   = 'api_client.create';
     public const ACTION_API_CLIENT_REVOKE   = 'api_client.revoke';
     public const ACTION_API_PAYMENT_DEBIT   = 'api_payment.debit';
@@ -172,6 +174,8 @@ class AuditLog extends Model
         'card.create'              => 'Carte bancaire enregistrée',
         'card.update_account'      => 'Compte associé à la carte modifié',
         'card.delete'              => 'Carte bancaire supprimée',
+        'card.reveal'              => 'Numéro de carte révélé',
+        'card.reveal_fail'         => 'Tentative de révélation échouée (mot de passe)',
         'api_client.create'        => 'Client API créé',
         'api_client.revoke'        => 'Client API révoqué',
         'api_payment.debit'        => 'Paiement API : débit',

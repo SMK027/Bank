@@ -223,4 +223,68 @@ class CardController extends Controller
         $this->setFlash('success', 'Carte bancaire supprimée.');
         $this->redirect('/cards');
     }
+
+    /** Affiche le formulaire de confirmation par mot de passe pour révéler le numéro. */
+    public function revealForm(string $id): void
+    {
+        $this->requireAuth();
+        $userId = $this->getCurrentUserId();
+
+        $id = (int) $id;
+        $card = $this->cardModel->find($id);
+        if (!$card || (int) $card['user_id'] !== $userId) {
+            $this->setFlash('danger', 'Carte introuvable.');
+            $this->redirect('/cards');
+            return;
+        }
+
+        $this->render('cards/reveal', [
+            'title' => 'Afficher le numéro de carte',
+            'card'  => $card,
+            'pan'   => null,
+        ]);
+    }
+
+    /** Vérifie le mot de passe et affiche le numéro complet de la carte. */
+    public function reveal(string $id): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+        $userId = $this->getCurrentUserId();
+
+        $id = (int) $id;
+        $card = $this->cardModel->find($id);
+        if (!$card || (int) $card['user_id'] !== $userId) {
+            $this->setFlash('danger', 'Carte introuvable.');
+            $this->redirect('/cards');
+            return;
+        }
+
+        $password = (string) ($_POST['password'] ?? '');
+        $user = $this->userModel->find($userId);
+        if (!$user || !password_verify($password, $user['password'])) {
+            AuditLog::log($userId, AuditLog::ACTION_CARD_REVEAL_FAIL, [
+                'card_id' => $id,
+                'last4'   => $card['last4'] ?? '',
+            ]);
+            $this->render('cards/reveal', [
+                'title' => 'Afficher le numéro de carte',
+                'card'  => $card,
+                'pan'   => null,
+                'error' => 'Mot de passe incorrect.',
+            ]);
+            return;
+        }
+
+        AuditLog::log($userId, AuditLog::ACTION_CARD_REVEAL, [
+            'card_id' => $id,
+            'last4'   => $card['last4'] ?? '',
+        ]);
+
+        $this->render('cards/reveal', [
+            'title' => 'Afficher le numéro de carte',
+            'card'  => $card,
+            'pan'   => $card['card_number'],
+        ]);
+    }
 }

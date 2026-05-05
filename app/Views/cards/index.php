@@ -25,7 +25,7 @@ unset($_SESSION['card_just_created']);
             </code>
         </div>
         <p class="text-muted text-small" style="margin-top:0.4rem;margin-bottom:0;">
-            Conservez ce numéro pour le communiquer aux plateformes tierces. Il ne sera plus jamais affiché en clair.
+            Conservez ce numéro pour le communiquer aux plateformes tierces. Vous pourrez le reconsulter plus tard depuis cette page en saisissant votre mot de passe.
         </p>
     </div>
 </div>
@@ -79,6 +79,9 @@ unset($_SESSION['card_just_created']);
                             </td>
                             <td><?= date('d/m/Y', strtotime($card['created_at'])) ?></td>
                             <td style="text-align:right;">
+                                <a href="/cards/<?= (int) $card['id'] ?>/reveal" class="btn btn-sm btn-secondary" title="Afficher le numéro complet">
+                                    <i class="bi bi-eye"></i> Afficher
+                                </a>
                                 <details style="display:inline-block;text-align:left;">
                                     <summary class="btn btn-sm btn-secondary" style="cursor:pointer;">
                                         <i class="bi bi-pencil"></i> Changer de compte

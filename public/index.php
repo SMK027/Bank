@@ -242,6 +242,8 @@ $router->get('/cards/create', CardController::class, 'createForm');
 $router->post('/cards', CardController::class, 'create');
 $router->post('/cards/{id}/account', CardController::class, 'updateAccount');
 $router->post('/cards/{id}/delete', CardController::class, 'delete');
+$router->get('/cards/{id}/reveal', CardController::class, 'revealForm');
+$router->post('/cards/{id}/reveal', CardController::class, 'reveal');
 
 // --- Clients API (modération) ---
 $router->get('/moderation/api-clients', ApiClientController::class, 'index');
