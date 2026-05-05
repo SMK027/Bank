@@ -120,7 +120,7 @@ $posStatus = $posStatus ?? null;
     </div>
 <?php endif; ?>
 
-    <div class="card" id="pos-form-card" style="max-width:680px;">
+    <div class="card" id="pos-form-card" style="max-width:680px;transition:border-color 0.3s;">
         <div class="card-body">
             <p class="text-muted" style="margin-top:0;">
                 Saisissez les informations de la transaction. La carte du client sera
@@ -147,6 +147,7 @@ $posStatus = $posStatus ?? null;
                     <small id="card-status-msg" class="text-muted">
                         16 chiffres. Espaces et tirets autorisés.
                     </small>
+                    <small id="card-status-detail" style="display:none;font-weight:600;font-size:0.82rem;"></small>
                 </div>
 
                 <div class="form-group">
@@ -214,10 +215,14 @@ $posStatus = $posStatus ?? null;
 (function () {
     'use strict';
 
+    /* ── Références DOM ──────────────────────────────── */
     var cardInput   = document.getElementById('card_number');
+    var amountInput = document.getElementById('amount');
     var statusIcon  = document.getElementById('card-status-icon');
     var statusMsg   = document.getElementById('card-status-msg');
+    var statusDetail= document.getElementById('card-status-detail');
     var form        = document.getElementById('pos-form');
+    var formCard    = document.getElementById('pos-form-card');
     var submitBtn   = document.getElementById('pos-submit-btn');
     var submitStat  = document.getElementById('pos-submit-status');
     var receiptBox  = document.getElementById('pos-receipt-live');
@@ -225,84 +230,132 @@ $posStatus = $posStatus ?? null;
 
     if (!cardInput || !form) return;
 
+    /* ── Animations CSS ──────────────────────────────── */
+    var style = document.createElement('style');
+    style.textContent = [
+        '@keyframes pos-shake{0%,100%{transform:translateX(0)}',
+        '15%{transform:translateX(-8px)}30%{transform:translateX(8px)}',
+        '45%{transform:translateX(-6px)}60%{transform:translateX(6px)}',
+        '75%{transform:translateX(-4px)}90%{transform:translateX(2px)}}',
+
+        '@keyframes pos-success-glow{0%{box-shadow:0 0 0 0 rgba(34,197,94,0.6)}',
+        '50%{box-shadow:0 0 0 14px rgba(34,197,94,0)}',
+        '100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}',
+
+        '@keyframes pos-error-flash{0%,100%{border-color:var(--border-color,#d1d5db)}',
+        '25%,75%{border-color:#ef4444;background:rgba(239,68,68,0.04)}}',
+
+        '@keyframes pos-receipt-in{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:translateY(0)}}',
+
+        '.pos-shake{animation:pos-shake 0.55s ease both}',
+        '.pos-success-glow{animation:pos-success-glow 0.7s ease-out}',
+        '.pos-error-flash{animation:pos-error-flash 0.6s ease both}',
+        '.pos-receipt-in{animation:pos-receipt-in 0.35s ease both}',
+    ].join('');
+    document.head.appendChild(style);
+
+    function triggerAnimation(el, cls) {
+        if (!el) return;
+        el.classList.remove(cls);
+        void el.offsetWidth; // reflow
+        el.classList.add(cls);
+        el.addEventListener('animationend', function h() {
+            el.classList.remove(cls);
+            el.removeEventListener('animationend', h);
+        });
+    }
+
+    /* ── Vérification carte ──────────────────────────── */
     var verifyTimer = null;
     var verifyAbort = null;
-    var lastCardOk  = null;
+    var lastState   = null;
 
-    function setCardStatus(state, text) {
+    /* Icône + message + détail selon l'état */
+    var STATE_CONFIG = {
+        ok:                 { icon: 'check-circle-fill',       color: '#10b981', msgClass: 'text-success' },
+        checking:           { icon: 'hourglass-split',         color: '#6b7280', msgClass: 'text-muted'   },
+        invalid:            { icon: 'x-circle-fill',           color: '#ef4444', msgClass: 'text-danger'  },
+        unknown:            { icon: 'question-circle-fill',    color: '#ef4444', msgClass: 'text-danger'  },
+        blocked:            { icon: 'lock-fill',               color: '#f59e0b', msgClass: 'text-warning' },
+        disabled:           { icon: 'slash-circle-fill',       color: '#ef4444', msgClass: 'text-danger'  },
+        expired:            { icon: 'calendar-x-fill',         color: '#ef4444', msgClass: 'text-danger'  },
+        insufficient_funds: { icon: 'exclamation-triangle-fill', color: '#ef4444', msgClass: 'text-danger'},
+        limit_exceeded:     { icon: 'bar-chart-fill',          color: '#f59e0b', msgClass: 'text-warning' },
+        offline:            { icon: 'wifi-off',                color: '#6b7280', msgClass: 'text-muted'   },
+        idle:               { icon: null,                      color: null,      msgClass: 'text-muted'   },
+    };
+
+    function setCardStatus(state, text, detail) {
         if (!statusIcon || !statusMsg) return;
-        statusIcon.style.display = 'inline-block';
-        statusMsg.textContent = text || '';
-        statusMsg.classList.remove('text-muted', 'text-success', 'text-danger', 'text-warning');
+        lastState = state;
 
-        switch (state) {
-            case 'ok':
-                statusIcon.innerHTML = '<i class="bi bi-check-circle-fill" style="color:#10b981;"></i>';
-                statusMsg.classList.add('text-success');
-                break;
-            case 'checking':
-                statusIcon.innerHTML = '<i class="bi bi-hourglass-split" style="color:#6b7280;"></i>';
-                statusMsg.classList.add('text-muted');
-                break;
-            case 'invalid':
-            case 'unknown':
-            case 'unusable':
-                statusIcon.innerHTML = '<i class="bi bi-x-circle-fill" style="color:#ef4444;"></i>';
-                statusMsg.classList.add('text-danger');
-                break;
-            case 'blocked':
-                statusIcon.innerHTML = '<i class="bi bi-shield-exclamation" style="color:#f59e0b;"></i>';
-                statusMsg.classList.add('text-warning');
-                break;
-            case 'idle':
-            default:
-                statusIcon.style.display = 'none';
-                statusIcon.innerHTML = '';
-                statusMsg.classList.add('text-muted');
-                statusMsg.textContent = '16 chiffres. Espaces et tirets autorisés.';
-                break;
+        var cfg = STATE_CONFIG[state] || STATE_CONFIG.idle;
+
+        statusMsg.classList.remove('text-muted','text-success','text-danger','text-warning');
+
+        if (state === 'idle' || !cfg.icon) {
+            statusIcon.style.display = 'none';
+            statusIcon.innerHTML     = '';
+            statusMsg.classList.add('text-muted');
+            statusMsg.textContent    = '16 chiffres. Espaces et tirets autorisés.';
+            if (statusDetail) { statusDetail.style.display = 'none'; statusDetail.textContent = ''; }
+            return;
         }
+
+        statusIcon.style.display = 'inline-block';
+        statusIcon.innerHTML     = '<i class="bi bi-' + cfg.icon + '" style="color:' + cfg.color + ';"></i>';
+        statusMsg.classList.add(cfg.msgClass);
+        statusMsg.textContent    = text || '';
+
+        if (statusDetail) {
+            if (detail) {
+                statusDetail.style.display  = 'block';
+                statusDetail.textContent    = detail;
+                statusDetail.style.color    = cfg.color;
+            } else {
+                statusDetail.style.display  = 'none';
+                statusDetail.textContent    = '';
+            }
+        }
+    }
+
+    function getAmount() {
+        if (!amountInput) return null;
+        var v = amountInput.value.trim().replace(',', '.');
+        var n = parseFloat(v);
+        return isNaN(n) || n <= 0 ? null : n;
     }
 
     function verifyCard() {
         var raw = (cardInput.value || '').replace(/[\s-]/g, '');
-        lastCardOk = null;
+        lastState = null;
 
-        if (raw.length === 0) {
-            setCardStatus('idle');
-            return;
-        }
-        if (raw.length < 13) {
-            setCardStatus('checking', 'Saisie en cours…');
-            return;
-        }
+        if (raw.length === 0)  { setCardStatus('idle'); return; }
+        if (raw.length < 13)   { setCardStatus('checking', 'Saisie en cours\u2026'); return; }
 
         if (verifyAbort) verifyAbort.abort();
         verifyAbort = ('AbortController' in window) ? new AbortController() : null;
 
-        setCardStatus('checking', 'Vérification…');
+        setCardStatus('checking', 'V\u00e9rification\u2026');
 
-        fetch('/pos/verify-card?number=' + encodeURIComponent(raw), {
+        var url = '/pos/verify-card?number=' + encodeURIComponent(raw);
+        var amt = getAmount();
+        if (amt !== null) url += '&amount=' + encodeURIComponent(amt);
+
+        fetch(url, {
             credentials: 'same-origin',
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
             signal: verifyAbort ? verifyAbort.signal : undefined
         })
-            .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
-            .then(function (res) {
-                var b = res.body || {};
-                if (b.success) {
-                    lastCardOk = b;
-                    var label = 'Carte valide' + (b.masked ? ' (' + b.masked + ')' : '');
-                    if (b.currency) label += ' — devise ' + b.currency;
-                    setCardStatus('ok', label);
-                } else {
-                    setCardStatus(b.state || 'invalid', b.message || 'Carte invalide.');
-                }
-            })
-            .catch(function (e) {
-                if (e && e.name === 'AbortError') return;
-                setCardStatus('invalid', 'Erreur de vérification.');
-            });
+        .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, body: j }; }); })
+        .then(function(res) {
+            var b = res.body || {};
+            setCardStatus(b.state || 'invalid', b.message || 'Carte invalide.', b.detail || null);
+        })
+        .catch(function(e) {
+            if (e && e.name === 'AbortError') return;
+            setCardStatus('invalid', 'Erreur de v\u00e9rification.');
+        });
     }
 
     cardInput.addEventListener('input', function () {
@@ -310,8 +363,20 @@ $posStatus = $posStatus ?? null;
         verifyTimer = setTimeout(verifyCard, 350);
     });
 
+    /* Re-vérifier quand le montant change (pour solde/plafond en temps réel) */
+    if (amountInput) {
+        amountInput.addEventListener('input', function () {
+            var raw = (cardInput.value || '').replace(/[\s-]/g, '');
+            if (raw.length >= 13) {
+                if (verifyTimer) clearTimeout(verifyTimer);
+                verifyTimer = setTimeout(verifyCard, 400);
+            }
+        });
+    }
+
     if (cardInput.value) verifyCard();
 
+    /* ── Soumission AJAX ─────────────────────────────── */
     function setSubmitStatus(kind, html) {
         if (!submitStat) return;
         if (!kind) { submitStat.style.display = 'none'; submitStat.innerHTML = ''; return; }
@@ -327,7 +392,7 @@ $posStatus = $posStatus ?? null;
 
     function escHtml(s) {
         return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-            return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+            return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
         });
     }
 
@@ -337,63 +402,77 @@ $posStatus = $posStatus ?? null;
         return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + (c || '');
     }
 
-    function renderReceipt(rec) {
-        if (!receiptBox) return;
-        var deferred = rec.deferred
-            ? '<span class="badge bg-warning text-dark" style="margin-left:0.4rem;">Débit différé</span>' : '';
-        var account = rec.merchant_account
-            ? escHtml(rec.merchant_account)
-            : '<span class="text-muted"><em>Aucun (paiement enregistré sans crédit commerçant)</em></span>';
-        var deferredRow = (rec.deferred && rec.deferred_date)
-            ? '<span class="text-muted">Débit prévu le :</span><strong>' + escHtml(rec.deferred_date) + '</strong>'
-            : '';
+    /* Icône correspondant au motif de refus */
+    var REFUSE_ICONS = {
+        blocked:            '<i class="bi bi-lock-fill" style="color:#f59e0b;"></i>',
+        disabled:           '<i class="bi bi-slash-circle-fill" style="color:#ef4444;"></i>',
+        expired:            '<i class="bi bi-calendar-x-fill" style="color:#ef4444;"></i>',
+        insufficient_funds: '<i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;"></i>',
+        limit_exceeded:     '<i class="bi bi-bar-chart-fill" style="color:#f59e0b;"></i>',
+        unknown:            '<i class="bi bi-question-circle-fill" style="color:#ef4444;"></i>',
+        offline:            '<i class="bi bi-wifi-off" style="color:#6b7280;"></i>',
+    };
 
-        receiptBox.style.display = 'block';
-        receiptBox.className     = 'alert alert-success';
-        receiptBox.setAttribute('role', 'alert');
-        receiptBox.style.cssText = 'display:flex;align-items:flex-start;gap:0.75rem;';
-        receiptBox.innerHTML =
-            '<i class="bi bi-receipt" style="font-size:1.5rem;flex-shrink:0;"></i>' +
-            '<div style="flex:1;">' +
-                '<strong>Paiement accepté' + deferred + '</strong>' +
-                '<div style="margin-top:0.5rem;display:grid;grid-template-columns:max-content 1fr;gap:0.25rem 1rem;font-size:0.95rem;">' +
-                    '<span class="text-muted">Référence :</span><strong>' + escHtml(rec.reference) + '</strong>' +
-                    '<span class="text-muted">Date :</span><span>' + escHtml(rec.datetime) + '</span>' +
-                    '<span class="text-muted">Commerçant :</span><span>' + escHtml(rec.merchant) + '</span>' +
-                    '<span class="text-muted">Opération :</span><span>' + escHtml(rec.label) + '</span>' +
-                    '<span class="text-muted">Montant :</span><strong>' + fmtAmt(rec.amount, rec.currency) + '</strong>' +
-                    '<span class="text-muted">Carte :</span><code>' + escHtml(rec.card_masked) + '</code>' +
-                    '<span class="text-muted">Compte crédité :</span><span>' + account + '</span>' +
-                    deferredRow +
-                '</div>' +
-            '</div>';
-        try { receiptBox.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
-    }
-
-    function renderError(message, errors) {
+    function renderError(message, errors, state) {
         if (!errorBox) return;
+        var iconHtml = (state && REFUSE_ICONS[state]) ? REFUSE_ICONS[state] + ' ' : '<i class="bi bi-exclamation-triangle-fill"></i> ';
         var list = '';
-        if (Array.isArray(errors) && errors.length) {
-            list = '<ul style="margin:0.25rem 0 0 1.25rem;padding:0;">';
+        if (Array.isArray(errors) && errors.length > 1) {
+            list = '<ul style="margin:0.4rem 0 0 1.4rem;padding:0;">';
             for (var i = 0; i < errors.length; i++) list += '<li>' + escHtml(errors[i]) + '</li>';
             list += '</ul>';
         }
         errorBox.style.display = 'block';
-        errorBox.className     = 'alert alert-danger';
+        errorBox.className     = 'alert alert-danger pos-receipt-in';
         errorBox.setAttribute('role', 'alert');
-        errorBox.innerHTML     = '<i class="bi bi-exclamation-triangle-fill"></i> '
-                               + escHtml(message || 'Paiement refusé.') + list;
+        errorBox.innerHTML     = iconHtml + '<strong>' + escHtml(message || 'Paiement refus\u00e9.') + '</strong>' + list;
+        triggerAnimation(formCard, 'pos-shake');
+        triggerAnimation(formCard, 'pos-error-flash');
+    }
+
+    function renderReceipt(rec) {
+        if (!receiptBox) return;
+        var deferred = rec.deferred
+            ? '<span class="badge bg-warning text-dark" style="margin-left:0.4rem;">D\u00e9bit diff\u00e9r\u00e9</span>' : '';
+        var account = rec.merchant_account
+            ? escHtml(rec.merchant_account)
+            : '<span class="text-muted"><em>Aucun (paiement enregistr\u00e9 sans cr\u00e9dit commer\u00e7ant)</em></span>';
+        var deferredRow = (rec.deferred && rec.deferred_date)
+            ? '<span class="text-muted">D\u00e9bit pr\u00e9vu le :</span><strong>' + escHtml(rec.deferred_date) + '</strong>'
+            : '';
+
+        receiptBox.style.display = 'flex';
+        receiptBox.className     = 'alert alert-success pos-receipt-in';
+        receiptBox.setAttribute('role', 'alert');
+        receiptBox.style.cssText = 'display:flex;align-items:flex-start;gap:0.75rem;';
+        receiptBox.innerHTML =
+            '<i class="bi bi-receipt-cutoff" style="font-size:1.5rem;flex-shrink:0;color:#10b981;"></i>' +
+            '<div style="flex:1;">' +
+                '<strong>Paiement accept\u00e9' + deferred + '</strong>' +
+                '<div style="margin-top:0.5rem;display:grid;grid-template-columns:max-content 1fr;gap:0.25rem 1rem;font-size:0.95rem;">' +
+                    '<span class="text-muted">R\u00e9f\u00e9rence :</span><strong>' + escHtml(rec.reference) + '</strong>' +
+                    '<span class="text-muted">Date :</span><span>' + escHtml(rec.datetime) + '</span>' +
+                    '<span class="text-muted">Commer\u00e7ant :</span><span>' + escHtml(rec.merchant) + '</span>' +
+                    '<span class="text-muted">Op\u00e9ration :</span><span>' + escHtml(rec.label) + '</span>' +
+                    '<span class="text-muted">Montant :</span><strong>' + fmtAmt(rec.amount, rec.currency) + '</strong>' +
+                    '<span class="text-muted">Carte :</span><code>' + escHtml(rec.card_masked) + '</code>' +
+                    '<span class="text-muted">Compte cr\u00e9dit\u00e9 :</span><span>' + account + '</span>' +
+                    deferredRow +
+                '</div>' +
+            '</div>';
+        triggerAnimation(formCard, 'pos-success-glow');
+        try { receiptBox.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(e) {}
     }
 
     form.addEventListener('submit', function (ev) {
-        if (!window.fetch || !window.FormData) return; // fallback : POST classique
+        if (!window.fetch || !window.FormData) return;
         ev.preventDefault();
 
-        if (errorBox)   { errorBox.style.display = 'none'; errorBox.innerHTML = ''; }
-        if (receiptBox) { receiptBox.style.display = 'none'; receiptBox.innerHTML = ''; }
+        if (errorBox)   { errorBox.style.display   = 'none'; errorBox.innerHTML   = ''; }
+        if (receiptBox) { receiptBox.style.display  = 'none'; receiptBox.innerHTML = ''; }
 
         submitBtn.disabled = true;
-        setSubmitStatus('pending', 'Traitement du paiement en cours…');
+        setSubmitStatus('pending', 'Traitement du paiement en cours\u2026');
 
         fetch('/pos/charge', {
             method: 'POST',
@@ -401,26 +480,26 @@ $posStatus = $posStatus ?? null;
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
             body: new FormData(form)
         })
-            .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, status: r.status, body: j }; }); })
-            .then(function (res) {
-                var b = res.body || {};
-                if (b.success && b.receipt) {
-                    setSubmitStatus('ok', escHtml(b.message || 'Paiement accepté.'));
-                    renderReceipt(b.receipt);
-                    // Réinitialiser le formulaire pour la transaction suivante
-                    form.reset();
-                    setCardStatus('idle');
-                } else {
-                    setSubmitStatus('err', escHtml(b.message || 'Paiement refusé.'));
-                    renderError(b.message, b.errors);
-                }
-            })
-            .catch(function () {
-                setSubmitStatus('err', 'Erreur réseau, veuillez réessayer.');
-            })
-            .finally(function () {
-                submitBtn.disabled = false;
-            });
+        .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, status: r.status, body: j }; }); })
+        .then(function(res) {
+            var b = res.body || {};
+            if (b.success && b.receipt) {
+                setSubmitStatus('ok', escHtml(b.message || 'Paiement accept\u00e9.'));
+                renderReceipt(b.receipt);
+                form.reset();
+                setCardStatus('idle');
+            } else {
+                setSubmitStatus('err', escHtml(b.message || 'Paiement refus\u00e9.'));
+                renderError(b.message, b.errors, b.state);
+            }
+        })
+        .catch(function () {
+            setSubmitStatus('err', 'Erreur r\u00e9seau, veuillez r\u00e9essayer.');
+            triggerAnimation(formCard, 'pos-shake');
+        })
+        .finally(function () {
+            submitBtn.disabled = false;
+        });
     });
 })();
 </script>

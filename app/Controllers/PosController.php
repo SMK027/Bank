@@ -203,6 +203,14 @@ class PosController extends Controller
             return;
         }
 
+        if (PaymentCard::isExpired($card)) {
+            $expiryFmt = !empty($card['expires_at']) ? date('m/Y', strtotime($card['expires_at'])) : null;
+            $this->logFailure($user, $merchantAccount, $amount, $label, $merchant, 'card_expired', $card);
+            $errors[] = 'Cette carte est expirée' . ($expiryFmt ? ' (depuis ' . $expiryFmt . ')' : '') . '.';
+            $this->renderForm($user, $merchantAccounts, $form, $errors);
+            return;
+        }
+
         // On autorise les commerçants/modérateurs à débiter une carte leur
         // appartenant : on bloque uniquement si le compte associé à la carte
         // est le même que le compte d'encaissement (transfert vers soi-même
@@ -260,6 +268,25 @@ class PosController extends Controller
             } catch (\Throwable $e) {
                 $this->logFailure($user, $merchantAccount, $amount, $label, $merchant, 'currency_conversion_failed', $card);
                 $errors[] = 'Conversion de devise impossible.';
+                $this->renderForm($user, $merchantAccounts, $form, $errors);
+                return;
+            }
+        }
+
+        // Vérification du plafond mensuel de la carte
+        $monthlyLimit = isset($card['monthly_limit']) && $card['monthly_limit'] !== null
+            ? (float) $card['monthly_limit']
+            : null;
+        if ($monthlyLimit !== null) {
+            $monthlySpent = $this->cardModel->getMonthlySpent((int) $card['id']);
+            $remaining    = round($monthlyLimit - $monthlySpent, 2);
+            if ($customerAmount > $remaining) {
+                $this->logFailure($user, $merchantAccount, $amount, $label, $merchant, 'card_limit_exceeded', $card);
+                $errors[] = sprintf(
+                    'Plafond mensuel de la carte dépassé. Restant disponible ce mois-ci : %.2f %s.',
+                    max(0, $remaining),
+                    $customerCurrency
+                );
                 $this->renderForm($user, $merchantAccounts, $form, $errors);
                 return;
             }
@@ -498,24 +525,44 @@ class PosController extends Controller
     /**
      * Vérification temps réel d'un numéro de carte (JSON).
      * Retourne le statut sans révéler d'informations sensibles.
+     *
+     * Si le paramètre `amount` est fourni (>0), un contrôle de solde et
+     * de plafond mensuel est également effectué en temps réel.
+     *
+     * États retournés :
+     *  invalid            — numéro invalide (format / Luhn)
+     *  unknown            — carte inconnue
+     *  blocked            — carte bloquée manuellement
+     *  disabled           — carte désactivée (compte désactivé/gelé/inéligible)
+     *  expired            — carte expirée
+     *  insufficient_funds — solde insuffisant pour ce montant
+     *  limit_exceeded     — plafond mensuel dépassé pour ce montant
+     *  offline            — TPE désactivé par la modération
+     *  ok                 — carte valide et utilisable
      */
     public function verifyCard(): void
     {
         $this->requirePosAccess();
 
         $raw        = (string) ($_GET['number'] ?? $_POST['number'] ?? '');
+        $amountRaw  = (string) ($_GET['amount']  ?? $_POST['amount']  ?? '');
         $normalized = PaymentCard::normalize($raw);
+        $amount     = $amountRaw !== '' ? (float) str_replace(',', '.', $amountRaw) : null;
 
         $payload = [
-            'success'   => false,
-            'state'     => 'invalid',  // invalid | unknown | blocked | unusable | offline | ok
-            'message'   => '',
-            'masked'    => null,
-            'currency'  => null,
-            'last4'     => null,
+            'success'      => false,
+            'state'        => 'invalid',
+            'message'      => '',
+            'detail'       => null,   // info complémentaire non sensible
+            'masked'       => null,
+            'currency'     => null,
+            'last4'        => null,
+            'expires_at'   => null,   // MM/YY affiché, ou null
+            'monthly_limit'=> null,
+            'monthly_spent'=> null,
         ];
 
-        // TPE désactivé par la modération : feedback temps réel au caissier.
+        // TPE désactivé par la modération
         $posStatus = PosStatus::current();
         if ($posStatus['is_disabled']) {
             $payload['state']   = 'offline';
@@ -544,6 +591,21 @@ class PosController extends Controller
             return;
         }
 
+        // Carte expirée
+        if (PaymentCard::isExpired($card)) {
+            $expiryFmt = $card['expires_at']
+                ? date('m/Y', strtotime($card['expires_at']))
+                : null;
+            $payload['state']      = 'expired';
+            $payload['masked']     = PaymentCard::mask($card['card_number']);
+            $payload['last4']      = $card['last4'] ?? null;
+            $payload['expires_at'] = $expiryFmt;
+            $payload['message']    = 'Carte expirée' . ($expiryFmt ? ' depuis ' . $expiryFmt : '') . '.';
+            $this->jsonResponse($payload);
+            return;
+        }
+
+        // Carte bloquée
         if (($card['status'] ?? '') !== 'active') {
             $payload['state']   = 'blocked';
             $payload['masked']  = PaymentCard::mask($card['card_number']);
@@ -554,25 +616,99 @@ class PosController extends Controller
         }
 
         $account = $this->accountModel->find((int) $card['account_id']);
-        if (!$account
-            || !Account::typeAllowsCard($account['type'] ?? '')
-            || !empty($account['disabled_at'])
-            || !empty($account['frozen'])
-        ) {
-            $payload['state']   = 'unusable';
+
+        // Compte inéligible (type)
+        if (!$account || !Account::typeAllowsCard($account['type'] ?? '')) {
+            $payload['state']   = 'disabled';
             $payload['masked']  = PaymentCard::mask($card['card_number']);
             $payload['last4']   = $card['last4'] ?? null;
-            $payload['message'] = 'Compte associé indisponible.';
+            $payload['message'] = 'Ce type de compte ne peut pas être débité par carte.';
             $this->jsonResponse($payload);
             return;
         }
 
-        $payload['success']  = true;
-        $payload['state']    = 'ok';
-        $payload['masked']   = PaymentCard::mask($card['card_number']);
-        $payload['last4']    = $card['last4'] ?? null;
-        $payload['currency'] = $account['currency'] ?? 'EUR';
-        $payload['message']  = 'Carte valide.';
+        // Compte désactivé
+        if (!empty($account['disabled_at'])) {
+            $payload['state']   = 'disabled';
+            $payload['masked']  = PaymentCard::mask($card['card_number']);
+            $payload['last4']   = $card['last4'] ?? null;
+            $payload['message'] = 'Compte associé à la carte désactivé.';
+            $this->jsonResponse($payload);
+            return;
+        }
+
+        // Compte gelé
+        if (!empty($account['frozen'])) {
+            $payload['state']   = 'disabled';
+            $payload['masked']  = PaymentCard::mask($card['card_number']);
+            $payload['last4']   = $card['last4'] ?? null;
+            $payload['message'] = 'Compte associé à la carte gelé.';
+            $this->jsonResponse($payload);
+            return;
+        }
+
+        // Carte valide — vérifications montant si fourni
+        $masked      = PaymentCard::mask($card['card_number']);
+        $currency    = $account['currency'] ?? 'EUR';
+        $expiryFmt   = !empty($card['expires_at']) ? date('m/Y', strtotime($card['expires_at'])) : null;
+        $monthlyLimit = isset($card['monthly_limit']) && $card['monthly_limit'] !== null
+            ? (float) $card['monthly_limit']
+            : null;
+        $monthlySpent = $monthlyLimit !== null ? $this->cardModel->getMonthlySpent((int) $card['id']) : null;
+
+        if ($amount !== null && $amount > 0) {
+            // Vérification solde
+            $balance   = $this->accountModel->getFutureBalance((int) $account['id']);
+            $overdraft = (float) ($account['overdraft'] ?? 0);
+            if (!Account::typeAllowsOverdraft($account['type'] ?? 'standard')) {
+                $overdraft = 0.0;
+            }
+            if (($balance - $amount) < -$overdraft) {
+                $payload['state']   = 'insufficient_funds';
+                $payload['masked']  = $masked;
+                $payload['last4']   = $card['last4'] ?? null;
+                $payload['currency']= $currency;
+                $payload['message'] = 'Solde insuffisant.';
+                $payload['detail']  = 'Solde disponible : ' . number_format(max(0, $balance + $overdraft), 2, ',', ' ') . ' ' . $currency;
+                $this->jsonResponse($payload);
+                return;
+            }
+
+            // Vérification plafond mensuel
+            if ($monthlyLimit !== null) {
+                $monthlySpent = $this->cardModel->getMonthlySpent((int) $card['id']);
+                $remaining    = round($monthlyLimit - $monthlySpent, 2);
+                if ($amount > $remaining) {
+                    $payload['state']        = 'limit_exceeded';
+                    $payload['masked']       = $masked;
+                    $payload['last4']        = $card['last4'] ?? null;
+                    $payload['currency']     = $currency;
+                    $payload['monthly_limit']= $monthlyLimit;
+                    $payload['monthly_spent']= $monthlySpent;
+                    $payload['message']      = 'Plafond mensuel dépassé.';
+                    $payload['detail']       = 'Restant disponible ce mois-ci : ' . number_format(max(0, $remaining), 2, ',', ' ') . ' ' . $currency;
+                    $this->jsonResponse($payload);
+                    return;
+                }
+            }
+        }
+
+        $payload['success']       = true;
+        $payload['state']         = 'ok';
+        $payload['masked']        = $masked;
+        $payload['last4']         = $card['last4'] ?? null;
+        $payload['currency']      = $currency;
+        $payload['expires_at']    = $expiryFmt;
+        $payload['monthly_limit'] = $monthlyLimit;
+        $payload['monthly_spent'] = $monthlySpent;
+        $msg = 'Carte valide' . ($masked ? ' (' . $masked . ')' : '');
+        if ($currency) {
+            $msg .= ' — devise ' . $currency;
+        }
+        if ($expiryFmt) {
+            $msg .= ' — expire ' . $expiryFmt;
+        }
+        $payload['message'] = $msg . '.';
         $this->jsonResponse($payload);
     }
 

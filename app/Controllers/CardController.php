@@ -86,11 +86,32 @@ class CardController extends Controller
         $this->validateCSRF();
         $userId = $this->getCurrentUserId();
 
-        $data = $this->getPostData(['account_id', 'last4', 'label']);
+        $data = $this->getPostData(['account_id', 'last4', 'label', 'expires_at', 'monthly_limit']);
 
-        $accountId = (int) ($data['account_id'] ?? 0);
-        $last4     = preg_replace('/\D/', '', (string) $data['last4']) ?? '';
-        $label     = mb_substr((string) $data['label'], 0, 100);
+        $accountId    = (int) ($data['account_id'] ?? 0);
+        $last4        = preg_replace('/\D/', '', (string) $data['last4']) ?? '';
+        $label        = mb_substr((string) $data['label'], 0, 100);
+        $expiresRaw   = trim((string) ($data['expires_at'] ?? ''));
+        $limitRaw     = trim((string) ($data['monthly_limit'] ?? ''));
+
+        $expiresAt    = $expiresRaw !== '' ? PaymentCard::parseExpiry($expiresRaw) : null;
+        $monthlyLimit = $limitRaw !== '' ? (float) str_replace(',', '.', $limitRaw) : null;
+
+        if ($expiresRaw !== '' && $expiresAt === null) {
+            $this->setFlash('danger', 'Format de date d\'expiration invalide (attendu MM/AA).');
+            $this->redirect('/cards/create');
+            return;
+        }
+        if ($expiresAt !== null && strtotime($expiresAt) < strtotime('today')) {
+            $this->setFlash('danger', 'La date d\'expiration ne peut pas être dans le passé.');
+            $this->redirect('/cards/create');
+            return;
+        }
+        if ($monthlyLimit !== null && $monthlyLimit <= 0) {
+            $this->setFlash('danger', 'Le plafond mensuel doit être strictement positif.');
+            $this->redirect('/cards/create');
+            return;
+        }
 
         if (!preg_match('/^\d{4}$/', $last4)) {
             $this->setFlash('danger', 'Les 4 derniers chiffres de la carte doivent être 4 chiffres exactement.');
@@ -131,14 +152,21 @@ class CardController extends Controller
             return;
         }
 
-        $cardId = $this->cardModel->create([
+        $cardData = [
             'user_id'     => $userId,
             'account_id'  => $accountId,
             'card_number' => $cardNumber,
             'last4'       => $last4,
             'label'       => $label,
             'status'      => 'active',
-        ]);
+        ];
+        if ($expiresAt !== null) {
+            $cardData['expires_at'] = $expiresAt;
+        }
+        if ($monthlyLimit !== null) {
+            $cardData['monthly_limit'] = $monthlyLimit;
+        }
+        $cardId = $this->cardModel->create($cardData);
 
         AuditLog::log($userId, AuditLog::ACTION_CARD_CREATE, [
             'card_id' => $cardId,

@@ -110,6 +110,58 @@ class PaymentCard extends Model
         return $first4 . ' **** **** ' . $last4;
     }
 
+    /**
+     * Calcule la date d'expiration (dernier jour du mois) à partir d'une
+     * saisie MM/YY ou MM/YYYY.
+     * Retourne null si le format est invalide.
+     */
+    public static function parseExpiry(string $input): ?string
+    {
+        $input = trim($input);
+        if (!preg_match('/^(\d{2})\/(\d{2}|\d{4})$/', $input, $m)) {
+            return null;
+        }
+        $month = (int) $m[1];
+        $year  = (int) $m[2];
+        if ($year < 100) {
+            $year += 2000;
+        }
+        if ($month < 1 || $month > 12) {
+            return null;
+        }
+        // Dernier jour du mois
+        $last = (int) (new \DateTimeImmutable(sprintf('%04d-%02d-01', $year, $month)))->format('t');
+        return sprintf('%04d-%02d-%02d', $year, $month, $last);
+    }
+
+    /** Vérifie si une carte est expirée (expires_at dans le passé). */
+    public static function isExpired(array $card): bool
+    {
+        if (empty($card['expires_at'])) {
+            return false;
+        }
+        return strtotime($card['expires_at']) < strtotime('today');
+    }
+
+    /**
+     * Retourne le total dépensé via cette carte sur le mois calendaire courant
+     * (paiements TPE succès non annulés).
+     */
+    public function getMonthlySpent(int $cardId): float
+    {
+        $stmt = $this->getPdo()->prepare(
+            "SELECT COALESCE(SUM(p.amount), 0)
+               FROM api_payments p
+              WHERE p.card_id      = ?
+                AND p.status       = 'success'
+                AND p.cancelled_at IS NULL
+                AND p.created_at   >= DATE_FORMAT(NOW(), '%Y-%m-01')
+                AND p.created_at   <  DATE_FORMAT(NOW() + INTERVAL 1 MONTH, '%Y-%m-01')"
+        );
+        $stmt->execute([$cardId]);
+        return (float) $stmt->fetchColumn();
+    }
+
     /** Cartes d'un utilisateur. */
     public function getByUser(int $userId): array
     {

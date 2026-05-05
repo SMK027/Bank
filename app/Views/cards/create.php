@@ -37,6 +37,28 @@
                            maxlength="100" placeholder="Ex : Carte courses, Carte voyage…">
                 </div>
 
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem;">
+                    <div class="form-group">
+                        <label for="expires_at" class="form-label">
+                            Date d'expiration
+                            <span class="text-muted" style="font-weight:normal;font-size:0.85em;">(facultatif, MM/AA)</span>
+                        </label>
+                        <input type="text" id="expires_at" name="expires_at" class="form-control"
+                               maxlength="7" placeholder="Ex : 12/28" inputmode="numeric"
+                               pattern="\d{2}/\d{2,4}">
+                        <span class="form-hint">Laissez vide pour une carte sans date d'expiration.</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="monthly_limit" class="form-label">
+                            Plafond mensuel
+                            <span class="text-muted" style="font-weight:normal;font-size:0.85em;">(facultatif)</span>
+                        </label>
+                        <input type="text" id="monthly_limit" name="monthly_limit" class="form-control"
+                               maxlength="12" placeholder="Ex : 500,00" inputmode="decimal">
+                        <span class="form-hint">Montant maximum de dépenses par mois calendaire.</span>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <button type="submit" class="btn btn-primary btn-block">
                         <i class="bi bi-check-lg"></i> Enregistrer la carte
