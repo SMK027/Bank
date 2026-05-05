@@ -134,6 +134,36 @@ class PosController extends Controller
             return;
         }
 
+        // Commerçant banni du TPE : tous ses comptes pro sont suspendus.
+        // On bloque tout débit, y compris ceux sans compte de crédit associé.
+        if (!$this->isModerator() && empty($merchantAccounts)) {
+            $allProAccounts = array_values(array_filter(
+                $this->accountModel->getByUser((int) $user['id']),
+                fn(array $a) => ($a['type'] ?? '') === 'pro' && empty($a['disabled_at'])
+            ));
+            if (!empty($allProAccounts)) {
+                $reason = '';
+                foreach ($allProAccounts as $a) {
+                    if (Account::isPosSuspended($a) && !empty($a['pos_suspend_reason'])) {
+                        $reason = $a['pos_suspend_reason'];
+                        break;
+                    }
+                }
+                $banMsg = 'Votre accès au TPE est suspendu par la modération';
+                if ($reason !== '') {
+                    $banMsg .= ' (motif : ' . $reason . ')';
+                }
+                $this->renderForm($user, $merchantAccounts, [
+                    'card_number' => (string) ($_POST['card_number'] ?? ''),
+                    'amount'      => (string) ($_POST['amount']      ?? ''),
+                    'label'       => trim((string) ($_POST['label']    ?? '')),
+                    'merchant'    => trim((string) ($_POST['merchant'] ?? '')),
+                    'account_id'  => (int)   ($_POST['account_id']     ?? 0),
+                ], [$banMsg . '.']);
+                return;
+            }
+        }
+
         $cardNumber  = (string) ($_POST['card_number'] ?? '');
         $amountInput = (string) ($_POST['amount']      ?? '');
         $label       = trim((string) ($_POST['label']    ?? ''));
