@@ -107,6 +107,23 @@ function is_moderator(): bool
 }
 
 /**
+ * Vérifie si l'utilisateur connecté possède un profil professionnel validé.
+ */
+function is_professional(): bool
+{
+    $userId = current_user_id();
+    if (!$userId) {
+        return false;
+    }
+    static $cache = [];
+    if (!array_key_exists($userId, $cache)) {
+        $user = (new \App\Models\User())->find($userId);
+        $cache[$userId] = \App\Models\User::isProfessional($user);
+    }
+    return $cache[$userId];
+}
+
+/**
  * Retourne l'URL de l'avatar de l'utilisateur connecté.
  */
 function current_avatar(): string

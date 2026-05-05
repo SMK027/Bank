@@ -32,6 +32,7 @@ use App\Controllers\MessageController;
 use App\Controllers\LoanController;
 use App\Controllers\ModerationLoanController;
 use App\Controllers\CardController;
+use App\Controllers\PosController;
 use App\Controllers\ApiClientController;
 use App\Controllers\Api\PaymentApiController;
 
@@ -254,6 +255,10 @@ $router->post('/moderation/api-clients/{id}/revoke', ApiClientController::class,
 $router->post('/api/v1/payments/debit',  PaymentApiController::class, 'debit');
 $router->post('/api/v1/payments/credit', PaymentApiController::class, 'credit');
 $router->post('/api/v1/cards/verify',    PaymentApiController::class, 'verify');
+
+// --- Terminal de paiement électronique (TPE) ---
+$router->get('/pos',         PosController::class, 'index');
+$router->post('/pos/charge', PosController::class, 'charge');
 
 // Dispatcher la requête
 $router->dispatch();

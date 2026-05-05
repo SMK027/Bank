@@ -121,6 +121,8 @@ class AuditLog extends Model
     public const ACTION_API_PAYMENT_DEBIT   = 'api_payment.debit';
     public const ACTION_API_PAYMENT_CREDIT  = 'api_payment.credit';
     public const ACTION_API_PAYMENT_FAIL    = 'api_payment.fail';
+    public const ACTION_POS_CHARGE          = 'pos.charge';
+    public const ACTION_POS_CHARGE_FAIL     = 'pos.charge_fail';
 
     // ── Labels lisibles ─────────────────────────────────────────────────────
 
@@ -181,6 +183,8 @@ class AuditLog extends Model
         'api_payment.debit'        => 'Paiement API : débit',
         'api_payment.credit'       => 'Paiement API : crédit',
         'api_payment.fail'         => 'Paiement API échoué',
+        'pos.charge'               => 'Encaissement TPE',
+        'pos.charge_fail'          => 'Encaissement TPE échoué',
     ];
 
     /** Couleur Bootstrap associée à chaque catégorie. */
@@ -200,6 +204,7 @@ class AuditLog extends Model
         'card'             => 'bg-info text-dark',
         'api_client'       => 'bg-secondary',
         'api_payment'      => 'bg-info text-dark',
+        'pos'              => 'bg-success',
     ];
 
     /**
