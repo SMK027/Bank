@@ -4,9 +4,11 @@
 /** @var array $filters */
 /** @var bool  $hasFilters */
 /** @var array $posStatus */
-$filters    = $filters    ?? [];
-$hasFilters = $hasFilters ?? false;
-$posStatus  = $posStatus  ?? ['is_disabled' => false, 'reason' => '', 'disabled_at' => null, 'disabled_until' => null];
+/** @var array $suspendedAccounts */
+$filters            = $filters            ?? [];
+$hasFilters         = $hasFilters         ?? false;
+$posStatus          = $posStatus          ?? ['is_disabled' => false, 'reason' => '', 'disabled_at' => null, 'disabled_until' => null];
+$suspendedAccounts  = $suspendedAccounts  ?? [];
 $f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? ''), ENT_QUOTES, 'UTF-8');
 ?>
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;">
@@ -84,6 +86,120 @@ $f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? 
                 </form>
             </details>
         <?php endif; ?>
+    </div>
+</div>
+
+<!-- Panneau : comptes professionnels suspendus du TPE + formulaire de suspension -->
+<div class="card mb-3">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+        <h4 style="margin:0;font-size:0.95rem;">
+            <i class="bi bi-shop-window"></i> Suspension d'un commerçant
+        </h4>
+        <?php if (!empty($suspendedAccounts)): ?>
+            <span class="badge badge-danger"><?= count($suspendedAccounts) ?> compte(s) suspendu(s)</span>
+        <?php else: ?>
+            <span class="badge badge-success">Aucune suspension active</span>
+        <?php endif; ?>
+    </div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:1rem;">
+
+        <?php if (!empty($suspendedAccounts)): ?>
+        <!-- Liste des comptes actuellement suspendus -->
+        <div class="table-responsive">
+            <table class="table" style="font-size:0.88rem;">
+                <thead>
+                    <tr>
+                        <th>Compte</th>
+                        <th>Titulaire</th>
+                        <th>Suspendu depuis</th>
+                        <th>Jusqu'au</th>
+                        <th>Motif</th>
+                        <th style="text-align:right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($suspendedAccounts as $sa): ?>
+                    <tr>
+                        <td>
+                            <a href="/accounts/<?= (int) $sa['id'] ?>">#<?= (int) $sa['id'] ?></a>
+                            <span class="text-muted text-small"> — <?= e($sa['name']) ?></span>
+                        </td>
+                        <td>
+                            <?= e($sa['username']) ?>
+                            <br><small class="text-muted"><?= e($sa['email']) ?></small>
+                        </td>
+                        <td class="text-small"><?= e(date('d/m/Y H:i', strtotime($sa['pos_suspended_at']))) ?></td>
+                        <td class="text-small">
+                            <?php if (!empty($sa['pos_suspended_until'])): ?>
+                                <?= e(date('d/m/Y H:i', strtotime($sa['pos_suspended_until']))) ?>
+                            <?php else: ?>
+                                <span class="text-muted">Indéterminée</span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-small"><?= e($sa['pos_suspend_reason'] ?? '') ?: '<span class="text-muted">—</span>' ?></td>
+                        <td style="text-align:right;">
+                            <form method="POST"
+                                  action="/moderation/pos-payments/merchant/<?= (int) $sa['id'] ?>/resume"
+                                  style="display:inline;"
+                                  onsubmit="return confirm('Réactiver l\'accès TPE du compte #<?= (int) $sa['id'] ?> ?');">
+                                <?= csrf_field() ?>
+                                <button type="submit" class="btn btn-success btn-sm">
+                                    <i class="bi bi-play-fill"></i> Réactiver
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
+
+        <!-- Formulaire de nouvelle suspension -->
+        <details <?= empty($suspendedAccounts) ? 'open' : '' ?>>
+            <summary class="btn btn-outline-danger btn-sm" style="cursor:pointer;display:inline-block;">
+                <i class="bi bi-slash-circle"></i> Suspendre un compte commerçant
+            </summary>
+            <form method="POST" action=""
+                  id="pos-merchant-suspend-form"
+                  style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.6rem;align-items:end;margin-top:0.75rem;"
+                  onsubmit="
+                    var id = document.getElementById('pos-suspend-account-id').value;
+                    if (!id) { alert('Saisissez un identifiant de compte.'); return false; }
+                    this.action = '/moderation/pos-payments/merchant/' + id + '/suspend';
+                    return confirm('Suspendre ce compte du TPE ?');
+                  ">
+                <?= csrf_field() ?>
+                <div>
+                    <label class="form-label text-small" for="pos-suspend-account-id">
+                        ID du compte professionnel <span class="text-danger">*</span>
+                    </label>
+                    <input type="number" id="pos-suspend-account-id" min="1"
+                           class="form-control form-control-sm" placeholder="ex. 42" required>
+                </div>
+                <div style="grid-column:1 / -1;">
+                    <label class="form-label text-small" for="pos-suspend-reason">
+                        Motif <span class="text-danger">*</span>
+                    </label>
+                    <textarea id="pos-suspend-reason" name="reason" rows="2" maxlength="500"
+                              class="form-control form-control-sm" required
+                              placeholder="Raison de la suspension (fraude, contrôle, plainte…)"></textarea>
+                </div>
+                <div>
+                    <label class="form-label text-small" for="pos-suspend-until">
+                        Réactivation automatique (facultatif)
+                    </label>
+                    <input type="datetime-local" id="pos-suspend-until" name="suspended_until"
+                           class="form-control form-control-sm">
+                    <small class="text-muted">Vide = durée indéterminée.</small>
+                </div>
+                <div style="display:flex;align-items:end;">
+                    <button type="submit" class="btn btn-danger btn-sm">
+                        <i class="bi bi-slash-circle"></i> Confirmer la suspension
+                    </button>
+                </div>
+            </form>
+        </details>
     </div>
 </div>
 

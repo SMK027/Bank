@@ -128,6 +128,91 @@ class Account extends Model
         return $type !== 'savings';
     }
 
+    // ── Suspension TPE d'un compte professionnel ─────────────────────────────
+
+    /**
+     * Vérifie si le compte est suspendu du TPE.
+     * Accepte un tableau `account` (résultat de `find()`). Tient compte
+     * de la réactivation automatique par `pos_suspended_until`.
+     */
+    public static function isPosSuspended(array $account): bool
+    {
+        if (empty($account['pos_suspended_at'])) {
+            return false;
+        }
+        // Réactivation automatique transparente
+        if (!empty($account['pos_suspended_until'])
+            && strtotime((string) $account['pos_suspended_until']) <= time()
+        ) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Suspend l'accès au TPE pour ce compte.
+     *
+     * @param int         $accountId
+     * @param int         $moderatorId
+     * @param string      $reason       Motif obligatoire (≤ 500 car.).
+     * @param string|null $until        Datetime SQL ou null (durée indéterminée).
+     */
+    public function suspendPos(int $accountId, int $moderatorId, string $reason, ?string $until = null): bool
+    {
+        $pdo  = \App\Core\Database::getInstance();
+        $stmt = $pdo->prepare(
+            'UPDATE accounts
+                SET pos_suspended_at    = ?,
+                    pos_suspended_until = ?,
+                    pos_suspended_by    = ?,
+                    pos_suspend_reason  = ?
+              WHERE id = ?'
+        );
+        return (bool) $stmt->execute([
+            date('Y-m-d H:i:s'),
+            $until,
+            $moderatorId,
+            mb_substr($reason, 0, 500),
+            $accountId,
+        ]);
+    }
+
+    /** Réactive l'accès au TPE pour ce compte. */
+    public function resumePos(int $accountId, int $moderatorId): bool
+    {
+        $pdo  = \App\Core\Database::getInstance();
+        $stmt = $pdo->prepare(
+            "UPDATE accounts
+                SET pos_suspended_at    = NULL,
+                    pos_suspended_until = NULL,
+                    pos_suspended_by    = ?,
+                    pos_suspend_reason  = ''
+              WHERE id = ?"
+        );
+        return (bool) $stmt->execute([$moderatorId, $accountId]);
+    }
+
+    /**
+     * Retourne les comptes professionnels dont le TPE est actuellement suspendu
+     * (hors expirations dépassées), enrichis des infos utilisateur.
+     */
+    public function getPosSuspendedAccounts(): array
+    {
+        $pdo  = \App\Core\Database::getInstance();
+        $stmt = $pdo->query(
+            "SELECT a.*, u.username, u.email
+               FROM accounts a
+               JOIN users u ON u.id = a.user_id
+              WHERE a.type = 'pro'
+                AND a.pos_suspended_at IS NOT NULL
+                AND (a.pos_suspended_until IS NULL
+                     OR a.pos_suspended_until > NOW())
+              ORDER BY a.pos_suspended_at DESC"
+        );
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+
     /**
      * Indique si une opération vient de faire franchir le seuil d'alerte à la baisse.
      * Retourne true uniquement si le solde était >= seuil avant et < seuil après l'opération.

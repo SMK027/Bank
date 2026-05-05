@@ -124,6 +124,8 @@ class AuditLog extends Model
     public const ACTION_POS_CHARGE          = 'pos.charge';
     public const ACTION_POS_CHARGE_FAIL     = 'pos.charge_fail';
     public const ACTION_POS_CANCEL          = 'pos.cancel';
+    public const ACTION_POS_MERCHANT_SUSPEND = 'pos.merchant_suspend';
+    public const ACTION_POS_MERCHANT_RESUME  = 'pos.merchant_resume';
 
     // ── Labels lisibles ─────────────────────────────────────────────────────
 
@@ -187,6 +189,8 @@ class AuditLog extends Model
         'pos.charge'               => 'Encaissement TPE',
         'pos.charge_fail'          => 'Encaissement TPE échoué',
         'pos.cancel'               => 'Paiement TPE annulé',
+        'pos.merchant_suspend'     => 'Commerçant TPE suspendu',
+        'pos.merchant_resume'      => 'Commerçant TPE réactivé',
     ];
 
     /** Couleur Bootstrap associée à chaque catégorie. */

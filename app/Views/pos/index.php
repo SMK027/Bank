@@ -97,15 +97,25 @@ $posStatus = $posStatus ?? null;
 <?php if (empty($merchantAccounts) && !is_moderator()): ?>
     <div class="alert alert-info" role="alert">
         <i class="bi bi-info-circle-fill"></i>
-        Vous ne disposez d'aucun compte professionnel. Vous pouvez tout de même
-        utiliser le TPE&nbsp;: la carte du client sera débitée et l'opération sera
-        enregistrée sans crédit commerçant.
-        <?php if (!is_professional()): ?>
-            <br><a href="/profile/professional">Activez votre statut professionnel</a> pour
-            associer un compte d'encaissement.
+        <?php
+            // Détecter si tous les comptes pro existent mais sont suspendus du TPE
+            $allAccounts = $merchantAccountsRaw ?? [];
+            $hasSuspended = !empty(array_filter($allAccounts, fn($a) => \App\Models\Account::isPosSuspended($a)));
+        ?>
+        <?php if ($hasSuspended): ?>
+            Votre (vos) compte(s) professionnel(s) est (sont) suspendu(s) du TPE par la modération.
+            Vous ne pouvez pas encaisser de paiements tant que la suspension est active.
         <?php else: ?>
-            <br><a href="/accounts/create">Créer un compte professionnel</a> pour bénéficier
-            du crédit automatique.
+            Vous ne disposez d'aucun compte professionnel. Vous pouvez tout de même
+            utiliser le TPE&nbsp;: la carte du client sera débitée et l'opération sera
+            enregistrée sans crédit commerçant.
+            <?php if (!is_professional()): ?>
+                <br><a href="/profile/professional">Activez votre statut professionnel</a> pour
+                associer un compte d'encaissement.
+            <?php else: ?>
+                <br><a href="/accounts/create">Créer un compte professionnel</a> pour bénéficier
+                du crédit automatique.
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 <?php endif; ?>

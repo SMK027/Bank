@@ -75,7 +75,9 @@ class PosController extends Controller
     {
         $accounts = $this->accountModel->getByUser($userId);
         return array_values(array_filter($accounts, function (array $a): bool {
-            return ($a['type'] ?? '') === 'pro' && empty($a['disabled_at']);
+            return ($a['type'] ?? '') === 'pro'
+                && empty($a['disabled_at'])
+                && !Account::isPosSuspended($a);
         }));
     }
 
@@ -83,16 +85,24 @@ class PosController extends Controller
     public function index(): void
     {
         $user             = $this->requirePosAccess();
-        $merchantAccounts = $this->getMerchantAccounts((int) $user['id']);
+        $allProAccounts   = array_values(array_filter(
+            $this->accountModel->getByUser((int) $user['id']),
+            fn(array $a) => ($a['type'] ?? '') === 'pro' && empty($a['disabled_at'])
+        ));
+        $merchantAccounts = array_values(array_filter(
+            $allProAccounts,
+            fn(array $a) => !Account::isPosSuspended($a)
+        ));
         $posStatus        = PosStatus::current();
 
         $this->render('pos/index', [
-            'title'            => 'Terminal de paiement (TPE)',
-            'user'             => $user,
-            'merchantAccounts' => $merchantAccounts,
-            'form'             => [],
-            'receipt'          => $_SESSION['pos_receipt'] ?? null,
-            'posStatus'        => $posStatus,
+            'title'                => 'Terminal de paiement (TPE)',
+            'user'                 => $user,
+            'merchantAccounts'     => $merchantAccounts,
+            'merchantAccountsRaw'  => $allProAccounts,
+            'form'                 => [],
+            'receipt'              => $_SESSION['pos_receipt'] ?? null,
+            'posStatus'            => $posStatus,
         ]);
 
         unset($_SESSION['pos_receipt']);
@@ -160,6 +170,14 @@ class PosController extends Controller
             }
             if (!$merchantAccount) {
                 $errors[] = 'Compte d\'encaissement invalide.';
+            } elseif (Account::isPosSuspended($merchantAccount)) {
+                // Compte suspendu du TPE par la modération.
+                $msg = 'Ce compte est suspendu du TPE';
+                if (!empty($merchantAccount['pos_suspend_reason'])) {
+                    $msg .= ' (motif : ' . $merchantAccount['pos_suspend_reason'] . ')';
+                }
+                $errors[] = $msg . '.';
+                $merchantAccount = null; // empêche tout traitement ultérieur
             }
         }
 
@@ -466,13 +484,14 @@ class PosController extends Controller
         }
 
         $this->render('pos/index', [
-            'title'            => 'Terminal de paiement (TPE)',
-            'user'             => $user,
-            'merchantAccounts' => $merchantAccounts,
-            'form'             => $form,
-            'errors'           => $errors,
-            'receipt'          => null,
-            'posStatus'        => PosStatus::current(),
+            'title'                => 'Terminal de paiement (TPE)',
+            'user'                 => $user,
+            'merchantAccounts'     => $merchantAccounts,
+            'merchantAccountsRaw'  => $merchantAccounts, // déjà filtrés dans ce contexte
+            'form'                 => $form,
+            'errors'               => $errors,
+            'receipt'              => null,
+            'posStatus'            => PosStatus::current(),
         ]);
     }
 
@@ -685,12 +704,13 @@ class PosController extends Controller
         }
 
         $this->render('moderation/pos_payments', [
-            'title'      => 'Paiements TPE',
-            'payments'   => $payments,
-            'cardsById'  => $cardsById,
-            'filters'    => $filters,
-            'hasFilters' => $hasFilters,
-            'posStatus'  => PosStatus::current(),
+            'title'             => 'Paiements TPE',
+            'payments'          => $payments,
+            'cardsById'         => $cardsById,
+            'filters'           => $filters,
+            'hasFilters'        => $hasFilters,
+            'posStatus'         => PosStatus::current(),
+            'suspendedAccounts' => $this->accountModel->getPosSuspendedAccounts(),
         ]);
     }
 
@@ -759,6 +779,92 @@ class PosController extends Controller
         AuditLog::log($modId, 'pos.enable', []);
 
         $this->setFlash('success', 'TPE réactivé.');
+        $this->redirect('/moderation/pos-payments');
+    }
+
+    /**
+     * Suspend l'accès au TPE pour un compte professionnel précis.
+     * Motif obligatoire ; durée optionnelle. Modération uniquement.
+     */
+    public function moderationMerchantSuspend(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $accountId = (int) $id;
+        $account   = $this->accountModel->find($accountId);
+
+        if (!$account || ($account['type'] ?? '') !== 'pro') {
+            $this->setFlash('danger', 'Compte professionnel introuvable.');
+            $this->redirect('/moderation/pos-payments');
+            return;
+        }
+
+        $reason = trim((string) ($_POST['reason'] ?? ''));
+        $until  = trim((string) ($_POST['suspended_until'] ?? ''));
+
+        if ($reason === '') {
+            $this->setFlash('danger', 'Le motif de suspension est obligatoire.');
+            $this->redirect('/moderation/pos-payments');
+            return;
+        }
+        if (mb_strlen($reason) > 500) {
+            $this->setFlash('danger', 'Le motif est trop long (500 caractères max).');
+            $this->redirect('/moderation/pos-payments');
+            return;
+        }
+
+        $untilSql = null;
+        if ($until !== '') {
+            $ts = strtotime(str_replace('T', ' ', $until));
+            if ($ts === false || $ts <= time()) {
+                $this->setFlash('danger', 'La date de réactivation doit être dans le futur.');
+                $this->redirect('/moderation/pos-payments');
+                return;
+            }
+            $untilSql = date('Y-m-d H:i:s', $ts);
+        }
+
+        $modId = (int) $this->getCurrentUserId();
+        $this->accountModel->suspendPos($accountId, $modId, $reason, $untilSql);
+
+        AuditLog::log($modId, AuditLog::ACTION_POS_MERCHANT_SUSPEND, [
+            'account_id'       => $accountId,
+            'reason'           => $reason,
+            'suspended_until'  => $untilSql,
+        ], targetAccountId: $accountId);
+
+        $msg = 'Compte #' . $accountId . ' suspendu du TPE';
+        if ($untilSql) {
+            $msg .= ' jusqu\'au ' . date('d/m/Y H:i', strtotime($untilSql));
+        }
+        $this->setFlash('success', $msg . '.');
+        $this->redirect('/moderation/pos-payments');
+    }
+
+    /** Réactive l'accès au TPE pour un compte professionnel. Modération uniquement. */
+    public function moderationMerchantResume(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $accountId = (int) $id;
+        $account   = $this->accountModel->find($accountId);
+
+        if (!$account || ($account['type'] ?? '') !== 'pro') {
+            $this->setFlash('danger', 'Compte professionnel introuvable.');
+            $this->redirect('/moderation/pos-payments');
+            return;
+        }
+
+        $modId = (int) $this->getCurrentUserId();
+        $this->accountModel->resumePos($accountId, $modId);
+
+        AuditLog::log($modId, AuditLog::ACTION_POS_MERCHANT_RESUME, [
+            'account_id' => $accountId,
+        ], targetAccountId: $accountId);
+
+        $this->setFlash('success', 'Accès TPE du compte #' . $accountId . ' réactivé.');
         $this->redirect('/moderation/pos-payments');
     }
 

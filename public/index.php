@@ -260,10 +260,12 @@ $router->post('/api/v1/cards/verify',    PaymentApiController::class, 'verify');
 $router->get('/pos',             PosController::class, 'index');
 $router->post('/pos/charge',     PosController::class, 'charge');
 $router->get('/pos/verify-card', PosController::class, 'verifyCard');
-$router->get('/moderation/pos-payments',                PosController::class, 'moderationIndex');
-$router->post('/moderation/pos-payments/disable',       PosController::class, 'moderationDisable');
-$router->post('/moderation/pos-payments/enable',        PosController::class, 'moderationEnable');
-$router->post('/moderation/pos-payments/{id}/cancel',   PosController::class, 'moderationCancel');
+$router->get('/moderation/pos-payments',                        PosController::class, 'moderationIndex');
+$router->post('/moderation/pos-payments/disable',               PosController::class, 'moderationDisable');
+$router->post('/moderation/pos-payments/enable',                PosController::class, 'moderationEnable');
+$router->post('/moderation/pos-payments/merchant/{id}/suspend', PosController::class, 'moderationMerchantSuspend');
+$router->post('/moderation/pos-payments/merchant/{id}/resume',  PosController::class, 'moderationMerchantResume');
+$router->post('/moderation/pos-payments/{id}/cancel',           PosController::class, 'moderationCancel');
 
 // Dispatcher la requête
 $router->dispatch();
