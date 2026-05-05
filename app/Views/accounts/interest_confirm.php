@@ -35,17 +35,18 @@
                     </td>
                 </tr>
                 <tr>
-                    <td class="text-muted">Intérêts calculés (prorata <?= (int) $interest['year'] ?>)</td>
+                    <td class="text-muted"><?= $isDebit ? 'Frais calculés (prorata ' . (int) $interest['year'] . ')' : 'Intérêts calculés (prorata ' . (int) $interest['year'] . ')' ?></td>
                     <?php $calcAmt = (float) $interest['calculated_amount']; ?>
                     <td>
-                        <strong class="text-success">
+                        <strong class="<?= $isDebit ? 'text-danger' : 'text-success' ?>">
                             <?= fmt_amount_smart($calcAmt) ?> <?= e($account['currency']) ?>
                         </strong>
-                        <?php if ($calcAmt >= 1_000_000): ?>
+                        <?php if (abs($calcAmt) >= 1_000_000): ?>
                             <br><small class="text-muted" style="font-size:0.75em;"><?= number_format($calcAmt, 2, ',', ' ') ?> <?= e($account['currency']) ?></small>
                         <?php endif; ?>
                     </td>
                 </tr>
+                <?php if (!$isDebit): ?>
                 <tr>
                     <td class="text-muted">Maximum théorique autorisé</td>
                     <?php $maxAmt = (float) $interest['max_amount']; ?>
@@ -56,6 +57,7 @@
                         <?php endif; ?>
                     </td>
                 </tr>
+                <?php endif; ?>
             </tbody>
         </table>
 
@@ -64,14 +66,14 @@
             <input type="hidden" name="choice" id="choice-input" value="yes">
 
             <p style="font-size:1.05rem;margin-bottom:1rem;">
-                Le montant calculé
+                <?= $isDebit ? 'Le montant à débiter' : 'Le montant calculé' ?>
                 (<strong><?= fmt_amount_smart($calcAmt) ?> <?= e($account['currency']) ?></strong>)
                 vous convient-il ?
             </p>
 
             <div style="display:flex;gap:0.75rem;margin-bottom:1.25rem;">
-                <button type="button" id="btn-yes" class="btn btn-success" style="flex:1;" onclick="chooseYes()">
-                    <i class="bi bi-check-lg"></i> Oui, verser ce montant
+                <button type="button" id="btn-yes" class="btn <?= $isDebit ? 'btn-danger' : 'btn-success' ?>" style="flex:1;" onclick="chooseYes()">
+                    <i class="bi bi-check-lg"></i> <?= $isDebit ? 'Oui, débiter ce montant' : 'Oui, verser ce montant' ?>
                 </button>
                 <button type="button" id="btn-no" class="btn btn-outline" style="flex:1;" onclick="chooseNo()">
                     <i class="bi bi-pencil"></i> Non, modifier
@@ -81,12 +83,13 @@
             <div id="custom-section" style="display:none;">
                 <div class="form-group">
                     <label for="custom_amount" class="form-label">
-                        Montant des intérêts (<?= e($account['currency']) ?>)
+                        <?= $isDebit ? 'Montant du débit' : 'Montant des intérêts' ?> (<?= e($account['currency']) ?>)
                     </label>
                     <input type="number" id="custom_amount" name="custom_amount" class="form-control"
                            min="0.01" step="0.01"
-                           max="<?= htmlspecialchars((string) $interest['max_amount'], ENT_QUOTES) ?>"
-                           placeholder="<?= htmlspecialchars(number_format((float) $interest['calculated_amount'], 2, '.', ''), ENT_QUOTES) ?>">
+                           <?php if (!$isDebit): ?>max="<?= htmlspecialchars((string) $interest['max_amount'], ENT_QUOTES) ?>"<?php endif; ?>
+                           placeholder="<?= htmlspecialchars(number_format(abs((float) $interest['calculated_amount']), 2, '.', ''), ENT_QUOTES) ?>">
+                    <?php if (!$isDebit): ?>
                     <span class="form-hint">
                         Maximum autorisé :
                         <strong><?= fmt_amount_smart((float) $interest['max_amount']) ?> <?= e($account['currency']) ?></strong>
@@ -94,9 +97,10 @@
                             <br><?= number_format((float) $interest['max_amount'], 2, ',', ' ') ?> <?= e($account['currency']) ?>
                         <?php endif; ?>
                     </span>
+                    <?php endif; ?>
                 </div>
                 <button type="submit" class="btn btn-primary btn-block">
-                    <i class="bi bi-check-lg"></i> Verser ces intérêts
+                    <i class="bi bi-check-lg"></i> <?= $isDebit ? 'Débiter ce montant' : 'Verser ces intérêts' ?>
                 </button>
             </div>
         </form>

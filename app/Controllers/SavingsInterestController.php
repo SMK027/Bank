@@ -63,7 +63,8 @@ class SavingsInterestController extends Controller
         $cap      = $this->resolveCap($account);
         // Le taux de référence est celui enregistré dans l'intérêt (taux du compte au moment du calcul)
         $rate     = (float) $interest['rate'];
-        $maxNow   = SavingsInterest::computeMaxAmount($balance, $rate, $cap);
+        $isDebit  = (float) $interest['calculated_amount'] < 0;
+        $maxNow   = $isDebit ? 0.0 : SavingsInterest::computeMaxAmount($balance, $rate, $cap);
 
         $this->render('accounts/interest_confirm', [
             'title'    => 'Confirmer les intérêts ' . (int) $interest['year'],
@@ -71,6 +72,7 @@ class SavingsInterestController extends Controller
             'account'  => $account,
             'balance'  => $balance,
             'maxNow'   => $maxNow,
+            'isDebit'  => $isDebit,
         ]);
     }
 
@@ -91,25 +93,30 @@ class SavingsInterestController extends Controller
         $account  = $this->accountModel->find((int) $interest['account_id']);
         $balance  = $this->accountModel->getBalance((int) $interest['account_id']);
         $cap      = $this->resolveCap($account);
-        $maxNow   = SavingsInterest::computeMaxAmount($balance, (float) $interest['rate'], $cap);
+        $isDebit  = (float) $interest['calculated_amount'] < 0;
+        $maxNow   = $isDebit ? 0.0 : SavingsInterest::computeMaxAmount($balance, (float) $interest['rate'], $cap);
 
-        // ── Déterminer le montant à verser ────────────────────────────────────
+        // ── Déterminer le montant à verser / débiter ──────────────────────────
         if ($data['choice'] === 'yes') {
-            // "Oui" : on utilise le montant calculé, silencieusement borné au max actuel
-            $amount = round(min((float) $interest['calculated_amount'], $maxNow), 2);
+            // "Oui" : montant calculé, borné au max pour les crédits
+            $amount = $isDebit
+                ? round((float) $interest['calculated_amount'], 2)              // négatif
+                : round(min((float) $interest['calculated_amount'], $maxNow), 2); // positif
         } else {
-            // "Non" : montant saisi manuellement
-            $amount = round(abs((float) $data['custom_amount']), 2);
+            // "Non" : montant saisi manuellement (toujours positif côté formulaire)
+            // Pour un débit : on le stocke négatif
+            $raw    = round(abs((float) $data['custom_amount']), 2);
+            $amount = $isDebit ? -$raw : $raw;
         }
 
         // ── Validations ────────────────────────────────────────────────────────
-        if ($amount <= 0) {
-            $this->setFlash('danger', 'Aucun intérêt versable actuellement (solde nul ou plafond atteint).');
+        if ($amount === 0.0) {
+            $this->setFlash('danger', 'Le montant est nul.');
             $this->redirect('/interests/' . $id . '/confirm');
             return;
         }
 
-        if ($amount > $maxNow + 0.01) {
+        if (!$isDebit && $amount > $maxNow + 0.01) {
             $this->setFlash('danger', sprintf(
                 'Le montant saisi (%s %s) dépasse le maximum théorique autorisé (%s %s) calculé d\'après votre solde actuel et le taux configuré.',
                 number_format($amount, 2, ',', ' '),
@@ -121,11 +128,11 @@ class SavingsInterestController extends Controller
             return;
         }
 
-        // ── Créer la transaction de versement ─────────────────────────────────
+        // ── Créer la transaction de versement / prélèvement ───────────────────
         $txId = $this->transactionModel->addTransaction(
             (int) $interest['account_id'],
-            'income',
-            $amount,
+            $isDebit ? 'expense' : 'income',
+            abs($amount),
             'Épargne',
             sprintf(
                 'Intérêts %d — taux : %s %%',
@@ -151,13 +158,22 @@ class SavingsInterestController extends Controller
             'choice'      => $data['choice'] === 'yes' ? 'calculated' : 'custom',
         ], targetAccountId: (int) $interest['account_id']);
 
-        $this->setFlash('success', sprintf(
-            'Intérêts %d de %s %s versés sur le compte « %s ».',
-            (int) $interest['year'],
-            number_format($amount, 2, ',', ' '),
-            $account['currency'],
-            $account['name']
-        ));
+        $this->setFlash('success', $isDebit
+            ? sprintf(
+                'Frais d\'intérêts %d de %s %s débités sur le compte « %s ».',
+                (int) $interest['year'],
+                number_format(abs($amount), 2, ',', ' '),
+                $account['currency'],
+                $account['name']
+            )
+            : sprintf(
+                'Intérêts %d de %s %s versés sur le compte « %s ».',
+                (int) $interest['year'],
+                number_format($amount, 2, ',', ' '),
+                $account['currency'],
+                $account['name']
+            )
+        );
         $this->redirect('/accounts/' . $interest['account_id']);
     }
 
