@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Core\Session;
 use App\Models\Account;
+use App\Models\ApiPayment;
 use App\Models\AuditLog;
 use App\Models\DeferredDebit;
 use App\Models\Transaction;
@@ -336,6 +337,13 @@ class AccountController extends Controller
             );
         }
 
+        // Encaissements TPE (comptes professionnels uniquement)
+        $posPayments = [];
+        if (($account['type'] ?? '') === 'pro') {
+            $paymentModel = new ApiPayment();
+            $posPayments  = $paymentModel->getByMerchantAccount($accountId);
+        }
+
         // Virements récurrents liés à ce compte (émetteur ou destinataire)
         $recurringTransfers = $this->recurringTransferModel->getByAccount($accountId);
         foreach ($recurringTransfers as &$r) {
@@ -386,6 +394,7 @@ class AccountController extends Controller
             'pendingDeferredDebits'  => $pendingDeferredDebits,
             'executedDeferredDebits' => $executedDeferredDebits,
             'deferredDebitDay'       => $deferredDebitEnabled ? ($account['deferred_debit_day'] ?? null) : null,
+            'posPayments'            => $posPayments,
         ]);
     }
 

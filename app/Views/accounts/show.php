@@ -38,6 +38,7 @@
  * @var array       $pendingDeferredDebits
  * @var array       $executedDeferredDebits
  * @var int|null    $deferredDebitDay
+ * @var array       $posPayments
  */
 ?>
 <div class="page-header">
@@ -91,6 +92,15 @@
                              line-height:1;margin-left:0.25rem;font-style:normal;"><?= $activeRecurring ?></span>
             <?php endif; ?>
         </a>
+        <?php if (($account['type'] ?? '') === 'pro' && !empty($posPayments)): ?>
+        <a href="#pos-payments-section" class="btn btn-outline btn-sm" style="border-color:var(--success,#22c55e);color:var(--success,#22c55e);" title="Encaissements TPE">
+            <i class="bi bi-credit-card-2-front"></i> Encaissements TPE
+            <span style="display:inline-flex;align-items:center;justify-content:center;
+                         background:var(--success,#22c55e);color:#fff;border-radius:999px;
+                         font-size:0.7em;min-width:1.35em;height:1.35em;padding:0 0.3em;
+                         line-height:1;margin-left:0.25rem;font-style:normal;"><?= count(array_filter($posPayments, fn($p) => empty($p['cancelled_at']))) ?></span>
+        </a>
+        <?php endif; ?>
         <?php if ($isOwner): ?>
             <a href="/accounts/<?= (int) $account['id'] ?>/edit" class="btn btn-warning btn-sm"><i class="bi bi-pencil"></i> Modifier</a>
         <?php endif; ?>
@@ -1558,6 +1568,182 @@
 </div>
 
 <?php /* Section "Mandats" supprimée — les prélèvements liés aux mandats sont désormais affichés dans "Opérations à venir > Prélèvements planifiés". */ ?>
+
+<?php if (($account['type'] ?? '') === 'pro' && isset($posPayments)): ?>
+<!-- ======================================================= -->
+<!-- Section : Encaissements TPE                             -->
+<!-- ======================================================= -->
+<div class="card mt-2" id="pos-payments-section" style="border-left:3px solid var(--success,#22c55e);">
+    <div class="card-header" style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;">
+        <h3 style="margin:0;"><i class="bi bi-credit-card-2-front" style="color:var(--success,#22c55e);"></i> Encaissements TPE</h3>
+        <?php
+            $totalNet  = 0.0;
+            $cntOk     = 0;
+            $cntCancel = 0;
+            foreach ($posPayments as $_pp) {
+                if (!empty($_pp['cancelled_at'])) { $cntCancel++; continue; }
+                $totalNet += (float) $_pp['net_amount'];
+                $cntOk++;
+            }
+        ?>
+        <?php if ($cntOk > 0): ?>
+            <span class="badge" style="background:var(--success,#22c55e);color:#fff;"><?= $cntOk ?> encaissement<?= $cntOk > 1 ? 's' : '' ?></span>
+        <?php endif; ?>
+        <?php if ($cntCancel > 0): ?>
+            <span class="badge bg-secondary"><?= $cntCancel ?> annulé<?= $cntCancel > 1 ? 's' : '' ?></span>
+        <?php endif; ?>
+        <?php if ($isModerator): ?>
+            <a href="/moderation/pos-payments?merchant=<?= (int) $account['id'] ?>"
+               class="btn btn-outline btn-sm" style="margin-left:auto;font-size:0.82rem;"
+               title="Gérer les encaissements depuis la modération">
+                <i class="bi bi-shield-check"></i> Modération TPE
+            </a>
+        <?php else: ?>
+            <span style="margin-left:auto;font-size:0.9rem;font-weight:600;color:var(--success,#22c55e);">
+                Net encaissé : <?= number_format($totalNet, 2, ',', ' ') ?> <?= e($account['currency']) ?>
+            </span>
+        <?php endif; ?>
+    </div>
+    <div class="card-body" style="<?= empty($posPayments) ? 'padding:1.5rem;' : 'padding:0;' ?>">
+        <?php if (empty($posPayments)): ?>
+            <div style="text-align:center;color:var(--text-muted);padding:1rem 0;">
+                <i class="bi bi-credit-card-2-front" style="font-size:1.8rem;opacity:0.25;display:block;margin-bottom:0.5rem;"></i>
+                Aucun encaissement TPE enregistré sur ce compte.
+            </div>
+        <?php else: ?>
+            <div class="table-responsive">
+                <table class="table" style="margin:0;">
+                    <thead>
+                        <tr>
+                            <th style="width:3.5rem;">#</th>
+                            <th>Date</th>
+                            <th>Carte</th>
+                            <th>Client</th>
+                            <th class="text-right">Montant</th>
+                            <th class="text-right">Remboursé</th>
+                            <th class="text-right">Net</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($posPayments as $pp):
+                        $ppCancelled = !empty($pp['cancelled_at']);
+                        $ppDeferred  = !empty($pp['deferred_debit_id']);
+                        $ppRefunded  = (float) $pp['total_refunded'] > 0;
+                        $ppNet       = (float) $pp['net_amount'];
+                        $ppAmount    = (float) $pp['amount'];
+                    ?>
+                        <tr class="<?= $ppCancelled ? 'text-muted' : '' ?>">
+                            <td class="text-small"><?= (int) $pp['id'] ?></td>
+                            <td class="text-small"><?= date('d/m/Y H:i', strtotime($pp['created_at'])) ?></td>
+                            <td>
+                                <?php if (!empty($pp['comment'])): ?>
+                                    <span class="text-small text-muted" title="<?= e($pp['comment']) ?>">
+                                        <?= e(substr($pp['comment'], 0, 30)) ?>
+                                    </span>
+                                <?php else: ?>
+                                    <span class="text-muted">—</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if (!empty($pp['client_name'])): ?>
+                                    <strong class="text-small"><?= e($pp['client_name']) ?></strong>
+                                    <?php if (!empty($pp['client_account_name'])): ?>
+                                        <br><span class="text-small text-muted"><?= e($pp['client_account_name']) ?></span>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <span class="text-muted">—</span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="text-right">
+                                <strong><?= number_format($ppAmount, 2, ',', ' ') ?></strong>
+                                <span class="text-muted text-small"><?= e($pp['currency']) ?></span>
+                            </td>
+                            <td class="text-right">
+                                <?php if ($ppRefunded): ?>
+                                    <span style="color:var(--warning,#d97706);">
+                                        <?= number_format((float) $pp['total_refunded'], 2, ',', ' ') ?>
+                                    </span>
+                                    <span class="text-muted text-small"><?= e($pp['currency']) ?></span>
+                                    <!-- Détail remboursements -->
+                                    <details style="display:inline-block;margin-top:0.2rem;font-size:0.78rem;">
+                                        <summary style="cursor:pointer;color:var(--text-muted);">
+                                            <?= count($pp['refunds']) ?> remb.
+                                        </summary>
+                                        <div style="padding:0.4rem 0.5rem;background:var(--bg-secondary,#f8f9fa);border-radius:4px;margin-top:0.2rem;white-space:nowrap;">
+                                            <?php foreach ($pp['refunds'] as $rf): ?>
+                                                <div>
+                                                    <?= date('d/m/Y H:i', strtotime($rf['refunded_at'])) ?>
+                                                    — <?= number_format((float) $rf['amount'], 2, ',', ' ') ?> <?= e($pp['currency']) ?>
+                                                    <?php if (!empty($rf['refunded_by_name'])): ?>
+                                                        <span class="text-muted">(par <?= e($rf['refunded_by_name']) ?>)</span>
+                                                    <?php endif; ?>
+                                                    <?php if (!empty($rf['reason'])): ?>
+                                                        <br><span class="text-muted" style="padding-left:0.5rem;"><?= e($rf['reason']) ?></span>
+                                                    <?php endif; ?>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </details>
+                                <?php else: ?>
+                                    <span class="text-muted">—</span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="text-right">
+                                <?php if ($ppCancelled): ?>
+                                    <span class="text-muted">—</span>
+                                <?php else: ?>
+                                    <strong style="color:<?= $ppNet > 0 ? 'var(--success,#22c55e)' : 'var(--text-muted)' ?>;">
+                                        <?= number_format($ppNet, 2, ',', ' ') ?>
+                                    </strong>
+                                    <span class="text-muted text-small"><?= e($pp['currency']) ?></span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if ($ppCancelled): ?>
+                                    <span class="badge bg-secondary">Annulé</span>
+                                    <?php if (!empty($pp['cancel_reason'])): ?>
+                                        <br><small class="text-muted" title="<?= e($pp['cancel_reason']) ?>"><?= e(mb_substr($pp['cancel_reason'], 0, 35)) ?><?= mb_strlen($pp['cancel_reason']) > 35 ? '…' : '' ?></small>
+                                    <?php endif; ?>
+                                <?php elseif ($ppDeferred): ?>
+                                    <span class="badge bg-warning text-dark">Différé</span>
+                                <?php elseif ($ppRefunded && $ppNet <= 0.001): ?>
+                                    <span class="badge badge-success">Succès</span>
+                                    <br><span class="badge bg-secondary text-small" style="margin-top:0.2rem;">Remboursé intégralement</span>
+                                <?php elseif ($ppRefunded): ?>
+                                    <span class="badge badge-success">Succès</span>
+                                    <br><span class="badge bg-warning text-dark text-small" style="margin-top:0.2rem;">Remb. partiel</span>
+                                <?php else: ?>
+                                    <span class="badge badge-success">Succès</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                    <tfoot>
+                        <tr style="border-top:2px solid var(--border-color);font-weight:600;">
+                            <td colspan="4" class="text-right text-small text-muted">Total</td>
+                            <td class="text-right">
+                                <?= number_format(array_sum(array_column($posPayments, 'amount')), 2, ',', ' ') ?>
+                                <span class="text-muted text-small"><?= e($account['currency']) ?></span>
+                            </td>
+                            <td class="text-right" style="color:var(--warning,#d97706);">
+                                <?= number_format(array_sum(array_column($posPayments, 'total_refunded')), 2, ',', ' ') ?>
+                                <span class="text-muted text-small"><?= e($account['currency']) ?></span>
+                            </td>
+                            <td class="text-right" style="color:var(--success,#22c55e);">
+                                <?= number_format($totalNet, 2, ',', ' ') ?>
+                                <span class="text-muted text-small"><?= e($account['currency']) ?></span>
+                            </td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
 
 <!-- ======================================================= -->
 <!-- Section : Virements permanents (récurrents)             -->

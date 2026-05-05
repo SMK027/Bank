@@ -160,6 +160,62 @@ class ApiPayment extends Model
         return !empty($payment['cancelled_at']);
     }
 
+    /**
+     * Retourne tous les encaissements TPE pour lesquels le compte donné
+     * est le compte crédité (commerçant), enrichis des informations client
+     * et des remboursements éventuels.
+     */
+    public function getByMerchantAccount(int $accountId): array
+    {
+        $pdo  = $this->getPdo();
+
+        // Récupérer les paiements dont le crédit pointe vers ce compte
+        $stmt = $pdo->prepare(
+            "SELECT p.*,
+                    cu.username AS client_name,
+                    ca.name     AS client_account_name
+               FROM `{$this->table}` p
+               LEFT JOIN transactions ct ON ct.id = p.credit_transaction_id
+               LEFT JOIN accounts     ca ON ca.id = p.account_id
+               LEFT JOIN users        cu ON cu.id = ca.user_id
+              WHERE ct.account_id = :aid
+                AND p.status = 'success'
+              ORDER BY p.created_at DESC"
+        );
+        $stmt->bindValue(':aid', $accountId, \PDO::PARAM_INT);
+        $stmt->execute();
+        $payments = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        if (empty($payments)) {
+            return [];
+        }
+
+        // Enrichir chaque paiement avec ses remboursements
+        $ids = array_map('intval', array_column($payments, 'id'));
+        $ph  = implode(',', array_fill(0, count($ids), '?'));
+        $rs  = $pdo->prepare(
+            "SELECT r.*, u.username AS refunded_by_name
+               FROM api_payment_refunds r
+               LEFT JOIN users u ON u.id = r.refunded_by
+              WHERE r.payment_id IN ($ph)
+              ORDER BY r.payment_id, r.refunded_at ASC"
+        );
+        $rs->execute($ids);
+        $refundsByPayment = [];
+        foreach ($rs->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+            $refundsByPayment[(int) $row['payment_id']][] = $row;
+        }
+
+        foreach ($payments as &$p) {
+            $p['refunds']         = $refundsByPayment[(int) $p['id']] ?? [];
+            $p['total_refunded']  = array_sum(array_column($p['refunds'], 'amount'));
+            $p['net_amount']      = round((float) $p['amount'] - (float) $p['total_refunded'], 2);
+        }
+        unset($p);
+
+        return $payments;
+    }
+
     public function markCancelled(int $id, ?int $moderatorId, string $reason = ''): bool
     {
         return $this->update($id, [
