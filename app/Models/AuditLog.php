@@ -111,9 +111,10 @@ class AuditLog extends Model
     public const ACTION_TRANSFER_RECURRING_FAIL = 'transfer_recurring.fail';
 
     // Cartes bancaires & API de paiement
-    public const ACTION_CARD_CREATE         = 'card.create';
-    public const ACTION_CARD_UPDATE_ACCOUNT = 'card.update_account';
-    public const ACTION_CARD_DELETE         = 'card.delete';
+    public const ACTION_CARD_CREATE          = 'card.create';
+    public const ACTION_CARD_UPDATE_ACCOUNT  = 'card.update_account';
+    public const ACTION_CARD_UPDATE_SETTINGS = 'card.update_settings';
+    public const ACTION_CARD_DELETE          = 'card.delete';
     public const ACTION_CARD_REVEAL         = 'card.reveal';
     public const ACTION_CARD_REVEAL_FAIL    = 'card.reveal_fail';
     public const ACTION_API_CLIENT_CREATE   = 'api_client.create';
@@ -179,6 +180,7 @@ class AuditLog extends Model
         'loan.closed'              => 'Crédit soldé',
         'card.create'              => 'Carte bancaire enregistrée',
         'card.update_account'      => 'Compte associé à la carte modifié',
+        'card.update_settings'     => 'Paramètres de carte modifiés (expiration / plafond)',
         'card.delete'              => 'Carte bancaire supprimée',
         'card.reveal'              => 'Numéro de carte révélé',
         'card.reveal_fail'         => 'Tentative de révélation échouée (mot de passe)',

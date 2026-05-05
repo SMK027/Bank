@@ -109,16 +109,63 @@ unset($_SESSION['card_just_created']);
                                 <?php endif; ?>
                             </td>
                             <td><?= date('d/m/Y', strtotime($card['created_at'])) ?></td>
-                            <td style="text-align:right;">
+                            <td style="text-align:right;white-space:nowrap;">
                                 <a href="/cards/<?= (int) $card['id'] ?>/reveal" class="btn btn-sm btn-secondary" title="Afficher le numéro complet">
                                     <i class="bi bi-eye"></i> Afficher
                                 </a>
-                                <details style="display:inline-block;text-align:left;">
+                                <!-- Modifier les paramètres (expiration + plafond) -->
+                                <details style="display:inline-block;text-align:left;vertical-align:middle;">
+                                    <summary class="btn btn-sm btn-outline" style="cursor:pointer;" title="Modifier expiration et plafond">
+                                        <i class="bi bi-sliders"></i> Paramètres
+                                    </summary>
+                                    <form method="POST" action="/cards/<?= (int) $card['id'] ?>/settings"
+                                          style="min-width:260px;padding:0.75rem;background:var(--card-bg,#fff);border:1px solid var(--border-color);border-radius:6px;margin-top:0.4rem;box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+                                        <?= csrf_field() ?>
+                                        <div style="margin-bottom:0.6rem;">
+                                            <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:0.25rem;">
+                                                <i class="bi bi-calendar-x"></i> Date d'expiration
+                                            </label>
+                                            <div style="display:flex;gap:0.4rem;align-items:center;">
+                                                <input type="text" name="expires_at"
+                                                       class="form-control form-control-sm"
+                                                       style="width:90px;"
+                                                       maxlength="7" placeholder="MM/AA"
+                                                       value="<?= !empty($card['expires_at']) ? date('m/y', strtotime($card['expires_at'])) : '' ?>">
+                                                <label style="font-size:0.78rem;display:flex;align-items:center;gap:0.25rem;white-space:nowrap;cursor:pointer;">
+                                                    <input type="checkbox" name="clear_expiry" value="1">
+                                                    Supprimer
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div style="margin-bottom:0.7rem;">
+                                            <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:0.25rem;">
+                                                <i class="bi bi-bar-chart"></i> Plafond mensuel
+                                            </label>
+                                            <div style="display:flex;gap:0.4rem;align-items:center;">
+                                                <input type="text" name="monthly_limit"
+                                                       class="form-control form-control-sm"
+                                                       style="width:90px;"
+                                                       maxlength="12" placeholder="Ex : 500"
+                                                       inputmode="decimal"
+                                                       value="<?= isset($card['monthly_limit']) && $card['monthly_limit'] !== null ? number_format((float) $card['monthly_limit'], 2, ',', ' ') : '' ?>">
+                                                <label style="font-size:0.78rem;display:flex;align-items:center;gap:0.25rem;white-space:nowrap;cursor:pointer;">
+                                                    <input type="checkbox" name="clear_limit" value="1">
+                                                    Supprimer
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <button type="submit" class="btn btn-sm btn-primary" style="width:100%;">
+                                            <i class="bi bi-check-lg"></i> Enregistrer
+                                        </button>
+                                    </form>
+                                </details>
+                                <!-- Changer de compte associé -->
+                                <details style="display:inline-block;text-align:left;vertical-align:middle;">
                                     <summary class="btn btn-sm btn-secondary" style="cursor:pointer;">
-                                        <i class="bi bi-pencil"></i> Changer de compte
+                                        <i class="bi bi-pencil"></i> Compte
                                     </summary>
                                     <form method="POST" action="/cards/<?= (int) $card['id'] ?>/account"
-                                          style="display:flex;gap:0.4rem;align-items:center;margin-top:0.5rem;">
+                                          style="min-width:220px;padding:0.6rem;background:var(--card-bg,#fff);border:1px solid var(--border-color);border-radius:6px;margin-top:0.4rem;box-shadow:0 4px 12px rgba(0,0,0,0.1);display:flex;flex-direction:column;gap:0.4rem;">
                                         <?= csrf_field() ?>
                                         <select name="account_id" class="form-control form-control-sm" required>
                                             <?php foreach ($eligibleAccounts as $a): ?>
@@ -129,15 +176,15 @@ unset($_SESSION['card_just_created']);
                                             <?php endforeach; ?>
                                         </select>
                                         <button type="submit" class="btn btn-sm btn-primary">
-                                            <i class="bi bi-check-lg"></i>
+                                            <i class="bi bi-check-lg"></i> Valider
                                         </button>
                                     </form>
                                 </details>
                                 <form method="POST" action="/cards/<?= (int) $card['id'] ?>/delete"
-                                      style="display:inline;"
+                                      style="display:inline;vertical-align:middle;"
                                       onsubmit="return confirm('Supprimer définitivement cette carte ?');">
                                     <?= csrf_field() ?>
-                                    <button type="submit" class="btn btn-sm btn-danger">
+                                    <button type="submit" class="btn btn-sm btn-danger" title="Supprimer la carte">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </form>

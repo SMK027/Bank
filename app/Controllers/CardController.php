@@ -227,6 +227,77 @@ class CardController extends Controller
         $this->redirect('/cards');
     }
 
+    /** Met à jour la date d'expiration et/ou le plafond mensuel d'une carte. */
+    public function updateSettings(string $id): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+        $userId = $this->getCurrentUserId();
+
+        $id   = (int) $id;
+        $card = $this->cardModel->find($id);
+        if (!$card || (int) $card['user_id'] !== $userId) {
+            $this->setFlash('danger', 'Carte introuvable.');
+            $this->redirect('/cards');
+            return;
+        }
+
+        $expiresRaw  = trim((string) ($_POST['expires_at']    ?? ''));
+        $limitRaw    = trim((string) ($_POST['monthly_limit'] ?? ''));
+        $clearExpiry = isset($_POST['clear_expiry']);
+        $clearLimit  = isset($_POST['clear_limit']);
+
+        $changes = [];
+
+        // — Expiration —
+        if ($clearExpiry) {
+            $changes['expires_at'] = null;
+        } elseif ($expiresRaw !== '') {
+            $expiresAt = PaymentCard::parseExpiry($expiresRaw);
+            if ($expiresAt === null) {
+                $this->setFlash('danger', 'Format de date d\'expiration invalide (attendu MM/AA).');
+                $this->redirect('/cards');
+                return;
+            }
+            if (strtotime($expiresAt) < strtotime('today')) {
+                $this->setFlash('danger', 'La date d\'expiration ne peut pas être dans le passé.');
+                $this->redirect('/cards');
+                return;
+            }
+            $changes['expires_at'] = $expiresAt;
+        }
+
+        // — Plafond mensuel —
+        if ($clearLimit) {
+            $changes['monthly_limit'] = null;
+        } elseif ($limitRaw !== '') {
+            $limit = (float) str_replace(',', '.', $limitRaw);
+            if ($limit <= 0) {
+                $this->setFlash('danger', 'Le plafond mensuel doit être strictement positif.');
+                $this->redirect('/cards');
+                return;
+            }
+            $changes['monthly_limit'] = $limit;
+        }
+
+        if (empty($changes)) {
+            $this->setFlash('warning', 'Aucune modification détectée.');
+            $this->redirect('/cards');
+            return;
+        }
+
+        $this->cardModel->update($id, $changes);
+
+        AuditLog::log($userId, AuditLog::ACTION_CARD_UPDATE_SETTINGS, [
+            'card_id'       => $id,
+            'last4'         => $card['last4'] ?? '',
+            'changes'       => array_map(fn($v) => $v ?? 'supprimé', $changes),
+        ]);
+
+        $this->setFlash('success', 'Paramètres de la carte mis à jour.');
+        $this->redirect('/cards');
+    }
+
     /** Supprime une carte. */
     public function delete(string $id): void
     {
