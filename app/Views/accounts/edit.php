@@ -180,7 +180,10 @@
 
         if (hasInterest && rateHint) {
             rateHint.textContent = 'Aucune limite — compte interne de modération.';
-            if (rateInput) rateInput.removeAttribute('max');
+            if (rateInput) {
+                rateInput.removeAttribute('max');
+                rateInput.setAttribute('step', 'any');
+            }
         }
     }
     typeEl.addEventListener('change', toggle);

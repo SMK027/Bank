@@ -485,7 +485,7 @@ class AccountController extends Controller
             $interestRate = null;
             if (Account::typeHasInterest($type) && ($data['interest_rate'] ?? '') !== '') {
                 $rawPct       = (float) str_replace(',', '.', $data['interest_rate']);
-                $interestRate = round($rawPct / 100, 6);
+                $interestRate = round($rawPct / 100, 5);
                 if (!$isInternal) {
                     $maxRate = $this->rateModel->getCurrentRate($type);
                     if ($maxRate !== null && $interestRate > $maxRate) {
