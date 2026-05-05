@@ -620,7 +620,26 @@ class PosController extends Controller
         $this->requireModerator();
 
         $apiClientId = $this->getSystemApiClientId();
-        $payments    = $this->paymentModel->getRecent(200, $apiClientId);
+
+        $filters = [
+            'api_client_id' => $apiClientId,
+            'client'        => trim((string) ($_GET['client']     ?? '')),
+            'merchant'      => trim((string) ($_GET['merchant']   ?? '')),
+            'amount_min'    => trim((string) ($_GET['amount_min'] ?? '')),
+            'amount_max'    => trim((string) ($_GET['amount_max'] ?? '')),
+            'date_from'     => trim((string) ($_GET['date_from']  ?? '')),
+            'date_to'       => trim((string) ($_GET['date_to']    ?? '')),
+            'status'        => trim((string) ($_GET['status']     ?? '')),
+        ];
+
+        $hasFilters = (bool) array_filter([
+            $filters['client'], $filters['merchant'],
+            $filters['amount_min'], $filters['amount_max'],
+            $filters['date_from'], $filters['date_to'], $filters['status'],
+        ]);
+
+        $limit    = $hasFilters ? 500 : 200;
+        $payments = $this->paymentModel->searchForModeration($filters, $limit);
 
         // Charger les cartes pour afficher les last4
         $cardIds = array_filter(array_column($payments, 'card_id'));
@@ -635,9 +654,11 @@ class PosController extends Controller
         }
 
         $this->render('moderation/pos_payments', [
-            'title'     => 'Paiements TPE',
-            'payments'  => $payments,
-            'cardsById' => $cardsById,
+            'title'      => 'Paiements TPE',
+            'payments'   => $payments,
+            'cardsById'  => $cardsById,
+            'filters'    => $filters,
+            'hasFilters' => $hasFilters,
         ]);
     }
 

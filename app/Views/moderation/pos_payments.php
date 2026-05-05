@@ -1,10 +1,79 @@
 <?php
 /** @var array $payments */
 /** @var array $cardsById */
+/** @var array $filters */
+/** @var bool  $hasFilters */
+$filters    = $filters    ?? [];
+$hasFilters = $hasFilters ?? false;
+$f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? ''), ENT_QUOTES, 'UTF-8');
 ?>
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;">
     <h1><i class="bi bi-shop"></i> Paiements TPE</h1>
-    <span class="text-muted text-small"><?= count($payments) ?> opération(s) récente(s)</span>
+    <span class="text-muted text-small">
+        <?= count($payments) ?> opération(s)<?= $hasFilters ? ' (filtrées)' : ' récente(s)' ?>
+    </span>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="GET" action="/moderation/pos-payments" class="pos-search-form"
+              style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.6rem 0.8rem;align-items:end;">
+            <div>
+                <label class="form-label text-small" for="pos-f-client">Client</label>
+                <input type="text" id="pos-f-client" name="client" value="<?= $f('client') ?>"
+                       class="form-control form-control-sm"
+                       placeholder="Nom, compte ou #id" autocomplete="off">
+            </div>
+            <div>
+                <label class="form-label text-small" for="pos-f-merchant">Commerçant</label>
+                <input type="text" id="pos-f-merchant" name="merchant" value="<?= $f('merchant') ?>"
+                       class="form-control form-control-sm"
+                       placeholder="Nom, compte ou #id" autocomplete="off">
+            </div>
+            <div>
+                <label class="form-label text-small" for="pos-f-amount-min">Montant min</label>
+                <input type="number" id="pos-f-amount-min" name="amount_min" value="<?= $f('amount_min') ?>"
+                       step="0.01" min="0" class="form-control form-control-sm" placeholder="0,00">
+            </div>
+            <div>
+                <label class="form-label text-small" for="pos-f-amount-max">Montant max</label>
+                <input type="number" id="pos-f-amount-max" name="amount_max" value="<?= $f('amount_max') ?>"
+                       step="0.01" min="0" class="form-control form-control-sm" placeholder="0,00">
+            </div>
+            <div>
+                <label class="form-label text-small" for="pos-f-date-from">Du</label>
+                <input type="date" id="pos-f-date-from" name="date_from" value="<?= $f('date_from') ?>"
+                       class="form-control form-control-sm">
+            </div>
+            <div>
+                <label class="form-label text-small" for="pos-f-date-to">Au</label>
+                <input type="date" id="pos-f-date-to" name="date_to" value="<?= $f('date_to') ?>"
+                       class="form-control form-control-sm">
+            </div>
+            <div>
+                <label class="form-label text-small" for="pos-f-status">Statut</label>
+                <select id="pos-f-status" name="status" class="form-control form-control-sm">
+                    <?php $st = $filters['status'] ?? ''; ?>
+                    <option value=""           <?= $st === ''           ? 'selected' : '' ?>>Tous</option>
+                    <option value="success"    <?= $st === 'success'    ? 'selected' : '' ?>>Succès</option>
+                    <option value="deferred"   <?= $st === 'deferred'   ? 'selected' : '' ?>>Différé</option>
+                    <option value="failed"     <?= $st === 'failed'     ? 'selected' : '' ?>>Échec</option>
+                    <option value="cancelled"  <?= $st === 'cancelled'  ? 'selected' : '' ?>>Annulé</option>
+                </select>
+            </div>
+            <div style="display:flex;gap:0.4rem;align-items:end;">
+                <button type="submit" class="btn btn-primary btn-sm" style="white-space:nowrap;">
+                    <i class="bi bi-search"></i> Rechercher
+                </button>
+                <?php if ($hasFilters): ?>
+                <a href="/moderation/pos-payments" class="btn btn-outline btn-sm" style="white-space:nowrap;"
+                   title="Réinitialiser les filtres">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+                <?php endif; ?>
+            </div>
+        </form>
+    </div>
 </div>
 
 <div class="card">
@@ -12,7 +81,9 @@
         <?php if (empty($payments)): ?>
             <p class="text-muted text-center" style="padding:1.5rem 0;margin:0;">
                 <i class="bi bi-inbox" style="font-size:2rem;display:block;margin-bottom:0.5rem;"></i>
-                Aucun paiement TPE enregistré.
+                <?= $hasFilters
+                    ? 'Aucun paiement TPE ne correspond aux critères de recherche.'
+                    : 'Aucun paiement TPE enregistré.' ?>
             </p>
         <?php else: ?>
             <div class="table-responsive">
@@ -22,8 +93,8 @@
                             <th>#</th>
                             <th>Date</th>
                             <th>Carte</th>
-                            <th>Compte client</th>
-                            <th>Compte commerçant</th>
+                            <th>Client</th>
+                            <th>Commerçant</th>
                             <th>Montant</th>
                             <th>Statut</th>
                             <th style="text-align:right;">Actions</th>
@@ -44,14 +115,24 @@
                             <td><code>**** <?= e($cardLast4) ?></code></td>
                             <td>
                                 <?php if (!empty($p['account_id'])): ?>
-                                    <a href="/accounts/<?= (int) $p['account_id'] ?>">#<?= (int) $p['account_id'] ?></a>
+                                    <?php if (!empty($p['client_name'])): ?>
+                                        <strong class="text-small"><?= e($p['client_name']) ?></strong><br>
+                                    <?php endif; ?>
+                                    <a href="/accounts/<?= (int) $p['account_id'] ?>" class="text-small">
+                                        <?= !empty($p['client_account_name']) ? e($p['client_account_name']) : '#' . (int) $p['account_id'] ?>
+                                    </a>
                                 <?php else: ?>
                                     <span class="text-muted">—</span>
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <?php if (!empty($p['credit_transaction_id'])): ?>
-                                    <span class="text-muted text-small">TX-<?= (int) $p['credit_transaction_id'] ?></span>
+                                <?php if (!empty($p['merchant_account_id'])): ?>
+                                    <?php if (!empty($p['merchant_name'])): ?>
+                                        <strong class="text-small"><?= e($p['merchant_name']) ?></strong><br>
+                                    <?php endif; ?>
+                                    <a href="/accounts/<?= (int) $p['merchant_account_id'] ?>" class="text-small">
+                                        <?= !empty($p['merchant_account_name']) ? e($p['merchant_account_name']) : '#' . (int) $p['merchant_account_id'] ?>
+                                    </a>
                                 <?php else: ?>
                                     <span class="text-muted">—</span>
                                 <?php endif; ?>
