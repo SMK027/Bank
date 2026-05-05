@@ -22,6 +22,7 @@ echo "Attente de MariaDB (${DB_HOST:-db}:${DB_PORT:-3306})…"
 MAX_TRIES=60
 i=0
 until mysql -h"${DB_HOST:-db}" -P"${DB_PORT:-3306}" \
+            --ssl=FALSE \
             -u"${DB_USERNAME:-bankapp}" -p"${DB_PASSWORD:-bankapp_secret}" \
             "${DB_DATABASE:-bankapp}" -e "SELECT 1" >/dev/null 2>&1; do
     i=$((i+1))
