@@ -323,7 +323,7 @@ class AccountController extends Controller
         // Intérêts accumulés en cours d'année (TWAB Jan 1 → aujourd'hui)
         $accruedInterest = null;
         $accountRate     = isset($account['interest_rate']) ? (float) $account['interest_rate'] : 0.0;
-        if (Account::typeHasInterest($account['type'] ?? '') && $accountRate > 0) {
+        if (Account::typeHasInterest($account['type'] ?? '') && $accountRate !== 0.0) {
             // Comptes internes : pas de plafonnement par le taux de modération
             $rateSegments    = !empty($account['internal'])
                 ? []

@@ -2390,8 +2390,8 @@ class ModerationController extends Controller
         $maxAmount     = SavingsInterest::computeMaxAmount($balanceBefore, $accountRate, null);
         $calculatedAmount = min($calculatedAmount, $maxAmount);
 
-        if ($calculatedAmount <= 0) {
-            $this->setFlash('danger', 'Le montant calculé est nul ou négatif (solde insuffisant ou aucune activité).');
+        if ($calculatedAmount === 0.0) {
+            $this->setFlash('danger', 'Le montant calculé est nul (solde insuffisant ou aucune activité).');
             $this->redirect('/accounts/' . $accountId);
             return;
         }

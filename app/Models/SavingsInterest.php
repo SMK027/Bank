@@ -189,7 +189,7 @@ class SavingsInterest extends Model
                 $curTs   = $tTs;
             }
             $wsum += $curBal * max(0.0, ($nowTs - $curTs) / 86400);
-            return round(max(0.0, ($wsum / $totalDays) * $rate), 2);
+            return round(($wsum / $totalDays) * $rate, 2);
         }
 
         // Rogner les segments à [yearStartTs, nowTs)

@@ -109,8 +109,8 @@ foreach ($savings as $account) {
         // On ne dépasse pas le maximum théorique
         $calculatedAmount = min($calculatedAmount, $maxAmount);
 
-        if ($calculatedAmount <= 0) {
-            echo sprintf("[%s] Compte #%d (%s) : montant nul ou négatif (solde : %s), ignoré.\n",
+        if ($calculatedAmount === 0.0) {
+            echo sprintf("[%s] Compte #%d (%s) : montant calculé nul (solde : %s), ignoré.\n",
                 date('Y-m-d H:i:s'), $accountId, $account['name'],
                 number_format($balanceBefore, 2, ',', ' '));
             $skipped++;
