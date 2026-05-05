@@ -256,6 +256,16 @@ class TestDatabase
                 cancel_reason         TEXT    NOT NULL DEFAULT '',
                 created_at            TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS pos_status (
+                id             INTEGER PRIMARY KEY,
+                disabled_at    TEXT    DEFAULT NULL,
+                disabled_until TEXT    DEFAULT NULL,
+                disabled_by    INTEGER DEFAULT NULL,
+                reason         TEXT    NOT NULL DEFAULT '',
+                updated_at     TEXT
+            );
+            INSERT OR IGNORE INTO pos_status (id) VALUES (1);
         SQL;
     }
 }

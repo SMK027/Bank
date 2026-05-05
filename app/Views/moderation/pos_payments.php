@@ -3,8 +3,10 @@
 /** @var array $cardsById */
 /** @var array $filters */
 /** @var bool  $hasFilters */
+/** @var array $posStatus */
 $filters    = $filters    ?? [];
 $hasFilters = $hasFilters ?? false;
+$posStatus  = $posStatus  ?? ['is_disabled' => false, 'reason' => '', 'disabled_at' => null, 'disabled_until' => null];
 $f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? ''), ENT_QUOTES, 'UTF-8');
 ?>
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;">
@@ -12,6 +14,77 @@ $f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? 
     <span class="text-muted text-small">
         <?= count($payments) ?> opération(s)<?= $hasFilters ? ' (filtrées)' : ' récente(s)' ?>
     </span>
+</div>
+
+<!-- Panneau d'activation/désactivation du TPE -->
+<div class="card mb-3 pos-status-card">
+    <div class="card-body" style="display:flex;flex-direction:column;gap:0.6rem;">
+        <?php if ($posStatus['is_disabled']): ?>
+            <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;">
+                <span class="badge badge-danger" style="font-size:0.85rem;">
+                    <i class="bi bi-power"></i> TPE désactivé
+                </span>
+                <?php if (!empty($posStatus['disabled_at'])): ?>
+                    <span class="text-muted text-small">
+                        depuis le <?= e(date('d/m/Y H:i', strtotime($posStatus['disabled_at']))) ?>
+                    </span>
+                <?php endif; ?>
+                <?php if (!empty($posStatus['disabled_until'])): ?>
+                    <span class="text-muted text-small">
+                        — réactivation auto le <?= e(date('d/m/Y H:i', strtotime($posStatus['disabled_until']))) ?>
+                    </span>
+                <?php else: ?>
+                    <span class="text-muted text-small">— durée indéterminée</span>
+                <?php endif; ?>
+            </div>
+            <?php if (!empty($posStatus['reason'])): ?>
+                <div class="text-small">
+                    <strong>Motif :</strong> <?= e($posStatus['reason']) ?>
+                </div>
+            <?php endif; ?>
+            <form method="POST" action="/moderation/pos-payments/enable" style="margin:0;">
+                <?= csrf_field() ?>
+                <button type="submit" class="btn btn-success btn-sm"
+                        onclick="return confirm('Réactiver le TPE pour toute la plateforme ?');">
+                    <i class="bi bi-power"></i> Réactiver le TPE
+                </button>
+            </form>
+        <?php else: ?>
+            <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;">
+                <span class="badge badge-success" style="font-size:0.85rem;">
+                    <i class="bi bi-check-circle"></i> TPE actif
+                </span>
+                <span class="text-muted text-small">Tous les commerçants peuvent encaisser des paiements par carte.</span>
+            </div>
+            <details>
+                <summary class="btn btn-outline-danger btn-sm" style="cursor:pointer;display:inline-block;">
+                    <i class="bi bi-power"></i> Désactiver le TPE
+                </summary>
+                <form method="POST" action="/moderation/pos-payments/disable"
+                      style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.6rem;align-items:end;margin-top:0.75rem;"
+                      onsubmit="return confirm('Désactiver le TPE pour toute la plateforme ?');">
+                    <?= csrf_field() ?>
+                    <div style="grid-column:1 / -1;">
+                        <label class="form-label text-small" for="pos-disable-reason">Motif <span class="text-danger">*</span></label>
+                        <textarea id="pos-disable-reason" name="reason" rows="2" maxlength="500"
+                                  class="form-control form-control-sm" required
+                                  placeholder="Décrivez la raison de la désactivation (incident, maintenance, fraude…)"></textarea>
+                    </div>
+                    <div>
+                        <label class="form-label text-small" for="pos-disable-until">Réactivation automatique (facultatif)</label>
+                        <input type="datetime-local" id="pos-disable-until" name="disabled_until"
+                               class="form-control form-control-sm">
+                        <small class="text-muted">Laissez vide pour une désactivation à durée indéterminée.</small>
+                    </div>
+                    <div style="display:flex;align-items:end;">
+                        <button type="submit" class="btn btn-danger btn-sm">
+                            <i class="bi bi-power"></i> Confirmer la désactivation
+                        </button>
+                    </div>
+                </form>
+            </details>
+        <?php endif; ?>
+    </div>
 </div>
 
 <div class="card mb-3">

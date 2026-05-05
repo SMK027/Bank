@@ -4,14 +4,42 @@
 /** @var array  $form */
 /** @var array  $errors */
 /** @var ?array $receipt */
-$errors  = $errors ?? [];
-$form    = $form ?? [];
-$receipt = $receipt ?? null;
+/** @var ?array $posStatus */
+$errors    = $errors ?? [];
+$form      = $form ?? [];
+$receipt   = $receipt ?? null;
+$posStatus = $posStatus ?? null;
 ?>
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;">
     <h1><i class="bi bi-shop"></i> Terminal de paiement (TPE)</h1>
-    <span class="badge bg-success"><i class="bi bi-wifi"></i> Raccordé à la plateforme</span>
+    <?php if ($posStatus && !empty($posStatus['is_disabled'])): ?>
+        <span class="badge badge-danger"><i class="bi bi-power"></i> TPE désactivé</span>
+    <?php else: ?>
+        <span class="badge bg-success"><i class="bi bi-wifi"></i> Raccordé à la plateforme</span>
+    <?php endif; ?>
 </div>
+
+<?php if ($posStatus && !empty($posStatus['is_disabled'])): ?>
+    <div class="alert alert-danger" role="alert" style="display:flex;align-items:flex-start;gap:0.75rem;">
+        <i class="bi bi-power" style="font-size:1.4rem;flex-shrink:0;"></i>
+        <div>
+            <strong>Le TPE est actuellement désactivé par la modération.</strong>
+            <?php if (!empty($posStatus['reason'])): ?>
+                <div class="text-small" style="margin-top:0.3rem;">
+                    Motif : <?= e($posStatus['reason']) ?>
+                </div>
+            <?php endif; ?>
+            <?php if (!empty($posStatus['disabled_until'])): ?>
+                <div class="text-small">
+                    Réactivation automatique prévue le
+                    <?= e(date('d/m/Y H:i', strtotime($posStatus['disabled_until']))) ?>.
+                </div>
+            <?php else: ?>
+                <div class="text-small">Aucune date de réactivation programmée.</div>
+            <?php endif; ?>
+        </div>
+    </div>
+<?php endif; ?>
 
 <?php if ($receipt): ?>
     <div id="pos-receipt" class="alert alert-success" role="alert" style="display:flex;align-items:flex-start;gap:0.75rem;">

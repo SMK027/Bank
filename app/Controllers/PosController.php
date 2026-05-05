@@ -12,6 +12,7 @@ use App\Models\AuditLog;
 use App\Models\DeferredDebit;
 use App\Models\Notification;
 use App\Models\PaymentCard;
+use App\Models\PosStatus;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\CurrencyConverter;
@@ -83,6 +84,7 @@ class PosController extends Controller
     {
         $user             = $this->requirePosAccess();
         $merchantAccounts = $this->getMerchantAccounts((int) $user['id']);
+        $posStatus        = PosStatus::current();
 
         $this->render('pos/index', [
             'title'            => 'Terminal de paiement (TPE)',
@@ -90,6 +92,7 @@ class PosController extends Controller
             'merchantAccounts' => $merchantAccounts,
             'form'             => [],
             'receipt'          => $_SESSION['pos_receipt'] ?? null,
+            'posStatus'        => $posStatus,
         ]);
 
         unset($_SESSION['pos_receipt']);
@@ -102,6 +105,24 @@ class PosController extends Controller
         $this->validateCSRF();
 
         $merchantAccounts = $this->getMerchantAccounts((int) $user['id']);
+
+        // TPE désactivé par la modération : on bloque tout encaissement.
+        $posStatus = PosStatus::current();
+        if ($posStatus['is_disabled']) {
+            $msg = 'Le TPE est actuellement désactivé par la modération';
+            if (!empty($posStatus['reason'])) {
+                $msg .= ' (motif : ' . $posStatus['reason'] . ')';
+            }
+            $msg .= '.';
+            $this->renderForm($user, $merchantAccounts, [
+                'card_number' => (string) ($_POST['card_number'] ?? ''),
+                'amount'      => (string) ($_POST['amount']      ?? ''),
+                'label'       => trim((string) ($_POST['label']    ?? '')),
+                'merchant'    => trim((string) ($_POST['merchant'] ?? '')),
+                'account_id'  => (int)   ($_POST['account_id']     ?? 0),
+            ], [$msg]);
+            return;
+        }
 
         $cardNumber  = (string) ($_POST['card_number'] ?? '');
         $amountInput = (string) ($_POST['amount']      ?? '');
@@ -451,6 +472,7 @@ class PosController extends Controller
             'form'             => $form,
             'errors'           => $errors,
             'receipt'          => null,
+            'posStatus'        => PosStatus::current(),
         ]);
     }
 
@@ -467,12 +489,21 @@ class PosController extends Controller
 
         $payload = [
             'success'   => false,
-            'state'     => 'invalid',  // invalid | unknown | blocked | unusable | ok
+            'state'     => 'invalid',  // invalid | unknown | blocked | unusable | offline | ok
             'message'   => '',
             'masked'    => null,
             'currency'  => null,
             'last4'     => null,
         ];
+
+        // TPE désactivé par la modération : feedback temps réel au caissier.
+        $posStatus = PosStatus::current();
+        if ($posStatus['is_disabled']) {
+            $payload['state']   = 'offline';
+            $payload['message'] = trim('TPE désactivé par la modération. ' . (string) ($posStatus['reason'] ?? ''));
+            $this->jsonResponse($payload);
+            return;
+        }
 
         if ($normalized === '' || strlen($normalized) < 13) {
             $payload['message'] = 'Numéro incomplet.';
@@ -659,7 +690,76 @@ class PosController extends Controller
             'cardsById'  => $cardsById,
             'filters'    => $filters,
             'hasFilters' => $hasFilters,
+            'posStatus'  => PosStatus::current(),
         ]);
+    }
+
+    /**
+     * Désactive le TPE en temps réel pour toute la plateforme.
+     * Motif obligatoire ; durée optionnelle (date+heure de réactivation
+     * automatique). Modération uniquement.
+     */
+    public function moderationDisable(): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $reason = trim((string) ($_POST['reason'] ?? ''));
+        $until  = trim((string) ($_POST['disabled_until'] ?? ''));
+
+        if ($reason === '') {
+            $this->setFlash('danger', 'Le motif de désactivation du TPE est obligatoire.');
+            $this->redirect('/moderation/pos-payments');
+            return;
+        }
+        if (mb_strlen($reason) > 500) {
+            $this->setFlash('danger', 'Le motif est trop long (500 caractères max).');
+            $this->redirect('/moderation/pos-payments');
+            return;
+        }
+
+        $untilSql = null;
+        if ($until !== '') {
+            // Accepte le format datetime-local (Y-m-dTH:i) ou Y-m-d H:i.
+            $ts = strtotime(str_replace('T', ' ', $until));
+            if ($ts === false || $ts <= time()) {
+                $this->setFlash('danger', 'La date de réactivation doit être dans le futur.');
+                $this->redirect('/moderation/pos-payments');
+                return;
+            }
+            $untilSql = date('Y-m-d H:i:s', $ts);
+        }
+
+        $modId = (int) $this->getCurrentUserId();
+        PosStatus::disable($modId, $reason, $untilSql);
+
+        AuditLog::log($modId, 'pos.disable', [
+            'reason'         => $reason,
+            'disabled_until' => $untilSql,
+        ]);
+
+        $msg = 'TPE désactivé';
+        if ($untilSql) {
+            $msg .= ' jusqu\'au ' . date('d/m/Y H:i', strtotime($untilSql));
+        }
+        $msg .= '.';
+        $this->setFlash('success', $msg);
+        $this->redirect('/moderation/pos-payments');
+    }
+
+    /** Réactive le TPE. Modération uniquement. */
+    public function moderationEnable(): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $modId = (int) $this->getCurrentUserId();
+        PosStatus::enable($modId);
+
+        AuditLog::log($modId, 'pos.enable', []);
+
+        $this->setFlash('success', 'TPE réactivé.');
+        $this->redirect('/moderation/pos-payments');
     }
 
     /**
