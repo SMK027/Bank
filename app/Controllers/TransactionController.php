@@ -219,6 +219,16 @@ class TransactionController extends Controller
             return;
         }
 
+        // Opérations liées au TPE : annulation réservée à la page de
+        // modération dédiée (/moderation/pos-payments). On bloque ici même
+        // pour les modérateurs afin de garantir la traçabilité (audit,
+        // contre-passations couplées, motif).
+        if (Transaction::isModerationOnly($transaction)) {
+            $this->setFlash('danger', 'Cette opération est liée au TPE et doit être annulée depuis la page de modération des paiements TPE.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
         $this->transactionModel->delete((int) $transactionId);
         $this->setFlash('success', 'Transaction supprimée.');
         $this->redirect('/accounts/' . $accountId);
@@ -261,9 +271,11 @@ class TransactionController extends Controller
         }
 
         // Opérations réservées à la modération (paiement TPE, annulation de
-        // virement…) : un utilisateur ne peut ni les éditer ni les annuler.
-        if (!$this->isModerator() && Transaction::isModerationOnly($transaction)) {
-            $this->setFlash('danger', 'Cette opération relève de la modération et ne peut pas être modifiée.');
+        // virement…) : bloquées y compris pour les modérateurs sur cette page.
+        // L'annulation se fait obligatoirement depuis /moderation/pos-payments
+        // (contre-passations couplées + audit + motif).
+        if (Transaction::isModerationOnly($transaction)) {
+            $this->setFlash('danger', 'Cette opération est liée au TPE et doit être modifiée/annulée depuis la page de modération des paiements TPE.');
             $this->redirect('/accounts/' . $accountId);
             return;
         }
@@ -474,9 +486,10 @@ class TransactionController extends Controller
             return;
         }
 
-        // Différés issus d'un paiement TPE : annulation réservée à la modération.
-        if (!$this->isModerator() && str_starts_with((string) ($dd['comment'] ?? ''), '[TPE')) {
-            $this->setFlash('danger', 'Ce débit différé provient d\'un paiement par carte (TPE) et ne peut être annulé que par la modération.');
+        // Différés issus d'un paiement TPE : annulation réservée à la page
+        // de modération des paiements TPE (y compris pour les modérateurs).
+        if (str_starts_with((string) ($dd['comment'] ?? ''), '[TPE')) {
+            $this->setFlash('danger', 'Ce débit différé provient d\'un paiement par carte (TPE) et doit être annulé depuis la page de modération des paiements TPE.');
             $this->redirect('/accounts/' . $accountId);
             return;
         }
@@ -519,9 +532,10 @@ class TransactionController extends Controller
             return;
         }
 
-        // Différés issus d'un paiement TPE : édition réservée à la modération.
-        if (!$this->isModerator() && str_starts_with((string) ($dd['comment'] ?? ''), '[TPE')) {
-            $this->setFlash('danger', 'Ce débit différé provient d\'un paiement par carte (TPE) et ne peut être modifié que par la modération.');
+        // Différés issus d'un paiement TPE : édition réservée à la page de
+        // modération des paiements TPE (y compris pour les modérateurs).
+        if (str_starts_with((string) ($dd['comment'] ?? ''), '[TPE')) {
+            $this->setFlash('danger', 'Ce débit différé provient d\'un paiement par carte (TPE) et doit être modifié depuis la page de modération des paiements TPE.');
             $this->redirect('/accounts/' . $accountId);
             return;
         }

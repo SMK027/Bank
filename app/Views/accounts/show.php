@@ -840,6 +840,7 @@
                     </thead>
                     <tbody>
                         <?php foreach ($pendingTransactions as $t): ?>
+                            <?php $tIsTpe = \App\Models\Transaction::isModerationOnly($t); ?>
                             <tr style="opacity:0.85;font-style:italic;">
                                 <td>
                                     <i class="bi bi-clock" style="color:var(--warning,#f59e0b);"></i>
@@ -864,7 +865,11 @@
                                     <?= $t['type'] === 'income' ? '+' : '-' ?><?= fmt_amount_smart((float) $t['amount']) ?>
                                 </td>
                                 <td>
-                                    <?php if ($isModerator && !in_array((int) $t['id'], $linkedTxIds ?? [])): ?>
+                                    <?php if ($tIsTpe): ?>
+                                    <a href="/moderation/pos-payments" class="badge badge-secondary" style="font-size:0.7rem;text-decoration:none;" title="Opération TPE — gérée depuis la modération des paiements TPE">
+                                        <i class="bi bi-shield-lock"></i> TPE
+                                    </a>
+                                    <?php elseif ($isModerator && !in_array((int) $t['id'], $linkedTxIds ?? [])): ?>
                                     <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/transactions/<?= (int) $t['id'] ?>/delete"
                                           style="display:inline">
                                         <?= csrf_field() ?>
@@ -1062,6 +1067,8 @@
                                 $isDue = $dd['period_end_date'] <= date('Y-m-d');
                                 $periodEndTs = strtotime($dd['period_end_date'] ?? '');
                                 $ddLocked = $periodEndTs && (time() - $periodEndTs) > 7 * 86400;
+                                $ddIsTpe  = str_starts_with((string) ($dd['comment'] ?? ''), '[TPE');
+                                if ($ddIsTpe) { $ddLocked = true; }
                             ?>
                             <tr style="opacity:0.85;font-style:italic;">
                                 <td>
@@ -1087,7 +1094,11 @@
                                     <?php if ($ddLocked): ?>
                                         <i class="bi bi-lock" style="color:var(--text-muted);"></i>
                                         <?= e(date('d/m/Y', strtotime($dd['period_end_date']))) ?>
-                                        <br><small class="text-muted" style="font-style:normal;" title="Verrouill&eacute; : plus de 7 jours apr&egrave;s la fin de p&eacute;riode">Verrouillé</small>
+                                        <?php if ($ddIsTpe): ?>
+                                            <br><small class="text-muted" style="font-style:normal;" title="Opération TPE — gérée par la modération">Gérée par la modération</small>
+                                        <?php else: ?>
+                                            <br><small class="text-muted" style="font-style:normal;" title="Verrouill&eacute; : plus de 7 jours apr&egrave;s la fin de p&eacute;riode">Verrouillé</small>
+                                        <?php endif; ?>
                                     <?php else: ?>
                                     <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/deferred-debits/<?= (int) $dd['id'] ?>/edit"
                                           style="display:flex;align-items:center;gap:0.3rem;">
@@ -1121,7 +1132,11 @@
                                     -<?= fmt_amount_smart((float) $dd['amount']) ?>
                                 </td>
                                 <td>
-                                    <?php if (!$ddLocked): ?>
+                                    <?php if ($ddIsTpe): ?>
+                                    <a href="/moderation/pos-payments" class="badge badge-secondary" style="font-size:0.7rem;text-decoration:none;" title="Débit différé issu d'un paiement TPE — annulation réservée à la page de modération des paiements TPE">
+                                        <i class="bi bi-shield-lock"></i> TPE
+                                    </a>
+                                    <?php elseif (!$ddLocked): ?>
                                     <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/deferred-debits/<?= (int) $dd['id'] ?>/cancel"
                                           style="display:inline">
                                         <?= csrf_field() ?>
@@ -1177,6 +1192,8 @@
                         <?php
                             $periodEndTs = strtotime($dd['period_end_date'] ?? '');
                             $ddLocked = $periodEndTs && (time() - $periodEndTs) > 7 * 86400;
+                            $ddIsTpe  = str_starts_with((string) ($dd['comment'] ?? ''), '[TPE');
+                            if ($ddIsTpe) { $ddLocked = true; }
                         ?>
                         <tr>
                             <td>
@@ -1202,7 +1219,11 @@
                                 <?php if ($ddLocked): ?>
                                     <i class="bi bi-lock" style="color:var(--text-muted);"></i>
                                     <?= e(date('d/m/Y', strtotime($dd['period_end_date']))) ?>
-                                    <br><small class="text-muted" title="Verrouill&eacute; : plus de 7 jours apr&egrave;s la fin de p&eacute;riode">Verrouillé</small>
+                                    <?php if ($ddIsTpe): ?>
+                                        <br><small class="text-muted" title="Opération TPE — gérée par la modération">Gérée par la modération</small>
+                                    <?php else: ?>
+                                        <br><small class="text-muted" title="Verrouill&eacute; : plus de 7 jours apr&egrave;s la fin de p&eacute;riode">Verrouillé</small>
+                                    <?php endif; ?>
                                 <?php else: ?>
                                 <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/deferred-debits/<?= (int) $dd['id'] ?>/edit"
                                       style="display:flex;align-items:center;gap:0.3rem;">
@@ -1311,8 +1332,9 @@
                     <tbody>
                         <?php foreach ($executedTransactions as $t):
                             $txIsLinked  = in_array((int) $t['id'], $linkedTxIds ?? []);
+                            $txIsTpe     = \App\Models\Transaction::isModerationOnly($t);
                             $txAge       = time() - strtotime($t['created_at']);
-                            $txEditable  = !$txIsLinked && ($isModerator || $txAge <= 7 * 86400);
+                            $txEditable  = !$txIsLinked && !$txIsTpe && ($isModerator || $txAge <= 7 * 86400);
                             $txHasScheduled = !empty($t['scheduled_at']);
                         ?>
                             <tr data-type="<?= e($t['type']) ?>"
@@ -1373,6 +1395,11 @@
                                     <?= $t['type'] === 'income' ? '+' : '-' ?><?= fmt_amount_smart((float) $t['amount']) ?>
                                 </td>
                                 <td style="white-space:nowrap;">
+                                    <?php if ($txIsTpe): ?>
+                                    <a href="/moderation/pos-payments" class="badge badge-secondary" style="font-size:0.7rem;text-decoration:none;" title="Opération TPE — annulation réservée à la page de modération des paiements TPE">
+                                        <i class="bi bi-shield-lock"></i> TPE
+                                    </a>
+                                    <?php else: ?>
                                     <?php if ($txEditable): ?>
                                     <button type="button" class="btn btn-outline btn-sm tx-date-edit" data-tx-id="<?= (int) $t['id'] ?>"
                                             title="Modifier les dates" style="padding:0.15rem 0.4rem;font-size:0.82rem;">
@@ -1393,6 +1420,7 @@
                                     <span class="badge badge-secondary" style="font-size:0.7rem;opacity:0.7" title="Liée à un virement ou prélèvement — annuler l'opération parente">
                                         <i class="bi bi-lock"></i>
                                     </span>
+                                    <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
                             </tr>
