@@ -2988,3 +2988,114 @@ pre,
         display: none;
     }
 }
+
+/* ===========================================================
+   PRÉLÈVEMENTS (modération) — affinages mobile spécifiques
+   =========================================================== */
+
+/* Stat-cards déjà auto-fit ; on s'assure qu'elles ne tassent
+   pas trop sous 360 px. */
+@media (max-width: 480px) {
+    #dd-stats {
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 0.4rem !important;
+    }
+    #dd-stats .stat-card {
+        padding: 0.55rem 0.4rem !important;
+    }
+    #dd-stats .stat-value {
+        font-size: 1.1rem !important;
+    }
+    #dd-stats .stat-label {
+        font-size: 0.7rem !important;
+    }
+}
+
+@media (max-width: 360px) {
+    #dd-stats {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+/* ---- Filtres : passe en 1 colonne ≤ 480 px --------------- */
+@media (max-width: 480px) {
+    .card .card-body > div[style*="grid-template-columns:1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* ---- Table des prélèvements ------------------------------ */
+@media (max-width: 768px) {
+    /* Masquer colonnes secondaires : ID (1) et Motif (5). */
+    .moderation-dd-table th:nth-child(1),
+    .moderation-dd-table td:nth-child(1),
+    .moderation-dd-table th:nth-child(5),
+    .moderation-dd-table td:nth-child(5) {
+        display: none;
+    }
+
+    /* Réduire padding général. */
+    .moderation-dd-table th,
+    .moderation-dd-table td {
+        padding: 0.45rem 0.5rem !important;
+        font-size: 0.78rem;
+    }
+
+    /* Cellule Actions : forms en colonne, full width. */
+    .moderation-dd-table td:last-child {
+        min-width: 180px;
+    }
+
+    .moderation-dd-table td form {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.3rem !important;
+        width: 100%;
+    }
+
+    .moderation-dd-table td form > input[type="text"],
+    .moderation-dd-table td form > input[type="password"],
+    .moderation-dd-table td form > input[type="date"] {
+        width: 100% !important;
+        font-size: 16px !important;
+        padding: 0.35rem 0.55rem !important;
+    }
+
+    .moderation-dd-table td form > .btn,
+    .moderation-dd-table td form > button {
+        width: 100%;
+        font-size: 0.8rem !important;
+        padding: 0.4rem 0.6rem !important;
+    }
+
+    /* Pour les forms imbriquées dans un conteneur flex. */
+    .moderation-dd-table td > div[style*="display:flex"] {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.35rem !important;
+    }
+
+    /* Mandat : nom du créateur peut s'enrouler. */
+    .moderation-dd-table td > div div[style*="font-family:monospace"] {
+        max-width: 100% !important;
+        font-size: 0.72rem !important;
+    }
+}
+
+@media (max-width: 600px) {
+    /* Masquer colonne Comptes (3) — déjà visible via Mandat
+       et l'action ; on garde Mandat + Montant + Dates + Statut + Actions. */
+    .moderation-dd-table th:nth-child(3),
+    .moderation-dd-table td:nth-child(3) {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Masquer la colonne Dates (6) ; le statut + le bouton
+       restent suffisants pour identifier la ligne. */
+    .moderation-dd-table th:nth-child(6),
+    .moderation-dd-table td:nth-child(6) {
+        display: none;
+    }
+}

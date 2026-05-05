@@ -122,7 +122,7 @@
 
 <!-- Tableau -->
 <div class="table-responsive" style="border-radius:6px;border:1px solid var(--border-color,#e2e8f0);overflow:hidden">
-    <table class="table table-hover" style="margin:0;font-size:0.83rem;">
+    <table class="table table-hover moderation-dd-table" style="margin:0;font-size:0.83rem;">
         <thead style="background:var(--bg-secondary,#f8fafc);">
             <tr>
                 <th style="white-space:nowrap;padding:0.6rem 0.8rem;">#</th>
