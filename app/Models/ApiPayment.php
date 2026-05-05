@@ -19,6 +19,9 @@ class ApiPayment extends Model
 {
     protected string $table = 'api_payments';
 
+    /** La table api_payments n'a ni created_at auto-géré ni updated_at. */
+    protected bool $hasUpdatedAt = false;
+
     public const STATUS_SUCCESS = 'success';
     public const STATUS_FAILED  = 'failed';
 
