@@ -8,6 +8,7 @@ use App\Core\Controller;
 use App\Core\Database;
 use App\Models\Account;
 use App\Models\AuditLog;
+use App\Models\DeferredDebit;
 use App\Models\Notification;
 use App\Models\PaymentCard;
 use App\Models\Transaction;
@@ -28,13 +29,15 @@ class PosController extends Controller
     private Account $accountModel;
     private Transaction $transactionModel;
     private User $userModel;
+    private DeferredDebit $deferredDebitModel;
 
     public function __construct()
     {
-        $this->cardModel        = new PaymentCard();
-        $this->accountModel     = new Account();
-        $this->transactionModel = new Transaction();
-        $this->userModel        = new User();
+        $this->cardModel          = new PaymentCard();
+        $this->accountModel       = new Account();
+        $this->transactionModel   = new Transaction();
+        $this->userModel          = new User();
+        $this->deferredDebitModel = new DeferredDebit();
     }
 
     /**
@@ -234,16 +237,41 @@ class PosController extends Controller
         $debitCmt = sprintf('[TPE • %s] %s — carte %s', $merchant, $label, $masked);
         $credCmt  = sprintf('[TPE • %s] %s — carte %s', $merchant, $label, $masked);
 
+        // Débit différé : si le compte du client l'utilise, on enregistre une
+        // opération en attente plutôt qu'un débit immédiat. Le commerçant est
+        // crédité immédiatement (cf. fonctionnement réel des cartes à débit
+        // différé).
+        $deferred       = !empty($customerAccount['deferred_debit_enabled'])
+                       && !empty($customerAccount['deferred_debit_day']);
+        $debitTxId      = null;
+        $deferredId     = null;
+        $deferredDate   = null;
+
         try {
-            $debitTxId = $this->transactionModel->addTransaction(
-                (int) $customerAccount['id'],
-                'expense',
-                $customerAmount,
-                'Achats',
-                $debitCmt,
-                (int) $customerAccount['user_id'],
-                null
-            );
+            if ($deferred) {
+                $deferredDate = $this->computeNextDeferredDate(
+                    (int) $customerAccount['deferred_debit_day']
+                );
+                $deferredId = $this->deferredDebitModel->createDeferredDebit(
+                    (int) $customerAccount['id'],
+                    (int) $customerAccount['user_id'],
+                    $customerAmount,
+                    'Achats',
+                    $debitCmt,
+                    date('Y-m-d H:i:s'),
+                    $deferredDate
+                );
+            } else {
+                $debitTxId = $this->transactionModel->addTransaction(
+                    (int) $customerAccount['id'],
+                    'expense',
+                    $customerAmount,
+                    'Achats',
+                    $debitCmt,
+                    (int) $customerAccount['user_id'],
+                    null
+                );
+            }
             $creditTxId = $this->transactionModel->addTransaction(
                 (int) $merchantAccount['id'],
                 'income',
@@ -271,7 +299,7 @@ class PosController extends Controller
             'amount'         => $customerAmount,
             'currency'       => $customerCurrency,
             'status'         => 'success',
-            'reason'         => '',
+            'reason'         => $deferred ? 'deferred' : '',
             'comment'        => mb_substr($merchant . ' • ' . $label, 0, 255),
         ]);
 
@@ -290,6 +318,9 @@ class PosController extends Controller
                 'debit_transaction'  => $debitTxId,
                 'credit_transaction' => $creditTxId,
                 'exchange_rate'      => $exchangeRate,
+                'deferred'           => $deferred,
+                'deferred_id'        => $deferredId,
+                'deferred_date'      => $deferredDate,
             ],
             targetUserId: (int) $card['user_id'],
             targetAccountId: (int) $customerAccount['id']
@@ -298,13 +329,16 @@ class PosController extends Controller
         // Notifications
         try {
             $notif = new Notification();
+            $deferredFr = $deferred && $deferredDate
+                ? ' (débit différé prévu le ' . date('d/m/Y', strtotime($deferredDate)) . ')'
+                : '';
             $notif->notify(
                 (int) $card['user_id'],
                 'card',
-                'Paiement par carte',
+                $deferred ? 'Paiement par carte (différé)' : 'Paiement par carte',
                 sprintf(
-                    'Débit de %.2f %s chez %s (%s) — carte %s.',
-                    $customerAmount, $customerCurrency, $merchant, $label, $masked
+                    'Débit de %.2f %s chez %s (%s) — carte %s%s.',
+                    $customerAmount, $customerCurrency, $merchant, $label, $masked, $deferredFr
                 ),
                 '/accounts/' . (int) $customerAccount['id']
             );
@@ -331,11 +365,50 @@ class PosController extends Controller
             'card_masked'      => $masked,
             'merchant_account' => $merchantAccount['name'] ?? '',
             'datetime'         => date('d/m/Y H:i:s'),
-            'reference'        => 'TX-' . $debitTxId,
+            'reference'        => $debitTxId !== null
+                ? 'TX-' . $debitTxId
+                : 'DD-' . $deferredId,
+            'deferred'         => $deferred,
+            'deferred_date'    => $deferred && $deferredDate
+                ? date('d/m/Y', strtotime($deferredDate))
+                : null,
         ];
 
-        $this->setFlash('success', 'Paiement accepté.');
+        $this->setFlash(
+            'success',
+            $deferred
+                ? 'Paiement accepté — débit différé enregistré.'
+                : 'Paiement accepté.'
+        );
         $this->redirect('/pos');
+    }
+
+    /**
+     * Calcule la prochaine date de fin de période pour un débit différé,
+     * d'après le jour préféré (1-31) configuré sur le compte.
+     */
+    private function computeNextDeferredDate(int $day): string
+    {
+        $day   = max(1, min(31, $day));
+        $today = new \DateTimeImmutable('today');
+
+        $candidate = $this->buildMonthlyDate($today, $day);
+        if ($candidate <= $today) {
+            $candidate = $this->buildMonthlyDate($today->modify('first day of next month'), $day);
+        }
+        return $candidate->format('Y-m-d');
+    }
+
+    /** Construit une date au jour `$day` du mois donné, écrêtée au dernier jour. */
+    private function buildMonthlyDate(\DateTimeImmutable $monthAnchor, int $day): \DateTimeImmutable
+    {
+        $lastDay = (int) $monthAnchor->format('t');
+        $clamped = min($day, $lastDay);
+        return $monthAnchor->setDate(
+            (int) $monthAnchor->format('Y'),
+            (int) $monthAnchor->format('n'),
+            $clamped
+        );
     }
 
     private function renderForm(array $user, array $merchantAccounts, array $form, array $errors): void

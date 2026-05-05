@@ -17,7 +17,12 @@ $receipt = $receipt ?? null;
     <div class="alert alert-success" role="alert" style="display:flex;align-items:flex-start;gap:0.75rem;">
         <i class="bi bi-receipt" style="font-size:1.5rem;flex-shrink:0;"></i>
         <div style="flex:1;">
-            <strong>Paiement accepté</strong>
+            <strong>
+                Paiement accepté
+                <?php if (!empty($receipt['deferred'])): ?>
+                    <span class="badge bg-warning text-dark" style="margin-left:0.4rem;">Débit différé</span>
+                <?php endif; ?>
+            </strong>
             <div style="margin-top:0.5rem;display:grid;grid-template-columns:max-content 1fr;gap:0.25rem 1rem;font-size:0.95rem;">
                 <span class="text-muted">Référence :</span>
                 <strong><?= e($receipt['reference']) ?></strong>
@@ -33,6 +38,10 @@ $receipt = $receipt ?? null;
                 <code><?= e($receipt['card_masked']) ?></code>
                 <span class="text-muted">Compte crédité :</span>
                 <span><?= e($receipt['merchant_account']) ?></span>
+                <?php if (!empty($receipt['deferred']) && !empty($receipt['deferred_date'])): ?>
+                    <span class="text-muted">Débit prévu le :</span>
+                    <strong><?= e($receipt['deferred_date']) ?></strong>
+                <?php endif; ?>
             </div>
         </div>
     </div>
