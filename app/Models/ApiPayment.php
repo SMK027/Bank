@@ -87,8 +87,9 @@ class ApiPayment extends Model
                 $sql .= ' AND p.account_id = :clientId';
                 $params[':clientId'] = (int) $m[1];
             } else {
-                $sql .= ' AND (cu.username LIKE :clientLk OR ca.name LIKE :clientLk)';
-                $params[':clientLk'] = '%' . $client . '%';
+                $sql .= ' AND (cu.username LIKE :clientLk1 OR ca.name LIKE :clientLk2)';
+                $params[':clientLk1'] = '%' . $client . '%';
+                $params[':clientLk2'] = '%' . $client . '%';
             }
         }
 
@@ -98,8 +99,9 @@ class ApiPayment extends Model
                 $sql .= ' AND ma.id = :merchantId';
                 $params[':merchantId'] = (int) $m[1];
             } else {
-                $sql .= ' AND (mu.username LIKE :merchantLk OR ma.name LIKE :merchantLk)';
-                $params[':merchantLk'] = '%' . $merchant . '%';
+                $sql .= ' AND (mu.username LIKE :merchantLk1 OR ma.name LIKE :merchantLk2)';
+                $params[':merchantLk1'] = '%' . $merchant . '%';
+                $params[':merchantLk2'] = '%' . $merchant . '%';
             }
         }
 
