@@ -14,9 +14,9 @@ ALTER TABLE `accounts`
 -- Élargit les montants pour supporter les taux extrêmes de test
 ALTER TABLE `savings_interests`
     MODIFY COLUMN `rate`              DECIMAL(10,5) NOT NULL COMMENT 'Taux appliqué',
-    MODIFY COLUMN `calculated_amount` DECIMAL(20,2) NOT NULL COMMENT 'Montant calculé au prorata temporis',
-    MODIFY COLUMN `max_amount`        DECIMAL(20,2) NOT NULL COMMENT 'Maximum théorique autorisé',
-    MODIFY COLUMN `confirmed_amount`  DECIMAL(20,2) NULL     COMMENT 'Montant effectivement versé après confirmation';
+    MODIFY COLUMN `calculated_amount` DECIMAL(65,2) NOT NULL COMMENT 'Montant calculé au prorata temporis',
+    MODIFY COLUMN `max_amount`        DECIMAL(65,2) NOT NULL COMMENT 'Maximum théorique autorisé',
+    MODIFY COLUMN `confirmed_amount`  DECIMAL(65,2) NULL     COMMENT 'Montant effectivement versé après confirmation';
 
 -- Supprime la contrainte d'unicité stricte (account_id, year)
 -- L'unicité pour les comptes normaux est désormais gérée en amont (cron + contrôleur)
