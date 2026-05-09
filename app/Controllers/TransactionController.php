@@ -219,12 +219,12 @@ class TransactionController extends Controller
             return;
         }
 
-        // Opérations liées au TPE : annulation réservée à la page de
-        // modération dédiée (/moderation/pos-payments). On bloque ici même
-        // pour les modérateurs afin de garantir la traçabilité (audit,
-        // contre-passations couplées, motif).
+        // Opérations issues d'une action de modération (TPE, annulation de
+        // virement, annulation/remboursement de crédit, rejet de prélèvement…) :
+        // non supprimables, même par un modérateur, afin de garantir la
+        // traçabilité comptable.
         if (Transaction::isModerationOnly($transaction)) {
-            $this->setFlash('danger', 'Cette opération est liée au TPE et doit être annulée depuis la page de modération des paiements TPE.');
+            $this->setFlash('danger', 'Cette opération a été générée par la modération et ne peut pas être supprimée manuellement.');
             $this->redirect('/accounts/' . $accountId);
             return;
         }
@@ -270,12 +270,11 @@ class TransactionController extends Controller
             return;
         }
 
-        // Opérations réservées à la modération (paiement TPE, annulation de
-        // virement…) : bloquées y compris pour les modérateurs sur cette page.
-        // L'annulation se fait obligatoirement depuis /moderation/pos-payments
-        // (contre-passations couplées + audit + motif).
+        // Opérations issues d'une action de modération : non modifiables
+        // (TPE, annulation de virement, annulation/remboursement de crédit,
+        // rejet de prélèvement…), même par un modérateur.
         if (Transaction::isModerationOnly($transaction)) {
-            $this->setFlash('danger', 'Cette opération est liée au TPE et doit être modifiée/annulée depuis la page de modération des paiements TPE.');
+            $this->setFlash('danger', 'Cette opération a été générée par la modération et ne peut pas être modifiée manuellement.');
             $this->redirect('/accounts/' . $accountId);
             return;
         }

@@ -876,9 +876,9 @@
                                 </td>
                                 <td>
                                     <?php if ($tIsTpe): ?>
-                                    <a href="/moderation/pos-payments" class="badge badge-secondary" style="font-size:0.7rem;text-decoration:none;" title="Opération TPE — gérée depuis la modération des paiements TPE">
-                                        <i class="bi bi-shield-lock"></i> TPE
-                                    </a>
+                                    <span class="badge badge-secondary" style="font-size:0.7rem;" title="Opération de modération — non modifiable">
+                                        <i class="bi bi-shield-lock"></i> Modération
+                                    </span>
                                     <?php elseif ($isModerator && !in_array((int) $t['id'], $linkedTxIds ?? [])): ?>
                                     <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/transactions/<?= (int) $t['id'] ?>/delete"
                                           style="display:inline">
@@ -1406,9 +1406,9 @@
                                 </td>
                                 <td style="white-space:nowrap;">
                                     <?php if ($txIsTpe): ?>
-                                    <a href="/moderation/pos-payments" class="badge badge-secondary" style="font-size:0.7rem;text-decoration:none;" title="Opération TPE — annulation réservée à la page de modération des paiements TPE">
-                                        <i class="bi bi-shield-lock"></i> TPE
-                                    </a>
+                                    <span class="badge badge-secondary" style="font-size:0.7rem;" title="Opération de modération — non modifiable">
+                                        <i class="bi bi-shield-lock"></i> Modération
+                                    </span>
                                     <?php else: ?>
                                     <?php if ($txEditable): ?>
                                     <button type="button" class="btn btn-outline btn-sm tx-date-edit" data-tx-id="<?= (int) $t['id'] ?>"

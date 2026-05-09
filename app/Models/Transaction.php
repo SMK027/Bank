@@ -111,15 +111,20 @@ class Transaction extends Model
 
     /**
      * Indique si une transaction est issue d'une opération réservée à la
-     * modération (paiement TPE, annulation de virement, annulation de TPE).
-     * Les utilisateurs ne peuvent ni l'éditer, ni l'annuler eux-mêmes.
+     * modération (TPE, annulation de virement, annulation de prélèvement,
+     * annulation / remboursement de crédit, rejet de prélèvement…).
+     * Ces transactions ne peuvent être ni éditées, ni supprimées manuellement.
      */
     public static function isModerationOnly(array $transaction): bool
     {
         $comment = (string) ($transaction['comment'] ?? '');
         return str_starts_with($comment, '[TPE')
             || str_starts_with($comment, 'Annulation virement')
-            || str_starts_with($comment, 'Annulation paiement TPE');
+            || str_starts_with($comment, 'Annulation paiement TPE')
+            || str_starts_with($comment, 'Annulation crédit ')
+            || str_starts_with($comment, 'Remboursement mensualité #')
+            || str_starts_with($comment, 'Remboursement crédit #')
+            || str_starts_with($comment, 'Rejet prélèvement mandat ');
     }
 
     public function getByAccount(int $accountId, string $orderBy = 'created_at', string $direction = 'DESC'): array
