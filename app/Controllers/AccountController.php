@@ -309,9 +309,9 @@ class AccountController extends Controller
             }
             unset($dd);
 
-            // Débits différés exécutés (modérateurs uniquement)
+            // Débits différés exécutés (modérateurs uniquement, limités à 7 jours)
             if ($isModerator) {
-                $executedDeferredDebits = $this->deferredDebitModel->getExecutedByAccount($accountId);
+                $executedDeferredDebits = $this->deferredDebitModel->getRecentlyExecutedByAccount($accountId);
                 foreach ($executedDeferredDebits as &$dd) {
                     $authorId = (int) ($dd['user_id'] ?? 0);
                     $author   = $this->userModel->find($authorId);
