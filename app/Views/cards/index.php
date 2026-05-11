@@ -115,6 +115,23 @@ unset($_SESSION['card_just_created']);
                                 <a href="/cards/<?= (int) $card['id'] ?>/reveal" class="btn btn-sm btn-secondary" title="Afficher le numéro complet">
                                     <i class="bi bi-eye"></i> Afficher
                                 </a>
+                                <!-- Activer / Bloquer la carte -->
+                                <?php if (!$isExpired): ?>
+                                <form method="POST" action="/cards/<?= (int) $card['id'] ?>/toggle"
+                                      style="display:inline;vertical-align:middle;"
+                                      onsubmit="return confirm('<?= ($card['status'] ?? '') === 'active' ? 'Bloquer cette carte ?' : 'Activer cette carte ?' ?>');">
+                                    <?= csrf_field() ?>
+                                    <?php if (($card['status'] ?? '') === 'active'): ?>
+                                        <button type="submit" class="btn btn-sm btn-warning" title="Bloquer la carte">
+                                            <i class="bi bi-lock"></i> Bloquer
+                                        </button>
+                                    <?php else: ?>
+                                        <button type="submit" class="btn btn-sm btn-success" title="Activer la carte">
+                                            <i class="bi bi-unlock"></i> Activer
+                                        </button>
+                                    <?php endif; ?>
+                                </form>
+                                <?php endif; ?>
                                 <!-- Modifier les paramètres (expiration + plafond) -->
                                 <details style="display:inline-block;text-align:left;vertical-align:middle;">
                                     <summary class="btn btn-sm btn-outline" style="cursor:pointer;" title="Modifier expiration et plafond">
@@ -220,6 +237,7 @@ unset($_SESSION['card_just_created']);
                         <th>Plafond mensuel</th>
                         <th>Statut</th>
                         <th>Créée le</th>
+                        <th style="text-align:right;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -278,6 +296,26 @@ unset($_SESSION['card_just_created']);
                             <?php endif; ?>
                         </td>
                         <td><?= date('d/m/Y', strtotime($card['created_at'])) ?></td>
+                        <td style="text-align:right;white-space:nowrap;">
+                            <?php if (!$isExpired): ?>
+                            <form method="POST" action="/cards/<?= (int) $card['id'] ?>/toggle"
+                                  style="display:inline;vertical-align:middle;"
+                                  onsubmit="return confirm('<?= ($card['status'] ?? '') === 'active' ? 'Bloquer cette carte ?' : 'Activer cette carte ?' ?>');">
+                                <?= csrf_field() ?>
+                                <?php if (($card['status'] ?? '') === 'active'): ?>
+                                    <button type="submit" class="btn btn-sm btn-warning" title="Bloquer la carte">
+                                        <i class="bi bi-lock"></i> Bloquer
+                                    </button>
+                                <?php else: ?>
+                                    <button type="submit" class="btn btn-sm btn-success" title="Activer la carte">
+                                        <i class="bi bi-unlock"></i> Activer
+                                    </button>
+                                <?php endif; ?>
+                            </form>
+                            <?php else: ?>
+                                <span class="text-muted">—</span>
+                            <?php endif; ?>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>

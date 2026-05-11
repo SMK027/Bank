@@ -244,6 +244,7 @@ $router->post('/cards', CardController::class, 'create');
 $router->post('/cards/{id}/account',   CardController::class, 'updateAccount');
 $router->post('/cards/{id}/settings',  CardController::class, 'updateSettings');
 $router->post('/cards/{id}/delete',    CardController::class, 'delete');
+$router->post('/cards/{id}/toggle',    CardController::class, 'toggleStatus');
 $router->get('/cards/{id}/reveal', CardController::class, 'revealForm');
 $router->post('/cards/{id}/reveal', CardController::class, 'reveal');
 

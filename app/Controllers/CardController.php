@@ -429,4 +429,66 @@ class CardController extends Controller
             'pan'   => $card['card_number'],
         ]);
     }
+
+    /**
+     * Active ou bloque une carte.
+     * Autorisé pour le titulaire de la carte, les mandataires avec procuration valide
+     * sur le compte associé, et les responsables légaux actifs du titulaire.
+     */
+    public function toggleStatus(string $id): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+        $userId = $this->getCurrentUserId();
+
+        $id   = (int) $id;
+        $card = $this->cardModel->find($id);
+        if (!$card) {
+            $this->setFlash('danger', 'Carte introuvable.');
+            $this->redirect('/cards');
+            return;
+        }
+
+        $cardOwnerId = (int) $card['user_id'];
+        $accountId   = (int) $card['account_id'];
+
+        $authorized = false;
+
+        // Titulaire direct
+        if ($cardOwnerId === $userId) {
+            $authorized = true;
+        }
+
+        // Procuration valide sur le compte associé
+        if (!$authorized) {
+            $authorized = $this->accessModel->hasValidAccess($accountId, $userId);
+        }
+
+        // Responsable légal actif du titulaire
+        if (!$authorized) {
+            $owner = $this->userModel->find($cardOwnerId);
+            if ($owner && User::isMinorFromDate($owner['birth_date'] ?? null)) {
+                $authorized = $this->guardianshipModel->isActiveGuardianOf($userId, $cardOwnerId);
+            }
+        }
+
+        if (!$authorized) {
+            $this->setFlash('danger', 'Action non autorisée.');
+            $this->redirect('/cards');
+            return;
+        }
+
+        $newStatus = ($card['status'] === 'active') ? 'blocked' : 'active';
+        $this->cardModel->update($id, ['status' => $newStatus]);
+
+        AuditLog::log($userId, AuditLog::ACTION_CARD_TOGGLE_STATUS, [
+            'card_id'    => $id,
+            'last4'      => $card['last4'] ?? '',
+            'new_status' => $newStatus,
+        ], targetAccountId: $accountId);
+
+        $label = $newStatus === 'active' ? 'activée' : 'bloquée';
+        $this->setFlash('success', "Carte {$label} avec succès.");
+        $this->redirect('/cards');
+    }
 }
