@@ -413,6 +413,7 @@
                             <option value="<?= (int) $tc['id'] ?>"><?= e(trim(($tc['label'] ? $tc['label'] . ' ' : '') . $tc['masked'])) ?></option>
                         <?php endforeach; ?>
                     </select>
+                    <span class="form-hint" id="tx-card-limit-hint" style="display:none;"></span>
                 </div>
                 <?php endif; ?>
 
@@ -555,10 +556,52 @@
                     if (!isExpense) {
                         var cardSel = document.getElementById('tx-card');
                         if (cardSel) cardSel.value = '';
+                        var txHint = document.getElementById('tx-card-limit-hint');
+                        if (txHint) { txHint.style.display = 'none'; txHint.innerHTML = ''; }
                     }
                 }
                 typeEl.addEventListener('change', updateExpenseFields);
                 updateExpenseFields();
+
+                <?php if (!empty($txCards)): ?>
+                // Hint plafond en temps réel pour le sélecteur carte
+                var txCardSel  = document.getElementById('tx-card');
+                var txCardHint = document.getElementById('tx-card-limit-hint');
+                var txCardsData = <?= json_encode(array_column(
+                    array_filter($txCards, fn($c) => $c['monthly_limit'] !== null),
+                    null,
+                    'id'
+                ), JSON_UNESCAPED_UNICODE) ?>;
+
+                function updateTxCardHint() {
+                    if (!txCardSel || !txCardHint) return;
+                    var cardId = parseInt(txCardSel.value, 10);
+                    var amount = parseFloat(amountEl.value) || 0;
+                    var card   = txCardsData[cardId];
+                    if (!card) { txCardHint.style.display = 'none'; txCardHint.innerHTML = ''; return; }
+                    var limit   = parseFloat(card.monthly_limit);
+                    var already = parseFloat(card.monthly_total) || 0;
+                    var after   = already + amount;
+                    var remain  = Math.max(0, limit - already);
+                    var fmtC = function(n) {
+                        return n.toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2}) + '\u00a0<?= e($account['currency']) ?>';
+                    };
+                    if (after > limit) {
+                        txCardHint.style.color = 'var(--danger)';
+                        txCardHint.innerHTML   = '<i class="bi bi-exclamation-triangle-fill"></i> Plafond dépassé\u00a0: '
+                            + fmtC(after) + ' / ' + fmtC(limit) + ' (disponible\u00a0: ' + fmtC(remain) + ').';
+                    } else {
+                        txCardHint.style.color = after / limit >= 0.8 ? 'var(--warning,#f59e0b)' : 'var(--success,#22c55e)';
+                        txCardHint.innerHTML   = '<i class="bi bi-check-circle"></i> Après cette opération\u00a0: '
+                            + fmtC(after) + ' / ' + fmtC(limit) + ' (disponible\u00a0: ' + fmtC(Math.max(0, limit - after)) + ').';
+                    }
+                    txCardHint.style.display = 'block';
+                }
+
+                if (txCardSel)  txCardSel.addEventListener('change', updateTxCardHint);
+                amountEl.addEventListener('input', function () { if (typeEl.value === 'expense') updateTxCardHint(); });
+                typeEl.addEventListener('change', function () { if (typeEl.value !== 'expense') { txCardHint.style.display = 'none'; } });
+                <?php endif; ?>
             })();
             </script>
             <?php endif; // fin du bloc conditionnel compte non désactivé (ou modérateur) ?>

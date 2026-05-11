@@ -365,10 +365,18 @@ class AccountController extends Controller
             if ($c['status'] !== 'active' || PaymentCard::isExpired($c)) {
                 continue;
             }
+            $txMonthlyLimit = isset($c['monthly_limit']) && $c['monthly_limit'] !== null
+                ? (float) $c['monthly_limit']
+                : null;
+            $txMonthlyTotal = $txMonthlyLimit !== null
+                ? $this->cardModel->getMonthlyTotal((int) $c['id'])
+                : null;
             $txCards[] = [
-                'id'     => (int) $c['id'],
-                'label'  => $c['label'] ?? null,
-                'masked' => PaymentCard::mask($c['card_number']),
+                'id'            => (int) $c['id'],
+                'label'         => $c['label'] ?? null,
+                'masked'        => PaymentCard::mask($c['card_number']),
+                'monthly_limit' => $txMonthlyLimit,
+                'monthly_total' => $txMonthlyTotal,
             ];
         }
 
