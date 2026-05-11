@@ -90,10 +90,11 @@ class CardController extends Controller
         }
 
         // Dépenses du mois en cours pour chaque carte ayant un plafond
+        // (TPE + débits différés pending du mois calendaire)
         $monthlySpentById = [];
         foreach (array_merge($cards, $sharedCards) as $c) {
             if (isset($c['monthly_limit']) && $c['monthly_limit'] !== null) {
-                $monthlySpentById[(int) $c['id']] = $this->cardModel->getMonthlySpent((int) $c['id']);
+                $monthlySpentById[(int) $c['id']] = $this->cardModel->getMonthlyTotal((int) $c['id']);
             }
         }
 

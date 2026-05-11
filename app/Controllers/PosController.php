@@ -308,7 +308,7 @@ class PosController extends Controller
             ? (float) $card['monthly_limit']
             : null;
         if ($monthlyLimit !== null) {
-            $monthlySpent = $this->cardModel->getMonthlySpent((int) $card['id']);
+            $monthlySpent = $this->cardModel->getMonthlyTotal((int) $card['id']);
             $remaining    = round($monthlyLimit - $monthlySpent, 2);
             if ($customerAmount > $remaining) {
                 $this->logFailure($user, $merchantAccount, $amount, $label, $merchant, 'card_limit_exceeded', $card);
@@ -684,7 +684,7 @@ class PosController extends Controller
         $monthlyLimit = isset($card['monthly_limit']) && $card['monthly_limit'] !== null
             ? (float) $card['monthly_limit']
             : null;
-        $monthlySpent = $monthlyLimit !== null ? $this->cardModel->getMonthlySpent((int) $card['id']) : null;
+        $monthlySpent = $monthlyLimit !== null ? $this->cardModel->getMonthlyTotal((int) $card['id']) : null;
 
         if ($amount !== null && $amount > 0) {
             // Vérification solde
@@ -706,7 +706,7 @@ class PosController extends Controller
 
             // Vérification plafond mensuel
             if ($monthlyLimit !== null) {
-                $monthlySpent = $this->cardModel->getMonthlySpent((int) $card['id']);
+                $monthlySpent = $this->cardModel->getMonthlyTotal((int) $card['id']);
                 $remaining    = round($monthlyLimit - $monthlySpent, 2);
                 if ($amount > $remaining) {
                     $payload['state']        = 'limit_exceeded';
