@@ -5,6 +5,7 @@
 /** @var array $sharedCards */
 /** @var array $sharedAccountsById */
 /** @var array $monthlySpentById */
+/** @var bool $isModerator */
 
 $justCreated = $_SESSION['card_just_created'] ?? null;
 unset($_SESSION['card_just_created']);
@@ -75,6 +76,12 @@ unset($_SESSION['card_just_created']);
                             'monthlyLimit'    => $cardLimitRaw !== null ? number_format($cardLimitRaw, 2, ',', '') : '',
                             'monthlyLimitRaw' => $cardLimitRaw,
                             'monthlySpent'    => $cardSpent,
+                            'monthlyOverride' => ($cardLimitRaw !== null
+                                && isset($card['monthly_spent_override'])
+                                && $card['monthly_spent_override'] !== null
+                                && ($card['monthly_spent_override_month'] ?? '') === date('Y-m'))
+                                ? (float) $card['monthly_spent_override']
+                                : null,
                             'currency'        => $cardCurrency,
                             'accountId'       => (int) $card['account_id'],
                             'shared'          => false,
@@ -196,6 +203,12 @@ unset($_SESSION['card_just_created']);
                         'expired'         => $isExpired,
                         'monthlyLimitRaw' => $sCardLimitRaw,
                         'monthlySpent'    => $sCardSpent,
+                        'monthlyOverride' => ($sCardLimitRaw !== null
+                            && isset($card['monthly_spent_override'])
+                            && $card['monthly_spent_override'] !== null
+                            && ($card['monthly_spent_override_month'] ?? '') === date('Y-m'))
+                            ? (float) $card['monthly_spent_override']
+                            : null,
                         'currency'        => $sCardCurrency,
                         'shared'          => true,
                     ];
@@ -394,6 +407,46 @@ unset($_SESSION['card_just_created']);
             </p>
         </div>
 
+        <?php if ($isModerator): ?>
+        <!-- Correction modérateur : plafond dépensé ce mois -->
+        <div class="cm-moderator-override" style="margin-top:0.6rem;">
+            <hr style="margin:0.75rem 0;border-color:var(--border-color,#dee2e6);">
+            <details id="cmOverrideDetails">
+                <summary class="btn btn-outline btn-sm" style="width:100%;cursor:pointer;justify-content:flex-start;gap:0.5rem;list-style:none;display:flex;align-items:center;border-color:#f59e0b;color:#b45309;">
+                    <i class="bi bi-pencil-square" style="color:#f59e0b;"></i>
+                    <span style="flex:1;text-align:left;">Corriger le montant dépensé (modération)</span>
+                    <i class="bi bi-chevron-down" style="margin-left:auto;font-size:0.75rem;"></i>
+                </summary>
+                <div style="margin-top:0.6rem;padding:0.75rem;background:var(--bg,#f8f9fa);border-radius:var(--border-radius,6px);border:1px solid #f59e0b;">
+                    <p style="font-size:0.78rem;color:var(--text-muted);margin:0 0 0.6rem;">
+                        <i class="bi bi-info-circle"></i>
+                        Remplace le calcul automatique pour le mois en cours. La correction est ignorée automatiquement au mois suivant.
+                    </p>
+                    <div id="cmOverrideCurrentInfo" style="font-size:0.78rem;margin-bottom:0.6rem;display:none;"></div>
+                    <form method="POST" id="cmOverrideForm">
+                        <input type="hidden" name="csrf_token" class="cm-csrf">
+                        <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+                            <input type="text" name="override_value" id="cmOverrideValue"
+                                   class="form-control form-control-sm" style="width:110px;"
+                                   inputmode="decimal" placeholder="Ex : 245,50">
+                            <span style="font-size:0.82rem;">€</span>
+                            <button type="submit" class="btn btn-warning btn-sm">
+                                <i class="bi bi-check-lg"></i> Appliquer
+                            </button>
+                        </div>
+                    </form>
+                    <form method="POST" id="cmOverrideClearForm" style="margin-top:0.5rem;display:none;">
+                        <input type="hidden" name="csrf_token" class="cm-csrf">
+                        <input type="hidden" name="clear_override" value="1">
+                        <button type="submit" class="btn btn-outline btn-sm" style="font-size:0.75rem;color:var(--danger);">
+                            <i class="bi bi-x-circle"></i> Supprimer la correction
+                        </button>
+                    </form>
+                </div>
+            </details>
+        </div>
+        <?php endif; ?>
+
         <!-- Message carte expirée -->
         <div class="cm-expired">
             <p class="text-muted text-small" style="margin:0.5rem 0 0;font-size:0.82rem;">
@@ -456,7 +509,11 @@ unset($_SESSION['card_just_created']);
             const color = pct >= 100 ? 'var(--danger,#dc3545)' : (pct >= 80 ? '#ffc107' : 'var(--success-color,#28a745)');
             const cur   = card.currency || '€';
             const fmt   = function (n) { return n.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}); };
-            limitText.textContent  = fmt(spent) + ' / ' + fmt(limit) + ' ' + cur;
+            let limitTextContent = fmt(spent) + ' / ' + fmt(limit) + ' ' + cur;
+            if (card.monthlyOverride !== null && card.monthlyOverride !== undefined) {
+                limitTextContent += ' \u26a0\ufe0f correction';
+            }
+            limitText.textContent  = limitTextContent;
             limitBar.style.width   = pct + '%';
             limitBar.style.background = color;
             limitPct.textContent   = pct + '% utilisé ce mois';
@@ -516,6 +573,40 @@ unset($_SESSION['card_just_created']);
             const deleteForm = document.getElementById('cmDeleteForm');
             deleteForm.action = '/cards/' + id + '/delete';
             deleteForm.onsubmit = function () { return confirm('Supprimer définitivement cette carte ?'); };
+        }
+
+        // Bloc correction modérateur
+        const modOverrideBlock = document.querySelector('.cm-moderator-override');
+        if (modOverrideBlock) {
+            if (card.monthlyLimitRaw !== null && card.monthlyLimitRaw !== undefined) {
+                modOverrideBlock.style.display = '';
+                const fmt = function (n) { return n.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}); };
+
+                // Formulaire d'application
+                document.getElementById('cmOverrideForm').action  = '/cards/' + id + '/override-spent';
+                document.getElementById('cmOverrideClearForm').action = '/cards/' + id + '/override-spent';
+
+                // Fermer le details au changement de carte
+                document.getElementById('cmOverrideDetails').open = false;
+
+                // Pré-remplir si override actif ce mois
+                const input = document.getElementById('cmOverrideValue');
+                const infoDiv = document.getElementById('cmOverrideCurrentInfo');
+                const clearForm = document.getElementById('cmOverrideClearForm');
+                if (card.monthlyOverride !== null && card.monthlyOverride !== undefined) {
+                    input.value = String(card.monthlyOverride).replace('.', ',');
+                    infoDiv.innerHTML = '<i class="bi bi-exclamation-triangle-fill" style="color:#f59e0b;"></i> '
+                        + 'Correction active\u00a0: <strong>' + fmt(card.monthlyOverride) + '\u00a0\u20ac</strong>';
+                    infoDiv.style.display = '';
+                    clearForm.style.display = '';
+                } else {
+                    input.value = '';
+                    infoDiv.style.display = 'none';
+                    clearForm.style.display = 'none';
+                }
+            } else {
+                modOverrideBlock.style.display = 'none';
+            }
         }
 
         // Ouvrir la modale

@@ -106,6 +106,7 @@ class CardController extends Controller
             'sharedCards'        => $sharedCards,
             'sharedAccountsById' => $sharedAccountsById,
             'monthlySpentById'   => $monthlySpentById,
+            'isModerator'        => $this->isModerator(),
         ]);
     }
 
@@ -499,6 +500,80 @@ class CardController extends Controller
 
         $label = $newStatus === 'active' ? 'activée' : 'bloquée';
         $this->setFlash('success', "Carte {$label} avec succès.");
+        $this->redirect('/cards');
+    }
+
+    /**
+     * Permet à un modérateur de corriger manuellement le montant dépensé ce mois
+     * sur une carte. Utile pour intégrer des dépenses hors système ou corriger un écart.
+     * La valeur est automatiquement ignorée dès que le mois calendaire change.
+     */
+    public function overrideMonthlySpent(string $id): void
+    {
+        $this->requireAuth();
+        if (!$this->isModerator()) {
+            $this->setFlash('danger', 'Action réservée à la modération.');
+            $this->redirect('/cards');
+            return;
+        }
+        $this->validateCSRF();
+
+        $cardId = (int) $id;
+        $card   = $this->cardModel->find($cardId);
+        if (!$card) {
+            $this->setFlash('danger', 'Carte introuvable.');
+            $this->redirect('/cards');
+            return;
+        }
+
+        // La carte doit avoir un plafond mensuel pour que l'override ait un sens
+        if ($card['monthly_limit'] === null) {
+            $this->setFlash('danger', 'Cette carte n\'a pas de plafond mensuel configuré.');
+            $this->redirect('/cards');
+            return;
+        }
+
+        $clear    = !empty($_POST['clear_override']);
+        $rawValue = trim((string) ($_POST['override_value'] ?? ''));
+
+        if ($clear) {
+            $this->cardModel->setMonthlySpentOverride($cardId, null);
+            AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_CARD_OVERRIDE_SPENT, [
+                'card_id' => $cardId,
+                'last4'   => $card['last4'] ?? '',
+                'action'  => 'clear',
+            ], targetUserId: (int) $card['user_id']);
+            $this->setFlash('success', 'Correction du plafond dépensé supprimée — le calcul automatique reprend.');
+            $this->redirect('/cards');
+            return;
+        }
+
+        if ($rawValue === '') {
+            $this->setFlash('danger', 'Veuillez saisir une valeur.');
+            $this->redirect('/cards');
+            return;
+        }
+
+        $value = (float) str_replace([' ', "\xc2\xa0", ','], ['', '', '.'], $rawValue);
+        if ($value < 0) {
+            $this->setFlash('danger', 'Le montant dépensé ne peut pas être négatif.');
+            $this->redirect('/cards');
+            return;
+        }
+
+        $this->cardModel->setMonthlySpentOverride($cardId, $value);
+        AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_CARD_OVERRIDE_SPENT, [
+            'card_id' => $cardId,
+            'last4'   => $card['last4'] ?? '',
+            'value'   => $value,
+            'month'   => date('Y-m'),
+        ], targetUserId: (int) $card['user_id']);
+
+        $this->setFlash('success', sprintf(
+            'Plafond mensuel dépensé ajusté à %s € pour %s.',
+            number_format($value, 2, ',', ' '),
+            date('m/Y')
+        ));
         $this->redirect('/cards');
     }
 }

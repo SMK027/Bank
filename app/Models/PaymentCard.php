@@ -195,11 +195,44 @@ class PaymentCard extends Model
 
     /**
      * Total mensuel complet : paiements TPE + débits différés pending du mois en cours.
+     * Si un modérateur a défini un override pour le mois calendaire en cours,
+     * cette valeur est utilisée à la place du total calculé.
      * C'est la valeur à comparer au plafond mensuel de la carte.
      */
     public function getMonthlyTotal(int $cardId): float
     {
+        $stmt = $this->getPdo()->prepare(
+            'SELECT monthly_spent_override, monthly_spent_override_month
+               FROM payment_cards WHERE id = ? LIMIT 1'
+        );
+        $stmt->execute([$cardId]);
+        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+        if ($row
+            && $row['monthly_spent_override'] !== null
+            && $row['monthly_spent_override_month'] === date('Y-m')
+        ) {
+            return (float) $row['monthly_spent_override'];
+        }
         return $this->getMonthlySpent($cardId) + $this->getPendingDeferredTotal($cardId);
+    }
+
+    /**
+     * Définit ou supprime l'override modérateur du plafond dépensé pour le mois courant.
+     * Passer null efface l'override et rétablit le calcul automatique.
+     */
+    public function setMonthlySpentOverride(int $cardId, ?float $value): void
+    {
+        if ($value === null) {
+            $this->update($cardId, [
+                'monthly_spent_override'       => null,
+                'monthly_spent_override_month' => null,
+            ]);
+        } else {
+            $this->update($cardId, [
+                'monthly_spent_override'       => $value,
+                'monthly_spent_override_month' => date('Y-m'),
+            ]);
+        }
     }
 
     /** Recherche par numéro complet. */
