@@ -6,7 +6,9 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Models\Account;
+use App\Models\AccountAccess;
 use App\Models\AuditLog;
+use App\Models\Guardianship;
 use App\Models\PaymentCard;
 use App\Models\User;
 
@@ -20,12 +22,16 @@ class CardController extends Controller
     private PaymentCard $cardModel;
     private Account $accountModel;
     private User $userModel;
+    private AccountAccess $accessModel;
+    private Guardianship $guardianshipModel;
 
     public function __construct()
     {
-        $this->cardModel    = new PaymentCard();
-        $this->accountModel = new Account();
-        $this->userModel    = new User();
+        $this->cardModel          = new PaymentCard();
+        $this->accountModel       = new Account();
+        $this->userModel          = new User();
+        $this->accessModel        = new AccountAccess();
+        $this->guardianshipModel  = new Guardianship();
     }
 
     /** Liste les cartes bancaires de l'utilisateur connecté. */
@@ -48,11 +54,48 @@ class CardController extends Controller
             fn(array $a) => Account::typeAllowsCard($a['type'] ?? '') && empty($a['disabled_at'])
         ));
 
+        // Cartes des comptes partagés (procuration et tutelle légale active)
+        $sharedCards       = [];
+        $sharedAccountsById = [];
+
+        // Via procuration
+        foreach ($this->accessModel->getValidAccessesForUser($userId) as $access) {
+            $acc = $this->accountModel->find((int) $access['account_id']);
+            if (!$acc) {
+                continue;
+            }
+            $sharedAccountsById[(int) $acc['id']] = $acc;
+            foreach ($this->cardModel->getByAccount((int) $acc['id']) as $card) {
+                $sharedCards[] = $card;
+            }
+        }
+
+        // Via tutelle légale active
+        foreach ($this->guardianshipModel->getMinorsOf($userId) as $link) {
+            $minorId = (int) $link['minor_user_id'];
+            $minor   = $this->userModel->find($minorId);
+            if (!$minor || !User::isMinorFromDate($minor['birth_date'] ?? null)) {
+                continue;
+            }
+            foreach ($this->accountModel->getByUser($minorId) as $acc) {
+                $accId = (int) $acc['id'];
+                if (isset($sharedAccountsById[$accId])) {
+                    continue;
+                }
+                $sharedAccountsById[$accId] = $acc;
+                foreach ($this->cardModel->getByAccount($accId) as $card) {
+                    $sharedCards[] = $card;
+                }
+            }
+        }
+
         $this->render('cards/index', [
-            'title'            => 'Mes cartes bancaires',
-            'cards'            => $cards,
-            'accountsById'     => $accountsById,
-            'eligibleAccounts' => $eligibleAccounts,
+            'title'              => 'Mes cartes bancaires',
+            'cards'              => $cards,
+            'accountsById'       => $accountsById,
+            'eligibleAccounts'   => $eligibleAccounts,
+            'sharedCards'        => $sharedCards,
+            'sharedAccountsById' => $sharedAccountsById,
         ]);
     }
 

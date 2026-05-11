@@ -168,6 +168,12 @@ class PaymentCard extends Model
         return $this->findBy(['user_id' => (string) $userId], 'created_at', 'DESC');
     }
 
+    /** Cartes associées à un compte donné. */
+    public function getByAccount(int $accountId): array
+    {
+        return $this->findBy(['account_id' => (string) $accountId], 'created_at', 'DESC');
+    }
+
     /** Recherche par numéro complet. */
     public function findByNumber(string $number): ?array
     {

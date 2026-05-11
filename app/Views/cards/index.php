@@ -2,6 +2,8 @@
 /** @var array $cards */
 /** @var array $accountsById */
 /** @var array $eligibleAccounts */
+/** @var array $sharedCards */
+/** @var array $sharedAccountsById */
 
 $justCreated = $_SESSION['card_just_created'] ?? null;
 unset($_SESSION['card_just_created']);
@@ -197,3 +199,90 @@ unset($_SESSION['card_just_created']);
         <?php endif; ?>
     </div>
 </div>
+
+<?php if (!empty($sharedCards)): ?>
+<div class="card" style="margin-top:1.5rem;">
+    <div class="card-body">
+        <h2 style="font-size:1.1rem;margin-bottom:1rem;">
+            <i class="bi bi-people"></i> Cartes des comptes partagés
+        </h2>
+        <p class="text-muted text-small" style="margin-bottom:1rem;">
+            Ces cartes sont liées à des comptes auxquels vous avez accès par procuration ou en tant que responsable légal. Leur consultation et gestion restent réservées au titulaire.
+        </p>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Carte</th>
+                        <th>Libellé</th>
+                        <th>Compte associé</th>
+                        <th>Expiration</th>
+                        <th>Plafond mensuel</th>
+                        <th>Statut</th>
+                        <th>Créée le</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($sharedCards as $card):
+                    $acc        = $sharedAccountsById[(int) $card['account_id']] ?? null;
+                    $isExpired  = \App\Models\PaymentCard::isExpired($card);
+                    $expirySoon = !$isExpired && !empty($card['expires_at'])
+                        && strtotime($card['expires_at']) < strtotime('+30 days');
+                ?>
+                    <tr class="<?= $isExpired ? 'text-muted' : '' ?>">
+                        <td>
+                            <code style="letter-spacing:0.1em;">
+                                <?= e(\App\Models\PaymentCard::mask($card['card_number'])) ?>
+                            </code>
+                        </td>
+                        <td><?= e($card['label'] ?? '') ?: '<span class="text-muted">—</span>' ?></td>
+                        <td>
+                            <?php if ($acc): ?>
+                                <a href="/accounts/<?= (int) $acc['id'] ?>"><?= e($acc['name']) ?></a>
+                                <span class="text-muted text-small"> (<?= e($acc['currency'] ?? '') ?>)</span>
+                            <?php else: ?>
+                                <span class="text-muted">Compte introuvable</span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if (empty($card['expires_at'])): ?>
+                                <span class="text-muted">—</span>
+                            <?php elseif ($isExpired): ?>
+                                <span class="badge badge-danger" title="Expirée le <?= e(date('d/m/Y', strtotime($card['expires_at']))) ?>">
+                                    <i class="bi bi-exclamation-triangle-fill"></i>
+                                    <?= date('m/Y', strtotime($card['expires_at'])) ?>
+                                </span>
+                            <?php elseif ($expirySoon): ?>
+                                <span class="badge bg-warning text-dark" title="Expire bientôt">
+                                    <i class="bi bi-clock"></i>
+                                    <?= date('m/Y', strtotime($card['expires_at'])) ?>
+                                </span>
+                            <?php else: ?>
+                                <span><?= date('m/Y', strtotime($card['expires_at'])) ?></span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if (isset($card['monthly_limit']) && $card['monthly_limit'] !== null): ?>
+                                <span><?= number_format((float) $card['monthly_limit'], 2, ',', ' ') ?> <?= e($acc['currency'] ?? '€') ?></span>
+                            <?php else: ?>
+                                <span class="text-muted">Illimité</span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if ($isExpired): ?>
+                                <span class="badge badge-danger">Expirée</span>
+                            <?php elseif (($card['status'] ?? '') === 'active'): ?>
+                                <span class="badge badge-success">Active</span>
+                            <?php else: ?>
+                                <span class="badge badge-danger">Bloquée</span>
+                            <?php endif; ?>
+                        </td>
+                        <td><?= date('d/m/Y', strtotime($card['created_at'])) ?></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
