@@ -144,19 +144,20 @@ class PaymentCard extends Model
     }
 
     /**
-     * Retourne le total dépensé via cette carte sur le mois calendaire courant
+     * Retourne le total dépensé via cette carte depuis la dernière remise à zéro
      * (paiements TPE succès non annulés).
+     * Si aucune remise à zéro n'a eu lieu, la borne inférieure est le 1er du mois courant.
      */
     public function getMonthlySpent(int $cardId): float
     {
         $stmt = $this->getPdo()->prepare(
             "SELECT COALESCE(SUM(p.amount), 0)
                FROM api_payments p
+               JOIN payment_cards pc ON pc.id = p.card_id
               WHERE p.card_id      = ?
                 AND p.status       = 'success'
                 AND p.cancelled_at IS NULL
-                AND p.created_at   >= DATE_FORMAT(NOW(), '%Y-%m-01')
-                AND p.created_at   <  DATE_FORMAT(NOW() + INTERVAL 1 MONTH, '%Y-%m-01')"
+                AND p.created_at  >= COALESCE(pc.monthly_reset_at, DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00'))"
         );
         $stmt->execute([$cardId]);
         return (float) $stmt->fetchColumn();
@@ -175,19 +176,19 @@ class PaymentCard extends Model
     }
 
     /**
-     * Total des débits différés en attente (status = pending) liés à cette carte
-     * dont la date d'opération tombe dans le mois calendaire en cours.
-     * Utilisé pour vérifier que l'ajout d'un nouveau débit différé ne dépasse pas le plafond.
+     * Total des débits différés en attente liés à cette carte depuis la dernière
+     * remise à zéro. Utilisé pour vérifier que l'ajout d'un nouveau débit différé
+     * ne dépasse pas le plafond.
      */
     public function getPendingDeferredTotal(int $cardId): float
     {
         $stmt = $this->getPdo()->prepare(
             "SELECT COALESCE(SUM(d.amount), 0)
                FROM deferred_debits d
-              WHERE d.card_id   = ?
-                AND d.status    = 'pending'
-                AND d.operation_date >= DATE_FORMAT(NOW(), '%Y-%m-01')
-                AND d.operation_date <  DATE_FORMAT(NOW() + INTERVAL 1 MONTH, '%Y-%m-01')"
+               JOIN payment_cards pc ON pc.id = d.card_id
+              WHERE d.card_id      = ?
+                AND d.status       = 'pending'
+                AND d.operation_date >= COALESCE(pc.monthly_reset_at, DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00'))"
         );
         $stmt->execute([$cardId]);
         return (float) $stmt->fetchColumn();
@@ -233,6 +234,20 @@ class PaymentCard extends Model
                 'monthly_spent_override_month' => date('Y-m'),
             ]);
         }
+    }
+
+    /**
+     * Remet le plafond mensuel dépensé à zéro en posant la date courante
+     * comme nouvelle borne inférieure de comptage.
+     * Efface également l'override modérateur le cas échéant.
+     */
+    public function resetMonthlySpent(int $cardId): void
+    {
+        $this->update($cardId, [
+            'monthly_reset_at'             => date('Y-m-d H:i:s'),
+            'monthly_spent_override'       => null,
+            'monthly_spent_override_month' => null,
+        ]);
     }
 
     /** Recherche par numéro complet. */

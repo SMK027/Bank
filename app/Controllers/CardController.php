@@ -504,6 +504,57 @@ class CardController extends Controller
     }
 
     /**
+     * Remet à zéro le plafond mensuel dépensé d'une carte à débit différé.
+     * Action réservée au titulaire de la carte.
+     * Limitée à une seule remise par mois calendaire.
+     */
+    public function resetMonthlySpent(string $id): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+        $userId = $this->getCurrentUserId();
+
+        $cardId = (int) $id;
+        $card   = $this->cardModel->find($cardId);
+        if (!$card || (int) $card['user_id'] !== $userId) {
+            $this->setFlash('danger', 'Carte introuvable.');
+            $this->redirect('/cards');
+            return;
+        }
+
+        if ($card['monthly_limit'] === null) {
+            $this->setFlash('danger', 'Cette carte n\'a pas de plafond mensuel configuré.');
+            $this->redirect('/cards');
+            return;
+        }
+
+        $account = $this->accountModel->find((int) $card['account_id']);
+        if (!$account || empty($account['deferred_debit_enabled'])) {
+            $this->setFlash('danger', 'La remise à zéro manuelle est réservée aux cartes liées à un compte à débit différé. Le plafond des cartes à débit immédiat est remis à zéro automatiquement le 1er de chaque mois.');
+            $this->redirect('/cards');
+            return;
+        }
+
+        // Une seule remise autorisée par mois calendaire
+        $lastReset = $card['monthly_reset_at'] ?? null;
+        if ($lastReset !== null && date('Y-m', strtotime($lastReset)) === date('Y-m')) {
+            $this->setFlash('danger', 'Le plafond a déjà été remis à zéro ce mois-ci. La prochaine remise sera possible le 1er du mois prochain.');
+            $this->redirect('/cards');
+            return;
+        }
+
+        $this->cardModel->resetMonthlySpent($cardId);
+        AuditLog::log($userId, AuditLog::ACTION_CARD_RESET_SPENT, [
+            'card_id'          => $cardId,
+            'last4'            => $card['last4'] ?? '',
+            'previous_reset_at' => $lastReset,
+        ], targetAccountId: (int) $card['account_id']);
+
+        $this->setFlash('success', 'Plafond mensuel remis à zéro. Vous pouvez à nouveau dépenser jusqu\'au plafond configuré.');
+        $this->redirect('/cards');
+    }
+
+    /**
      * Permet à un modérateur de corriger manuellement le montant dépensé ce mois
      * sur une carte. Utile pour intégrer des dépenses hors système ou corriger un écart.
      * La valeur est automatiquement ignorée dès que le mois calendaire change.

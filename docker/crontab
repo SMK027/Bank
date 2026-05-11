@@ -18,3 +18,6 @@ PATH=/usr/local/bin:/usr/bin:/bin
 # Prélèvement des échéances de crédits échues – tous les jours à 06h00
 0 6 * * * www-data . /etc/cron.env; /usr/local/bin/php /var/www/html/database/process_loan_installments.php >> /var/www/html/data/loans-cron.log 2>&1
 
+# Remise à zéro du plafond mensuel des cartes à débit immédiat – 1er du mois à 00h05
+5 0 1 * * www-data . /etc/cron.env; /usr/local/bin/php /var/www/html/database/process_card_resets.php >> /var/www/html/data/card-resets-cron.log 2>&1
+

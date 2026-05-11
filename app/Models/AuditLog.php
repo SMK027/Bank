@@ -119,6 +119,7 @@ class AuditLog extends Model
     public const ACTION_CARD_REVEAL_FAIL    = 'card.reveal_fail';
     public const ACTION_CARD_TOGGLE_STATUS  = 'card.toggle_status';
     public const ACTION_CARD_OVERRIDE_SPENT = 'card.override_spent';
+    public const ACTION_CARD_RESET_SPENT    = 'card.reset_spent';
     public const ACTION_API_CLIENT_CREATE   = 'api_client.create';
     public const ACTION_API_CLIENT_REVOKE   = 'api_client.revoke';
     public const ACTION_API_PAYMENT_DEBIT   = 'api_payment.debit';

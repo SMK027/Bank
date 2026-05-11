@@ -82,6 +82,12 @@ unset($_SESSION['card_just_created']);
                                 && ($card['monthly_spent_override_month'] ?? '') === date('Y-m'))
                                 ? (float) $card['monthly_spent_override']
                                 : null,
+                            'isDeferredDebit' => !empty($acc['deferred_debit_enabled']),
+                            'lastResetAt'     => $card['monthly_reset_at'] ?? null,
+                            'canResetSpent'   => $cardLimitRaw !== null
+                                && !empty($acc['deferred_debit_enabled'])
+                                && (empty($card['monthly_reset_at'])
+                                    || date('Y-m', strtotime($card['monthly_reset_at'])) !== date('Y-m')),
                             'currency'        => $cardCurrency,
                             'accountId'       => (int) $card['account_id'],
                             'shared'          => false,
@@ -323,6 +329,17 @@ unset($_SESSION['card_just_created']);
             <div id="cmLimitPct" style="font-size:0.75rem;color:var(--gray,#6c757d);margin-top:0.3rem;text-align:right;"></div>
         </div>
 
+        <!-- Remise à zéro du plafond (cartes à débit différé, une fois par mois) -->
+        <div class="cm-own cm-reset-block" style="margin-bottom:0.6rem;display:none;">
+            <form method="POST" id="cmResetForm">
+                <input type="hidden" name="csrf_token" class="cm-csrf">
+                <button type="submit" class="btn btn-outline btn-sm" style="width:100%;justify-content:flex-start;gap:0.5rem;border-color:var(--info,#3b82f6);color:var(--info,#3b82f6);">
+                    <i class="bi bi-arrow-counterclockwise"></i> Remettre le plafond à zéro
+                    <small class="text-muted" style="margin-left:auto;font-size:0.72rem;">fin de période</small>
+                </button>
+            </form>
+        </div>
+
         <!-- Activer / Bloquer (si non expirée) -->
         <div class="cm-not-expired" style="margin-bottom:0.6rem;">
             <form method="POST" id="cmToggleForm">
@@ -497,11 +514,12 @@ unset($_SESSION['card_just_created']);
             el.style.display = isExpired && !isOwn ? '' : 'none';
         });
 
-        // Bloc plafond
+        // Bloc plafond + remise à zéro
         const limitBlock = document.getElementById('cmLimitBlock');
         const limitBar   = document.getElementById('cmLimitBar');
         const limitText  = document.getElementById('cmLimitText');
         const limitPct   = document.getElementById('cmLimitPct');
+        const resetBlock = overlay.querySelector('.cm-reset-block');
         if (card.monthlyLimitRaw !== null && card.monthlyLimitRaw !== undefined) {
             const spent = card.monthlySpent || 0;
             const limit = card.monthlyLimitRaw;
@@ -606,6 +624,20 @@ unset($_SESSION['card_just_created']);
                 }
             } else {
                 modOverrideBlock.style.display = 'none';
+            }
+        }
+
+        // Bouton remise à zéro du plafond (débit différé, une fois par mois)
+        if (resetBlock) {
+            if (isOwn && card.canResetSpent) {
+                const resetForm = document.getElementById('cmResetForm');
+                resetForm.action = '/cards/' + id + '/reset-spent';
+                resetForm.onsubmit = function () {
+                    return confirm('Remettre le plafond mensuel à zéro ? Cette action est autorisée une seule fois par mois.');
+                };
+                resetBlock.style.display = '';
+            } else {
+                resetBlock.style.display = 'none';
             }
         }
 
