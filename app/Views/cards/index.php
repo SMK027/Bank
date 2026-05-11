@@ -120,8 +120,8 @@ unset($_SESSION['card_just_created']);
                                     ?>
                                     <div style="min-width:140px;">
                                         <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:0.2rem;gap:0.4rem;">
-                                            <span><?= number_format($cardSpent, 2, ',', '\u{202f}') ?></span>
-                                            <span class="text-muted"><?= number_format($cardLimitRaw, 2, ',', '\u{202f}') ?> <?= e($cardCurrency) ?></span>
+                                            <span><?= number_format($cardSpent, 2, ',', ' ') ?></span>
+                                            <span class="text-muted"><?= number_format($cardLimitRaw, 2, ',', ' ') ?> <?= e($cardCurrency) ?></span>
                                         </div>
                                         <div style="height:5px;background:var(--gray-light,#e9ecef);border-radius:3px;overflow:hidden;" title="<?= $pct ?>% utilisé">
                                             <div style="height:100%;width:<?= $pct ?>%;background:<?= $barColor ?>;border-radius:3px;"></div>
@@ -240,8 +240,8 @@ unset($_SESSION['card_just_created']);
                                 ?>
                                 <div style="min-width:140px;">
                                     <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:0.2rem;gap:0.4rem;">
-                                        <span><?= number_format($sCardSpent, 2, ',', '\u{202f}') ?></span>
-                                        <span class="text-muted"><?= number_format($sCardLimitRaw, 2, ',', '\u{202f}') ?> <?= e($sCardCurrency) ?></span>
+                                        <span><?= number_format($sCardSpent, 2, ',', ' ') ?></span>
+                                        <span class="text-muted"><?= number_format($sCardLimitRaw, 2, ',', ' ') ?> <?= e($sCardCurrency) ?></span>
                                     </div>
                                     <div style="height:5px;background:var(--gray-light,#e9ecef);border-radius:3px;overflow:hidden;" title="<?= $sPct ?>% utilisé">
                                         <div style="height:100%;width:<?= $sPct ?>%;background:<?= $sBarColor ?>;border-radius:3px;"></div>
