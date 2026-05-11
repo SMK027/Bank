@@ -21,9 +21,10 @@ class DeferredDebit extends Model
         string $category,
         string $comment,
         string $operationDate,
-        string $periodEndDate
+        string $periodEndDate,
+        ?int $cardId = null
     ): int {
-        return $this->create([
+        $row = [
             'account_id'      => $accountId,
             'user_id'         => $userId,
             'amount'          => $amount,
@@ -32,7 +33,11 @@ class DeferredDebit extends Model
             'operation_date'  => $operationDate,
             'period_end_date' => $periodEndDate,
             'status'          => self::STATUS_PENDING,
-        ]);
+        ];
+        if ($cardId !== null) {
+            $row['card_id'] = $cardId;
+        }
+        return $this->create($row);
     }
 
     /**

@@ -15,6 +15,7 @@ use App\Models\AccountAccess;
 use App\Models\DirectDebit;
 use App\Models\Guardianship;
 use App\Models\Mandate;
+use App\Models\PaymentCard;
 use App\Models\RecurringTransfer;
 use App\Models\SavingsInterest;
 use App\Models\SavingsRate;
@@ -33,6 +34,7 @@ class AccountController extends Controller
     private RecurringTransfer $recurringTransferModel;
     private SavingsRate $rateModel;
     private Loan $loanModel;
+    private PaymentCard $cardModel;
 
     public function __construct()
     {
@@ -45,6 +47,7 @@ class AccountController extends Controller
         $this->userModel              = new User();
         $this->recurringTransferModel = new RecurringTransfer();
         $this->loanModel              = new Loan();
+        $this->cardModel              = new PaymentCard();
     }
 
     public function createForm(): void
@@ -354,6 +357,27 @@ class AccountController extends Controller
         }
         unset($r);
 
+        // Cartes bancaires actives et non expirées du compte (pour sélecteur débit différé)
+        $accountCards = [];
+        if ($deferredDebitEnabled) {
+            foreach ($this->cardModel->getByAccount($accountId) as $c) {
+                if ($c['status'] !== 'active' || PaymentCard::isExpired($c)) {
+                    continue;
+                }
+                $monthlyTotal = null;
+                if (isset($c['monthly_limit']) && $c['monthly_limit'] !== null) {
+                    $monthlyTotal = $this->cardModel->getMonthlyTotal((int) $c['id']);
+                }
+                $accountCards[] = [
+                    'id'           => (int) $c['id'],
+                    'label'        => $c['label'] ?? null,
+                    'masked'       => PaymentCard::mask($c['card_number']),
+                    'monthly_limit' => isset($c['monthly_limit']) ? (float) $c['monthly_limit'] : null,
+                    'monthly_total' => $monthlyTotal,
+                ];
+            }
+        }
+
         $this->render('accounts/show', [
             'title'                => $account['name'],
             'account'             => $account,
@@ -395,6 +419,7 @@ class AccountController extends Controller
             'executedDeferredDebits' => $executedDeferredDebits,
             'deferredDebitDay'       => $deferredDebitEnabled ? ($account['deferred_debit_day'] ?? null) : null,
             'posPayments'            => $posPayments,
+            'accountCards'           => $accountCards,
         ]);
     }
 

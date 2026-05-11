@@ -9,6 +9,7 @@ use App\Models\Account;
 use App\Models\DeferredDebit;
 use App\Models\Guardianship;
 use App\Models\Notification;
+use App\Models\PaymentCard;
 use App\Models\Transaction;
 use App\Models\User;
 
@@ -20,6 +21,7 @@ class TransactionController extends Controller
     private Notification $notifModel;
     private Guardianship $guardianshipModel;
     private DeferredDebit $deferredDebitModel;
+    private PaymentCard $cardModel;
 
     public function __construct()
     {
@@ -29,6 +31,7 @@ class TransactionController extends Controller
         $this->notifModel         = new Notification();
         $this->guardianshipModel  = new Guardianship();
         $this->deferredDebitModel = new DeferredDebit();
+        $this->cardModel          = new PaymentCard();
     }
 
     public function create(string $accountId): void
@@ -362,7 +365,7 @@ class TransactionController extends Controller
             return;
         }
 
-        $data = $this->getPostData(['amount', 'category', 'comment', 'operation_date', 'period_end_date', 'force_override']);
+        $data = $this->getPostData(['amount', 'category', 'comment', 'operation_date', 'period_end_date', 'force_override', 'card_id']);
 
         if (empty($data['amount']) || empty($data['category'])) {
             $this->setFlash('danger', 'Le montant et la catégorie sont requis.');
@@ -396,6 +399,31 @@ class TransactionController extends Controller
                 ));
                 $this->redirect('/accounts/' . $accountId);
                 return;
+            }
+        }
+
+        // Vérification du plafond mensuel de la carte sélectionnée (sans bypass possible)
+        $cardId = !empty($data['card_id']) ? (int) $data['card_id'] : null;
+        if ($cardId !== null) {
+            $card = $this->cardModel->find($cardId);
+            if (!$card || (int) $card['account_id'] !== $accId) {
+                $this->setFlash('danger', 'Carte introuvable ou non associée à ce compte.');
+                $this->redirect('/accounts/' . $accountId);
+                return;
+            }
+            if (isset($card['monthly_limit']) && $card['monthly_limit'] !== null) {
+                $limit   = (float) $card['monthly_limit'];
+                $already = $this->cardModel->getMonthlyTotal($cardId);
+                if ($already + $amount > $limit) {
+                    $remaining = max(0.0, $limit - $already);
+                    $this->setFlash('danger', sprintf(
+                        'Plafond mensuel insuffisant pour la carte %s. Déjà utilisé : %.2f € / %.2f €. Montant demandé : %.2f €. Disponible : %.2f €.',
+                        PaymentCard::mask($card['card_number']),
+                        $already, $limit, $amount, $remaining
+                    ));
+                    $this->redirect('/accounts/' . $accountId);
+                    return;
+                }
             }
         }
 
@@ -452,7 +480,8 @@ class TransactionController extends Controller
             $data['category'],
             $data['comment'] ?? '',
             $operationDate,
-            $periodEndDate
+            $periodEndDate,
+            $cardId
         );
 
         $this->setFlash('success', sprintf(

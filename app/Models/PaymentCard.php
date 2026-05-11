@@ -174,6 +174,34 @@ class PaymentCard extends Model
         return $this->findBy(['account_id' => (string) $accountId], 'created_at', 'DESC');
     }
 
+    /**
+     * Total des débits différés en attente (status = pending) liés à cette carte
+     * dont la date d'opération tombe dans le mois calendaire en cours.
+     * Utilisé pour vérifier que l'ajout d'un nouveau débit différé ne dépasse pas le plafond.
+     */
+    public function getPendingDeferredTotal(int $cardId): float
+    {
+        $stmt = $this->getPdo()->prepare(
+            "SELECT COALESCE(SUM(d.amount), 0)
+               FROM deferred_debits d
+              WHERE d.card_id   = ?
+                AND d.status    = 'pending'
+                AND d.operation_date >= DATE_FORMAT(NOW(), '%Y-%m-01')
+                AND d.operation_date <  DATE_FORMAT(NOW() + INTERVAL 1 MONTH, '%Y-%m-01')"
+        );
+        $stmt->execute([$cardId]);
+        return (float) $stmt->fetchColumn();
+    }
+
+    /**
+     * Total mensuel complet : paiements TPE + débits différés pending du mois en cours.
+     * C'est la valeur à comparer au plafond mensuel de la carte.
+     */
+    public function getMonthlyTotal(int $cardId): float
+    {
+        return $this->getMonthlySpent($cardId) + $this->getPendingDeferredTotal($cardId);
+    }
+
     /** Recherche par numéro complet. */
     public function findByNumber(string $number): ?array
     {

@@ -582,6 +582,33 @@
                                placeholder="Ex : Achat en magasin">
                     </div>
                 </div>
+                <?php if (!empty($accountCards)): ?>
+                <div class="form-group" id="dd-card-group">
+                    <label for="dd-card" class="form-label">
+                        <i class="bi bi-credit-card"></i> Carte bancaire associée
+                        <span class="text-muted" style="font-weight:400;font-size:0.85em;">(optionnel — impute le plafond mensuel)</span>
+                    </label>
+                    <select id="dd-card" name="card_id" class="form-control">
+                        <option value="">-- Aucune carte --</option>
+                        <?php foreach ($accountCards as $ac): ?>
+                            <?php
+                            $acLabel = trim(($ac['label'] ? $ac['label'] . ' ' : '') . $ac['masked']);
+                            if ($ac['monthly_limit'] !== null) {
+                                $acRemaining = max(0.0, $ac['monthly_limit'] - ($ac['monthly_total'] ?? 0));
+                                $acSpentFmt  = number_format($ac['monthly_total'] ?? 0, 2, ',', ' ');
+                                $acLimitFmt  = number_format($ac['monthly_limit'], 2, ',', ' ');
+                                $acRemainFmt = number_format($acRemaining, 2, ',', ' ');
+                                $acLimitInfo = " — plafond : {$acSpentFmt} € / {$acLimitFmt} € (reste {$acRemainFmt} €)";
+                            } else {
+                                $acLimitInfo = '';
+                            }
+                            ?>
+                            <option value="<?= (int) $ac['id'] ?>"><?= e($acLabel . $acLimitInfo) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <span class="form-hint" id="dd-card-limit-hint" style="display:none;"></span>
+                </div>
+                <?php endif; ?>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="dd-operation-date" class="form-label">
@@ -649,6 +676,56 @@
                     <i class="bi bi-credit-card"></i> Enregistrer le débit différé
                 </button>
             </form>
+            <?php if (!empty($accountCards)): ?>
+            <script>
+            (function () {
+                var cardSelect  = document.getElementById('dd-card');
+                var amountInput = document.getElementById('dd-amount');
+                var hint        = document.getElementById('dd-card-limit-hint');
+
+                var cards = <?= json_encode(array_column(
+                    array_filter($accountCards, fn($c) => $c['monthly_limit'] !== null),
+                    null,
+                    'id'
+                ), JSON_UNESCAPED_UNICODE) ?>;
+
+                function updateHint() {
+                    var cardId = parseInt(cardSelect.value, 10);
+                    var amount = parseFloat(amountInput ? amountInput.value : 0) || 0;
+                    var card   = cards[cardId];
+                    if (!card || card.monthly_limit === null) {
+                        hint.style.display = 'none';
+                        hint.textContent   = '';
+                        return;
+                    }
+                    var limit   = parseFloat(card.monthly_limit);
+                    var already = parseFloat(card.monthly_total) || 0;
+                    var after   = already + amount;
+                    var remain  = Math.max(0, limit - already);
+                    var fmt = function(n) {
+                        return n.toLocaleString('fr-FR', {minimumFractionDigits:2, maximumFractionDigits:2}) + '\u00a0€';
+                    };
+                    if (after > limit) {
+                        hint.style.color   = 'var(--danger)';
+                        hint.innerHTML     = '<i class="bi bi-exclamation-triangle-fill"></i> Plafond dépassé : '
+                            + fmt(after) + ' / ' + fmt(limit) + ' (disponible\u00a0: ' + fmt(remain) + ').';
+                    } else {
+                        hint.style.color   = after / limit >= 0.8 ? 'var(--warning,#f59e0b)' : 'var(--success,#22c55e)';
+                        hint.innerHTML     = '<i class="bi bi-check-circle"></i> Après cette opération\u00a0: '
+                            + fmt(after) + ' / ' + fmt(limit) + ' (disponible\u00a0: ' + fmt(Math.max(0, limit - after)) + ').';
+                    }
+                    hint.style.display = 'block';
+                }
+
+                if (cardSelect) {
+                    cardSelect.addEventListener('change', updateHint);
+                }
+                if (amountInput) {
+                    amountInput.addEventListener('input', updateHint);
+                }
+            })();
+            </script>
+            <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>
@@ -1137,7 +1214,12 @@
                                         <i class="bi bi-person"></i> <?= e($dd['author_name']) ?>
                                     </span>
                                 </td>
-                                <td><?= e($dd['comment'] ?? '') ?: '<span style="color:var(--text-muted)">—</span>' ?></td>
+                                <td>
+                                    <?php if (!empty($dd['card_id'])): ?>
+                                        <i class="bi bi-credit-card-2-front" style="color:var(--info,#3b82f6);" title="Carte associée"></i>
+                                    <?php endif; ?>
+                                    <?= e($dd['comment'] ?? '') ?: '<span style="color:var(--text-muted)">—</span>' ?>
+                                </td>
                                 <td class="text-right font-bold text-danger">
                                     -<?= fmt_amount_smart((float) $dd['amount']) ?>
                                 </td>
@@ -1255,7 +1337,12 @@
                                     <i class="bi bi-person"></i> <?= e($dd['author_name']) ?>
                                 </span>
                             </td>
-                            <td><?= e($dd['comment'] ?? '') ?: '<span style="color:var(--text-muted)">—</span>' ?></td>
+                            <td>
+                                <?php if (!empty($dd['card_id'])): ?>
+                                    <i class="bi bi-credit-card-2-front" style="color:var(--info,#3b82f6);" title="Carte associée"></i>
+                                <?php endif; ?>
+                                <?= e($dd['comment'] ?? '') ?: '<span style="color:var(--text-muted)">—</span>' ?>
+                            </td>
                             <td class="text-right font-bold text-danger">
                                 -<?= fmt_amount_smart((float) $dd['amount']) ?>
                             </td>
