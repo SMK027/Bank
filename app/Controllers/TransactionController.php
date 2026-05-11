@@ -55,7 +55,7 @@ class TransactionController extends Controller
             return;
         }
 
-        $data = $this->getPostData(['type', 'amount', 'category', 'comment', 'scheduled_at']);
+        $data = $this->getPostData(['type', 'amount', 'category', 'comment', 'scheduled_at', 'card_id']);
 
         if (empty($data['type']) || empty($data['amount']) || empty($data['category'])) {
             $this->setFlash('danger', 'Le type, le montant et la catégorie sont requis.');
@@ -166,6 +166,18 @@ class TransactionController extends Controller
             }
         }
 
+        // Carte bancaire associée (facultatif, dépenses uniquement)
+        $cardId = null;
+        if ($data['type'] === 'expense' && !empty($data['card_id'])) {
+            $cardId = (int) $data['card_id'];
+            $card   = $this->cardModel->find($cardId);
+            if (!$card || (int) $card['account_id'] !== $accId) {
+                $this->setFlash('danger', 'Carte introuvable ou non associée à ce compte.');
+                $this->redirect('/accounts/' . $accountId);
+                return;
+            }
+        }
+
         // Seuil d'alerte : capturer le solde actuel avant l'opération (dépense immédiate uniquement)
         $balanceBefore = ($data['type'] === 'expense' && $scheduledAt === null)
             ? $this->accountModel->getBalance($accId)
@@ -178,7 +190,8 @@ class TransactionController extends Controller
             $data['category'],
             $data['comment'],
             $userId,
-            $scheduledAt
+            $scheduledAt,
+            $cardId
         );
 
         // Vérification du franchissement du seuil d'alerte (dépense immédiate uniquement)

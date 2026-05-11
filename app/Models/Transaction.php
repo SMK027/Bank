@@ -88,9 +88,9 @@ class Transaction extends Model
         return array_key_exists($category, self::getCategoriesForType($type));
     }
 
-    public function addTransaction(int $accountId, string $type, float $amount, string $category, string $comment = '', int $userId = 0, ?string $scheduledAt = null): int
+    public function addTransaction(int $accountId, string $type, float $amount, string $category, string $comment = '', int $userId = 0, ?string $scheduledAt = null, ?int $cardId = null): int
     {
-        return $this->create([
+        $row = [
             'account_id'   => $accountId,
             'user_id'      => $userId,
             'type'         => $type,
@@ -98,7 +98,11 @@ class Transaction extends Model
             'category'     => $category,
             'comment'      => $comment,
             'scheduled_at' => $scheduledAt,
-        ]);
+        ];
+        if ($cardId !== null) {
+            $row['card_id'] = $cardId;
+        }
+        return $this->create($row);
     }
 
     public static function isPending(array $transaction): bool

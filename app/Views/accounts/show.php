@@ -401,6 +401,20 @@
                                placeholder="jj/mm/aaaa hh:mm">
                     </div>
                 </div>
+                <?php if (!empty($txCards)): ?>
+                <div class="form-group tx-expense-only" id="tx-card-group" style="display:none;">
+                    <label for="tx-card" class="form-label">
+                        <i class="bi bi-credit-card"></i> Carte bancaire
+                        <span class="text-muted" style="font-weight:400;font-size:0.85em;">(optionnel)</span>
+                    </label>
+                    <select id="tx-card" name="card_id" class="form-control">
+                        <option value="">-- Aucune carte --</option>
+                        <?php foreach ($txCards as $tc): ?>
+                            <option value="<?= (int) $tc['id'] ?>"><?= e(trim(($tc['label'] ? $tc['label'] . ' ' : '') . $tc['masked'])) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <?php endif; ?>
 
                 <!-- Avertissement découvert (affiché par JS) -->
                 <div id="overdraft-warning" style="display:none; margin-bottom:0.75rem;">
@@ -529,6 +543,22 @@
 
                 typeEl.addEventListener('change', check);
                 amountEl.addEventListener('input', check);
+
+                // Affichage conditionnel des champs réservés aux dépenses
+                var expenseOnlyEls = form.querySelectorAll('.tx-expense-only');
+                function updateExpenseFields() {
+                    var isExpense = typeEl.value === 'expense';
+                    expenseOnlyEls.forEach(function (el) {
+                        el.style.display = isExpense ? '' : 'none';
+                    });
+                    // Vider la carte si on bascule vers une entrée
+                    if (!isExpense) {
+                        var cardSel = document.getElementById('tx-card');
+                        if (cardSel) cardSel.value = '';
+                    }
+                }
+                typeEl.addEventListener('change', updateExpenseFields);
+                updateExpenseFields();
             })();
             </script>
             <?php endif; // fin du bloc conditionnel compte non désactivé (ou modérateur) ?>

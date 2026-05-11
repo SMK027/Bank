@@ -357,7 +357,21 @@ class AccountController extends Controller
         }
         unset($r);
 
-        // Cartes bancaires actives et non expirées du compte (pour sélecteur débit différé)
+        // Cartes bancaires actives et non expirées du compte
+        // $txCards : pour le formulaire "Nouvelle opération" (toutes dépenses, facultatif)
+        // $accountCards : pour le formulaire "Débit différé" (avec totaux mensuels)
+        $txCards = [];
+        foreach ($this->cardModel->getByAccount($accountId) as $c) {
+            if ($c['status'] !== 'active' || PaymentCard::isExpired($c)) {
+                continue;
+            }
+            $txCards[] = [
+                'id'     => (int) $c['id'],
+                'label'  => $c['label'] ?? null,
+                'masked' => PaymentCard::mask($c['card_number']),
+            ];
+        }
+
         $accountCards = [];
         if ($deferredDebitEnabled) {
             foreach ($this->cardModel->getByAccount($accountId) as $c) {
@@ -420,6 +434,7 @@ class AccountController extends Controller
             'deferredDebitDay'       => $deferredDebitEnabled ? ($account['deferred_debit_day'] ?? null) : null,
             'posPayments'            => $posPayments,
             'accountCards'           => $accountCards,
+            'txCards'                => $txCards,
             // Sync avec TransactionController::CARD_REQUIRED_SINCE
             'cardRequiredSince'      => \App\Controllers\TransactionController::CARD_REQUIRED_SINCE,
         ]);
