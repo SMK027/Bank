@@ -176,6 +176,21 @@ class TransactionController extends Controller
                 $this->redirect('/accounts/' . $accountId);
                 return;
             }
+            // Vérification du plafond mensuel (sans bypass possible)
+            if (isset($card['monthly_limit']) && $card['monthly_limit'] !== null) {
+                $limit   = (float) $card['monthly_limit'];
+                $already = $this->cardModel->getMonthlyTotal($cardId);
+                if ($already + $amount > $limit) {
+                    $remaining = max(0.0, $limit - $already);
+                    $this->setFlash('danger', sprintf(
+                        'Plafond mensuel insuffisant pour la carte %s. Déjà utilisé : %.2f € / %.2f €. Montant demandé : %.2f €. Disponible : %.2f €.',
+                        PaymentCard::mask($card['card_number']),
+                        $already, $limit, $amount, $remaining
+                    ));
+                    $this->redirect('/accounts/' . $accountId);
+                    return;
+                }
+            }
         }
 
         // Seuil d'alerte : capturer le solde actuel avant l'opération (dépense immédiate uniquement)

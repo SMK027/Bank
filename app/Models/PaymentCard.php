@@ -195,7 +195,26 @@ class PaymentCard extends Model
     }
 
     /**
-     * Total mensuel complet : paiements TPE + débits différés pending du mois en cours.
+     * Total des transactions manuelles de dépense liées à cette carte depuis la
+     * dernière remise à zéro (immédiates et programmées confondues).
+     */
+    public function getManualTransactionTotal(int $cardId): float
+    {
+        $stmt = $this->getPdo()->prepare(
+            "SELECT COALESCE(SUM(t.amount), 0)
+               FROM transactions t
+               JOIN payment_cards pc ON pc.id = t.card_id
+              WHERE t.card_id  = ?
+                AND t.type     = 'expense'
+                AND t.created_at >= COALESCE(pc.monthly_reset_at, DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00'))"
+        );
+        $stmt->execute([$cardId]);
+        return (float) $stmt->fetchColumn();
+    }
+
+    /**
+     * Total mensuel complet : paiements TPE + débits différés pending + transactions
+     * manuelles de dépense du mois en cours.
      * Si un modérateur a défini un override pour le mois calendaire en cours,
      * cette valeur est utilisée à la place du total calculé.
      * C'est la valeur à comparer au plafond mensuel de la carte.
@@ -214,7 +233,9 @@ class PaymentCard extends Model
         ) {
             return (float) $row['monthly_spent_override'];
         }
-        return $this->getMonthlySpent($cardId) + $this->getPendingDeferredTotal($cardId);
+        return $this->getMonthlySpent($cardId)
+            + $this->getPendingDeferredTotal($cardId)
+            + $this->getManualTransactionTotal($cardId);
     }
 
     /**
