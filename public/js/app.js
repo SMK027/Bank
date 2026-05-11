@@ -226,7 +226,8 @@ window.initFlatpickrs = function () {
             time_24hr: true,
             dateFormat: 'd/m/Y H:i',
             allowInput: true,
-            minuteIncrement: 1
+            minuteIncrement: 1,
+            disableMobile: true
         });
     });
 
@@ -237,7 +238,8 @@ window.initFlatpickrs = function () {
             locale: 'fr',
             dateFormat: 'd/m/Y',
             allowInput: true,
-            minDate: 'today'
+            minDate: 'today',
+            disableMobile: true
         });
     });
 };
