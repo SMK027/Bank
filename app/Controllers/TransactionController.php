@@ -15,6 +15,13 @@ use App\Models\User;
 
 class TransactionController extends Controller
 {
+    /**
+     * Date à partir de laquelle une carte bancaire est obligatoire
+     * lors de l'enregistrement d'un débit différé.
+     * Correspond à l'introduction de la liaison carte–débit différé (migration 049).
+     */
+    public const CARD_REQUIRED_SINCE = '2026-05-01 00:00:00';
+
     private Account $accountModel;
     private Transaction $transactionModel;
     private User $userModel;
@@ -440,7 +447,15 @@ class TransactionController extends Controller
         } else {
             $operationDate = date('Y-m-d H:i:s');
         }
-
+        // Carte obligatoire pour les opérations datant du seuil d'introduction (migration 049) ou après
+        if ($operationDate >= self::CARD_REQUIRED_SINCE && $cardId === null) {
+            $this->setFlash('danger', sprintf(
+                'Une carte bancaire est obligatoire pour les opérations datant du %s ou après.',
+                date('d/m/Y', strtotime(self::CARD_REQUIRED_SINCE))
+            ));
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
         // Date de fin de période (obligatoire, doit être dans le futur)
         if (empty($data['period_end_date'])) {
             $this->setFlash('danger', 'La date de fin de période est requise.');

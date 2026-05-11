@@ -582,14 +582,18 @@
                                placeholder="Ex : Achat en magasin">
                     </div>
                 </div>
+                <?php
+                $cardRequiredSinceDisplay = date('d/m/Y', strtotime($cardRequiredSince));
+                ?>
                 <?php if (!empty($accountCards)): ?>
                 <div class="form-group" id="dd-card-group">
                     <label for="dd-card" class="form-label">
                         <i class="bi bi-credit-card"></i> Carte bancaire associée
-                        <span class="text-muted" style="font-weight:400;font-size:0.85em;">(optionnel — impute le plafond mensuel)</span>
+                        <span id="dd-card-required-badge" style="color:var(--danger);font-weight:600;"> *</span>
+                        <span id="dd-card-optional-hint" class="text-muted" style="font-weight:400;font-size:0.85em;display:none;">(optionnel pour les opérations antérieures au <?= e($cardRequiredSinceDisplay) ?>)</span>
                     </label>
-                    <select id="dd-card" name="card_id" class="form-control">
-                        <option value="">-- Aucune carte --</option>
+                    <select id="dd-card" name="card_id" class="form-control" required>
+                        <option value="">-- Choisir une carte --</option>
                         <?php foreach ($accountCards as $ac): ?>
                             <?php
                             $acLabel = trim(($ac['label'] ? $ac['label'] . ' ' : '') . $ac['masked']);
@@ -607,6 +611,12 @@
                         <?php endforeach; ?>
                     </select>
                     <span class="form-hint" id="dd-card-limit-hint" style="display:none;"></span>
+                </div>
+                <?php else: ?>
+                <div class="alert alert-warning" id="dd-no-card-warning" style="display:none;padding:0.6rem 0.9rem;margin-bottom:0.5rem;">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    Aucune carte active n'est associée à ce compte. Pour les opérations datant du <strong><?= e($cardRequiredSinceDisplay) ?></strong> ou après, une carte bancaire est obligatoire.
+                    <a href="/cards" style="margin-left:0.4em;">Configurer une carte</a>
                 </div>
                 <?php endif; ?>
                 <div class="form-row">
@@ -679,9 +689,15 @@
             <?php if (!empty($accountCards)): ?>
             <script>
             (function () {
-                var cardSelect  = document.getElementById('dd-card');
-                var amountInput = document.getElementById('dd-amount');
-                var hint        = document.getElementById('dd-card-limit-hint');
+                var cardSelect    = document.getElementById('dd-card');
+                var amountInput   = document.getElementById('dd-amount');
+                var opDateInput   = document.getElementById('dd-operation-date');
+                var hint          = document.getElementById('dd-card-limit-hint');
+                var requiredBadge = document.getElementById('dd-card-required-badge');
+                var optionalHint  = document.getElementById('dd-card-optional-hint');
+
+                // Seuil : carte obligatoire si operation_date >= cette valeur (sync TransactionController::CARD_REQUIRED_SINCE)
+                var CARD_REQUIRED_SINCE = '<?= date('Y-m-d', strtotime($cardRequiredSince)) ?>';
 
                 var cards = <?= json_encode(array_column(
                     array_filter($accountCards, fn($c) => $c['monthly_limit'] !== null),
@@ -689,7 +705,36 @@
                     'id'
                 ), JSON_UNESCAPED_UNICODE) ?>;
 
+                /**
+                 * Parse une date saisie en jj/mm/aaaa (hh:mm) → objet Date ou null.
+                 * Renvoie null si vide (= maintenant, toujours >= seuil).
+                 */
+                function parseOpDate(raw) {
+                    if (!raw || !raw.trim()) return null; // vide = maintenant
+                    var m = raw.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+                    if (!m) return null;
+                    return new Date(parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10));
+                }
+
+                function isCardRequired() {
+                    var raw = opDateInput ? opDateInput.value : '';
+                    var opDate = parseOpDate(raw);
+                    if (opDate === null) return true; // date vide = maintenant >= seuil
+                    var parts = CARD_REQUIRED_SINCE.split('-');
+                    var cutoff = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                    return opDate >= cutoff;
+                }
+
+                function updateCardRequired() {
+                    if (!cardSelect) return;
+                    var required = isCardRequired();
+                    cardSelect.required = required;
+                    if (requiredBadge) requiredBadge.style.display = required ? '' : 'none';
+                    if (optionalHint)  optionalHint.style.display  = required ? 'none' : '';
+                }
+
                 function updateHint() {
+                    if (!cardSelect) return;
                     var cardId = parseInt(cardSelect.value, 10);
                     var amount = parseFloat(amountInput ? amountInput.value : 0) || 0;
                     var card   = cards[cardId];
@@ -717,12 +762,41 @@
                     hint.style.display = 'block';
                 }
 
-                if (cardSelect) {
-                    cardSelect.addEventListener('change', updateHint);
+                if (cardSelect)  cardSelect.addEventListener('change', updateHint);
+                if (amountInput) amountInput.addEventListener('input', updateHint);
+                if (opDateInput) opDateInput.addEventListener('input', updateCardRequired);
+
+                // Initialisation au chargement
+                updateCardRequired();
+            })();
+            </script>
+            <?php else: ?>
+            <script>
+            (function () {
+                // Aucune carte disponible : afficher l'avertissement si la date d'opération >= seuil
+                var opDateInput = document.getElementById('dd-operation-date');
+                var warning     = document.getElementById('dd-no-card-warning');
+                var CARD_REQUIRED_SINCE = '<?= date('Y-m-d', strtotime($cardRequiredSince)) ?>';
+
+                function parseOpDate(raw) {
+                    if (!raw || !raw.trim()) return null;
+                    var m = raw.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+                    if (!m) return null;
+                    return new Date(parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10));
                 }
-                if (amountInput) {
-                    amountInput.addEventListener('input', updateHint);
+
+                function updateWarning() {
+                    if (!warning) return;
+                    var raw    = opDateInput ? opDateInput.value : '';
+                    var opDate = parseOpDate(raw);
+                    var parts  = CARD_REQUIRED_SINCE.split('-');
+                    var cutoff = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                    var required = (opDate === null) || (opDate >= cutoff);
+                    warning.style.display = required ? '' : 'none';
                 }
+
+                if (opDateInput) opDateInput.addEventListener('input', updateWarning);
+                updateWarning(); // état initial
             })();
             </script>
             <?php endif; ?>

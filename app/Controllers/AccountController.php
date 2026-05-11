@@ -420,6 +420,8 @@ class AccountController extends Controller
             'deferredDebitDay'       => $deferredDebitEnabled ? ($account['deferred_debit_day'] ?? null) : null,
             'posPayments'            => $posPayments,
             'accountCards'           => $accountCards,
+            // Sync avec TransactionController::CARD_REQUIRED_SINCE
+            'cardRequiredSince'      => \App\Controllers\TransactionController::CARD_REQUIRED_SINCE,
         ]);
     }
 
