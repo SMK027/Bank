@@ -89,6 +89,14 @@ class CardController extends Controller
             }
         }
 
+        // Dépenses du mois en cours pour chaque carte ayant un plafond
+        $monthlySpentById = [];
+        foreach (array_merge($cards, $sharedCards) as $c) {
+            if (isset($c['monthly_limit']) && $c['monthly_limit'] !== null) {
+                $monthlySpentById[(int) $c['id']] = $this->cardModel->getMonthlySpent((int) $c['id']);
+            }
+        }
+
         $this->render('cards/index', [
             'title'              => 'Mes cartes bancaires',
             'cards'              => $cards,
@@ -96,6 +104,7 @@ class CardController extends Controller
             'eligibleAccounts'   => $eligibleAccounts,
             'sharedCards'        => $sharedCards,
             'sharedAccountsById' => $sharedAccountsById,
+            'monthlySpentById'   => $monthlySpentById,
         ]);
     }
 

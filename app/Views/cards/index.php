@@ -4,6 +4,7 @@
 /** @var array $eligibleAccounts */
 /** @var array $sharedCards */
 /** @var array $sharedAccountsById */
+/** @var array $monthlySpentById */
 
 $justCreated = $_SESSION['card_just_created'] ?? null;
 unset($_SESSION['card_just_created']);
@@ -61,17 +62,22 @@ unset($_SESSION['card_just_created']);
                         $isExpired  = \App\Models\PaymentCard::isExpired($card);
                         $expirySoon = !$isExpired && !empty($card['expires_at'])
                             && strtotime($card['expires_at']) < strtotime('+30 days');
+                        $cardSpent     = $monthlySpentById[(int) $card['id']] ?? null;
+                        $cardLimitRaw  = isset($card['monthly_limit']) && $card['monthly_limit'] !== null ? (float) $card['monthly_limit'] : null;
+                        $cardCurrency  = $acc['currency'] ?? '€';
                         $cardData = [
-                            'id'           => (int) $card['id'],
-                            'masked'       => \App\Models\PaymentCard::mask($card['card_number']),
-                            'label'        => $card['label'] ?? '',
-                            'status'       => $card['status'] ?? 'active',
-                            'expired'      => $isExpired,
-                            'expiresAt'    => !empty($card['expires_at']) ? date('m/y', strtotime($card['expires_at'])) : '',
-                            'monthlyLimit' => isset($card['monthly_limit']) && $card['monthly_limit'] !== null
-                                                ? number_format((float) $card['monthly_limit'], 2, ',', '') : '',
-                            'accountId'    => (int) $card['account_id'],
-                            'shared'       => false,
+                            'id'              => (int) $card['id'],
+                            'masked'          => \App\Models\PaymentCard::mask($card['card_number']),
+                            'label'           => $card['label'] ?? '',
+                            'status'          => $card['status'] ?? 'active',
+                            'expired'         => $isExpired,
+                            'expiresAt'       => !empty($card['expires_at']) ? date('m/y', strtotime($card['expires_at'])) : '',
+                            'monthlyLimit'    => $cardLimitRaw !== null ? number_format($cardLimitRaw, 2, ',', '') : '',
+                            'monthlyLimitRaw' => $cardLimitRaw,
+                            'monthlySpent'    => $cardSpent,
+                            'currency'        => $cardCurrency,
+                            'accountId'       => (int) $card['account_id'],
+                            'shared'          => false,
                         ];
                     ?>
                         <tr class="<?= $isExpired ? 'text-muted' : '' ?>">
@@ -107,8 +113,20 @@ unset($_SESSION['card_just_created']);
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <?php if (isset($card['monthly_limit']) && $card['monthly_limit'] !== null): ?>
-                                    <span><?= number_format((float) $card['monthly_limit'], 2, ',', ' ') ?> <?= e($acc['currency'] ?? '€') ?></span>
+                                <?php if ($cardLimitRaw !== null): ?>
+                                    <?php
+                                        $pct      = $cardLimitRaw > 0 ? min(100, (int) round(($cardSpent / $cardLimitRaw) * 100)) : 0;
+                                        $barColor = $pct >= 100 ? 'var(--danger,#dc3545)' : ($pct >= 80 ? '#ffc107' : 'var(--success-color,#28a745)');
+                                    ?>
+                                    <div style="min-width:140px;">
+                                        <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:0.2rem;gap:0.4rem;">
+                                            <span><?= number_format($cardSpent, 2, ',', '\u{202f}') ?></span>
+                                            <span class="text-muted"><?= number_format($cardLimitRaw, 2, ',', '\u{202f}') ?> <?= e($cardCurrency) ?></span>
+                                        </div>
+                                        <div style="height:5px;background:var(--gray-light,#e9ecef);border-radius:3px;overflow:hidden;" title="<?= $pct ?>% utilisé">
+                                            <div style="height:100%;width:<?= $pct ?>%;background:<?= $barColor ?>;border-radius:3px;"></div>
+                                        </div>
+                                    </div>
                                 <?php else: ?>
                                     <span class="text-muted">Illimité</span>
                                 <?php endif; ?>
@@ -167,13 +185,19 @@ unset($_SESSION['card_just_created']);
                     $isExpired  = \App\Models\PaymentCard::isExpired($card);
                     $expirySoon = !$isExpired && !empty($card['expires_at'])
                         && strtotime($card['expires_at']) < strtotime('+30 days');
+                    $sCardSpent    = $monthlySpentById[(int) $card['id']] ?? null;
+                    $sCardLimitRaw = isset($card['monthly_limit']) && $card['monthly_limit'] !== null ? (float) $card['monthly_limit'] : null;
+                    $sCardCurrency = $acc['currency'] ?? '€';
                     $cardData = [
-                        'id'      => (int) $card['id'],
-                        'masked'  => \App\Models\PaymentCard::mask($card['card_number']),
-                        'label'   => $card['label'] ?? '',
-                        'status'  => $card['status'] ?? 'active',
-                        'expired' => $isExpired,
-                        'shared'  => true,
+                        'id'              => (int) $card['id'],
+                        'masked'          => \App\Models\PaymentCard::mask($card['card_number']),
+                        'label'           => $card['label'] ?? '',
+                        'status'          => $card['status'] ?? 'active',
+                        'expired'         => $isExpired,
+                        'monthlyLimitRaw' => $sCardLimitRaw,
+                        'monthlySpent'    => $sCardSpent,
+                        'currency'        => $sCardCurrency,
+                        'shared'          => true,
                     ];
                 ?>
                     <tr class="<?= $isExpired ? 'text-muted' : '' ?>">
@@ -209,8 +233,20 @@ unset($_SESSION['card_just_created']);
                             <?php endif; ?>
                         </td>
                         <td>
-                            <?php if (isset($card['monthly_limit']) && $card['monthly_limit'] !== null): ?>
-                                <span><?= number_format((float) $card['monthly_limit'], 2, ',', ' ') ?> <?= e($acc['currency'] ?? '€') ?></span>
+                            <?php if ($sCardLimitRaw !== null): ?>
+                                <?php
+                                    $sPct      = $sCardLimitRaw > 0 ? min(100, (int) round(($sCardSpent / $sCardLimitRaw) * 100)) : 0;
+                                    $sBarColor = $sPct >= 100 ? 'var(--danger,#dc3545)' : ($sPct >= 80 ? '#ffc107' : 'var(--success-color,#28a745)');
+                                ?>
+                                <div style="min-width:140px;">
+                                    <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:0.2rem;gap:0.4rem;">
+                                        <span><?= number_format($sCardSpent, 2, ',', '\u{202f}') ?></span>
+                                        <span class="text-muted"><?= number_format($sCardLimitRaw, 2, ',', '\u{202f}') ?> <?= e($sCardCurrency) ?></span>
+                                    </div>
+                                    <div style="height:5px;background:var(--gray-light,#e9ecef);border-radius:3px;overflow:hidden;" title="<?= $sPct ?>% utilisé">
+                                        <div style="height:100%;width:<?= $sPct ?>%;background:<?= $sBarColor ?>;border-radius:3px;"></div>
+                                    </div>
+                                </div>
                             <?php else: ?>
                                 <span class="text-muted">Illimité</span>
                             <?php endif; ?>
@@ -260,6 +296,18 @@ unset($_SESSION['card_just_created']);
             <a id="cmRevealLink" href="#" class="btn btn-secondary" style="width:100%;justify-content:flex-start;gap:0.5rem;">
                 <i class="bi bi-eye"></i> Afficher le numéro complet
             </a>
+        </div>
+
+        <!-- Utilisation du plafond mensuel -->
+        <div id="cmLimitBlock" style="margin-bottom:0.75rem;padding:0.75rem;background:var(--bg,#f8f9fa);border-radius:var(--border-radius,6px);border:1px solid var(--border-color,#dee2e6);">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.35rem;">
+                <span style="font-size:0.82rem;font-weight:600;"><i class="bi bi-bar-chart"></i> Plafond mensuel</span>
+                <span id="cmLimitText" style="font-size:0.82rem;"></span>
+            </div>
+            <div style="height:8px;background:var(--gray-light,#e9ecef);border-radius:4px;overflow:hidden;">
+                <div id="cmLimitBar" style="height:100%;width:0%;border-radius:4px;transition:width 0.4s;"></div>
+            </div>
+            <div id="cmLimitPct" style="font-size:0.75rem;color:var(--gray,#6c757d);margin-top:0.3rem;text-align:right;"></div>
         </div>
 
         <!-- Activer / Bloquer (si non expirée) -->
@@ -395,6 +443,27 @@ unset($_SESSION['card_just_created']);
         overlay.querySelectorAll('.cm-expired').forEach(function (el) {
             el.style.display = isExpired && !isOwn ? '' : 'none';
         });
+
+        // Bloc plafond
+        const limitBlock = document.getElementById('cmLimitBlock');
+        const limitBar   = document.getElementById('cmLimitBar');
+        const limitText  = document.getElementById('cmLimitText');
+        const limitPct   = document.getElementById('cmLimitPct');
+        if (card.monthlyLimitRaw !== null && card.monthlyLimitRaw !== undefined) {
+            const spent = card.monthlySpent || 0;
+            const limit = card.monthlyLimitRaw;
+            const pct   = limit > 0 ? Math.min(100, Math.round(spent / limit * 100)) : 0;
+            const color = pct >= 100 ? 'var(--danger,#dc3545)' : (pct >= 80 ? '#ffc107' : 'var(--success-color,#28a745)');
+            const cur   = card.currency || '€';
+            const fmt   = function (n) { return n.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}); };
+            limitText.textContent  = fmt(spent) + ' / ' + fmt(limit) + ' ' + cur;
+            limitBar.style.width   = pct + '%';
+            limitBar.style.background = color;
+            limitPct.textContent   = pct + '% utilisé ce mois';
+            limitBlock.style.display = '';
+        } else {
+            limitBlock.style.display = 'none';
+        }
 
         // Afficher le numéro
         if (isOwn) {
