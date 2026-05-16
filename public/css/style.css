@@ -3456,3 +3456,36 @@ input[type="date"].form-control {
     }
 }
 
+/* =============================================================
+   Mobile responsive — Issue #11 (Notifications /notifications)
+   ============================================================= */
+@media (max-width: 480px) {
+    .notifications-page .page-header {
+        align-items: stretch !important;
+    }
+    .notifications-page .notifications-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+    .notifications-page .notifications-actions .btn-sm {
+        min-height: 40px;
+        min-width: 120px;
+    }
+    .notifications-page .notif-controls {
+        display: flex !important;
+        gap: 1rem !important;
+        justify-content: flex-end;
+    }
+    .notifications-page .notif-btn {
+        min-width: 40px;
+        min-height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .notifications-page .notif-time {
+        font-size: 0.8rem;
+        color: #6b7280;
+    }
+}
+
