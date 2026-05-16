@@ -30,7 +30,7 @@
                 <div class="form-group">
                     <label for="birth_date" class="form-label">Date de naissance</label>
                     <input type="date" id="birth_date" name="birth_date" class="form-control" required
-                           max="<?= date('Y-m-d') ?>">
+                           inputmode="numeric" max="<?= date('Y-m-d') ?>">
                     <span class="form-hint">Nécessaire pour déterminer les types de comptes accessibles</span>
                 </div>
                 <div class="form-group">

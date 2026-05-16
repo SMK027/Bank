@@ -3183,3 +3183,17 @@ pre,
     }
 }
 
+/* =============================================================
+   Mobile responsive — Issue #3 (Inscription /register)
+   ============================================================= */
+.auth-container .form-hint {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+    line-height: 1.4;
+    display: block;
+}
+input[type="date"].form-control {
+    min-height: 48px;
+}
+
