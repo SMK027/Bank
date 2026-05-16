@@ -53,6 +53,7 @@ class AccountController extends Controller
     public function createForm(): void
     {
         $this->requireAuth();
+        $this->requireFeature('accounts.create');
         $user    = $this->userModel->find($this->getCurrentUserId());
         $isMinor = User::isMinorFromDate($user['birth_date'] ?? null);
         if ($isMinor) {
@@ -72,6 +73,7 @@ class AccountController extends Controller
     public function create(): void
     {
         $this->requireAuth();
+        $this->requireFeature('accounts.create');
         $this->validateCSRF();
 
         $data = $this->getPostData(['name', 'currency', 'overdraft', 'account_type', 'cap']);
@@ -451,6 +453,7 @@ class AccountController extends Controller
     public function editForm(string $id): void
     {
         $this->requireAuth();
+        $this->requireFeature('accounts.edit');
         $accountId = (int) $id;
         $userId = $this->getCurrentUserId();
 
@@ -494,6 +497,7 @@ class AccountController extends Controller
     public function edit(string $id): void
     {
         $this->requireAuth();
+        $this->requireFeature('accounts.edit');
         $this->validateCSRF();
         $accountId = (int) $id;
         $userId    = $this->getCurrentUserId();

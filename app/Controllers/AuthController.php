@@ -34,6 +34,7 @@ class AuthController extends Controller
      */
     public function loginForm(): void
     {
+        $this->requireFeature('auth.login');
         $ip           = LoginRateLimit::resolveClientIp();
         $blockedUntil = $this->rateLimitModel->getBlockedUntil($ip);
         if ($blockedUntil !== null) {
@@ -48,6 +49,7 @@ class AuthController extends Controller
      */
     public function login(): void
     {
+        $this->requireFeature('auth.login');
         $this->validateCSRF();
 
         $ip = LoginRateLimit::resolveClientIp();
@@ -123,6 +125,7 @@ class AuthController extends Controller
      */
     public function loginPinForm(): void
     {
+        $this->requireFeature('auth.login_pin');
         $raw      = strtoupper(trim($_GET['account'] ?? ''));
         $prefilled = preg_match('/^BK\d{8}$/', $raw) ? $raw : '';
 
@@ -144,6 +147,7 @@ class AuthController extends Controller
      */
     public function loginPin(): void
     {
+        $this->requireFeature('auth.login_pin');
         $this->validateCSRF();
 
         $ip = LoginRateLimit::resolveClientIp();
@@ -234,6 +238,7 @@ class AuthController extends Controller
      */
     public function registerForm(): void
     {
+        $this->requireFeature('auth.register');
         $this->render('auth/register', ['title' => 'Inscription']);
     }
 
@@ -242,6 +247,7 @@ class AuthController extends Controller
      */
     public function register(): void
     {
+        $this->requireFeature('auth.register');
         $this->validateCSRF();
         $data = $this->getPostData(['username', 'email', 'password', 'birth_date']);
 
@@ -321,6 +327,7 @@ class AuthController extends Controller
      */
     public function forgotPasswordForm(): void
     {
+        $this->requireFeature('auth.password_reset');
         $this->render('auth/forgot_password', ['title' => 'Mot de passe oublié']);
     }
 
@@ -330,6 +337,7 @@ class AuthController extends Controller
      */
     public function forgotPassword(): void
     {
+        $this->requireFeature('auth.password_reset');
         $this->validateCSRF();
         $email = trim($this->getPostData(['email'])['email'] ?? '');
 
@@ -366,6 +374,7 @@ class AuthController extends Controller
      */
     public function resetPasswordForm(string $token): void
     {
+        $this->requireFeature('auth.password_reset');
         $resetModel = new PasswordReset();
         $record     = $resetModel->findValidByToken($token);
 
@@ -386,6 +395,7 @@ class AuthController extends Controller
      */
     public function resetPassword(string $token): void
     {
+        $this->requireFeature('auth.password_reset');
         $this->validateCSRF();
 
         $resetModel = new PasswordReset();

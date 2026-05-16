@@ -44,6 +44,7 @@ class TransactionController extends Controller
     public function create(string $accountId): void
     {
         $this->requireAuth();
+        $this->requireFeature('transactions.create');
         $this->validateCSRF();
 
         $accId = (int) $accountId;
@@ -233,6 +234,7 @@ class TransactionController extends Controller
     public function deleteTransaction(string $accountId, string $transactionId): void
     {
         $this->requireAuth();
+        $this->requireFeature('transactions.edit');
         $this->validateCSRF();
 
         $accId = (int) $accountId;
@@ -282,6 +284,7 @@ class TransactionController extends Controller
     public function editTransaction(string $accountId, string $transactionId): void
     {
         $this->requireAuth();
+        $this->requireFeature('transactions.edit');
         $this->validateCSRF();
 
         $accId = (int) $accountId;
@@ -368,6 +371,7 @@ class TransactionController extends Controller
     public function createDeferredDebit(string $accountId): void
     {
         $this->requireAuth();
+        $this->requireFeature('deferred_debits');
         $this->validateCSRF();
 
         $accId  = (int) $accountId;
@@ -538,6 +542,7 @@ class TransactionController extends Controller
     public function cancelDeferredDebit(string $accountId, string $debitId): void
     {
         $this->requireAuth();
+        $this->requireFeature('deferred_debits');
         $this->validateCSRF();
 
         $accId = (int) $accountId;
@@ -584,6 +589,7 @@ class TransactionController extends Controller
     public function editDeferredDebit(string $accountId, string $debitId): void
     {
         $this->requireAuth();
+        $this->requireFeature('deferred_debits');
         $this->validateCSRF();
 
         $accId  = (int) $accountId;

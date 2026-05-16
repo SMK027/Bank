@@ -29,6 +29,7 @@ class AccessController extends Controller
     public function grant(string $accountId): void
     {
         $this->requireAuth();
+        $this->requireFeature('accounts.share');
         $this->validateCSRF();
 
         $accId = (int) $accountId;

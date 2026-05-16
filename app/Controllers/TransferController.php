@@ -39,6 +39,7 @@ class TransferController extends Controller
     public function createForm(): void
     {
         $this->requireAuth();
+        $this->requireFeature('transfers.create');
         $userId = $this->getCurrentUserId();
 
         // Onglet Personnel : comptes propres + partagés (identique à un utilisateur normal)
@@ -102,6 +103,7 @@ class TransferController extends Controller
     public function create(): void
     {
         $this->requireAuth();
+        $this->requireFeature('transfers.create');
         $this->validateCSRF();
 
         $userId = $this->getCurrentUserId();
@@ -482,6 +484,7 @@ class TransferController extends Controller
     public function listRecurring(): void
     {
         $this->requireAuth();
+        $this->requireFeature('transfers.recurring');
         $userId = $this->getCurrentUserId();
 
         $all = $this->recurringTransferModel->getByUser($userId);
@@ -507,6 +510,7 @@ class TransferController extends Controller
     public function cancelRecurring(string $id): void
     {
         $this->requireAuth();
+        $this->requireFeature('transfers.recurring');
         $this->validateCSRF();
 
         $recId  = (int) $id;

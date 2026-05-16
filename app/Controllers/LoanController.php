@@ -37,6 +37,7 @@ class LoanController extends Controller
     public function simulatorForm(): void
     {
         $this->requireAuth();
+        $this->requireFeature('loans.simulate');
         $userId  = $this->getCurrentUserId();
         $history = $this->simModel->getHistoryForUser($userId, 10);
 
@@ -51,6 +52,7 @@ class LoanController extends Controller
     public function simulate(): void
     {
         $this->requireAuth();
+        $this->requireFeature('loans.simulate');
         $this->validateCSRF();
 
         $userId = $this->getCurrentUserId();
@@ -187,6 +189,7 @@ class LoanController extends Controller
     public function accept(string $id): void
     {
         $this->requireAuth();
+        $this->requireFeature('loans.request');
         $this->validateCSRF();
 
         $userId = $this->getCurrentUserId();

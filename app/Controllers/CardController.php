@@ -114,6 +114,7 @@ class CardController extends Controller
     public function createForm(): void
     {
         $this->requireAuth();
+        $this->requireFeature('cards.create');
         $userId = $this->getCurrentUserId();
 
         $eligibleAccounts = array_values(array_filter(
@@ -137,6 +138,7 @@ class CardController extends Controller
     public function create(): void
     {
         $this->requireAuth();
+        $this->requireFeature('cards.create');
         $this->validateCSRF();
         $userId = $this->getCurrentUserId();
 
