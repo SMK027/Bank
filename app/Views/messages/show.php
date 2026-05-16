@@ -121,7 +121,7 @@ $currentUserId = (int) (\App\Core\Session::get('user_id') ?? 0);
         <h3><i class="bi bi-reply"></i> Répondre</h3>
     </div>
     <div class="card-body">
-        <form method="POST" action="/messages/<?= (int) $conversation['id'] ?>/reply">
+        <form method="POST" action="/messages/<?= (int) $conversation['id'] ?>/reply" class="reply-form">
             <?= csrf_field() ?>
             <div class="form-group" style="margin-bottom:0.75rem;">
                 <textarea name="body" class="form-control" rows="4"

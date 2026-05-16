@@ -3489,3 +3489,39 @@ input[type="date"].form-control {
     }
 }
 
+/* =============================================================
+   Mobile responsive — Issue #12 (Messagerie /messages)
+   ============================================================= */
+@media (max-width: 600px) {
+    /* Bouton "Nouveau message"/"Nouvelle demande" centré pleine largeur */
+    .page-header .btn-primary {
+        width: 100%;
+        max-width: 320px;
+        margin: 0 auto;
+        min-height: 48px;
+    }
+}
+@media (max-width: 480px) {
+    /* Textarea : hauteur min confortable */
+    form textarea.form-control {
+        min-height: 150px;
+        resize: vertical;
+    }
+    /* Zone de saisie sticky en bas (messages/show, tickets/show) */
+    .reply-form,
+    form.reply-form {
+        position: sticky;
+        bottom: 0;
+        background: var(--white, #fff);
+        padding: 1rem;
+        box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+        padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+        z-index: 5;
+    }
+    .reply-form .btn-primary {
+        width: 100%;
+        min-height: 48px;
+        margin-top: 1rem;
+    }
+}
+
