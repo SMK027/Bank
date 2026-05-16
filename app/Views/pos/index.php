@@ -136,9 +136,9 @@ $posStatus = $posStatus ?? null;
                     </label>
                     <div style="position:relative;">
                         <input type="text" id="card_number" name="card_number" class="form-control"
-                               placeholder="4242 4242 4242 4242" required maxlength="23"
                                value="<?= e((string) ($form['card_number'] ?? '')) ?>"
-                               inputmode="numeric" autofocus
+                               inputmode="numeric" autocomplete="cc-number" autofocus
+                               placeholder="4242 4242 4242 4242" required maxlength="23"
                                style="padding-right:2.4rem;">
                         <span id="card-status-icon"
                               style="position:absolute;right:0.7rem;top:50%;transform:translateY(-50%);font-size:1.1rem;display:none;"
@@ -201,8 +201,8 @@ $posStatus = $posStatus ?? null;
                      style="display:none;margin-top:1rem;padding:0.65rem 0.85rem;border-radius:6px;font-size:0.9rem;"
                      role="status" aria-live="polite"></div>
 
-                <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1.5rem;">
-                    <a href="/dashboard" class="btn btn-secondary">Annuler</a>
+                <div class="pos-actions form-actions" style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1.5rem;">
+                    <a href="/dashboard" class="btn btn-secondary btn-cancel">Annuler</a>
                     <button type="submit" id="pos-submit-btn" class="btn btn-success">
                         <i class="bi bi-check2-circle"></i> Encaisser
                     </button>
