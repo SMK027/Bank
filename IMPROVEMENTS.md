@@ -38,3 +38,77 @@ Audit réalisé le 16 mai 2026. Liste des axes d'amélioration classés par prio
 - Audit log structuré
 - 52 migrations versionnées, cron jobs Docker propres
 - Séparation dev/prod dans docker-compose
+
+---
+
+# 🎯 Améliorations fonctionnelles (simulateur)
+
+Ces propositions tirent parti du statut de simulateur de l'application (pas de contrainte réglementaire réelle) pour enrichir la valeur pédagogique et démonstrative.
+
+## Expérience utilisateur
+
+1. **Onboarding & données de démo** — Au premier login, seeder créant un compte courant + une épargne avec quelques transactions/virements/débits factices.
+2. **Mode "voyage dans le temps"** — Bouton modérateur pour avancer la date virtuelle (+1 mois), déclenchant manuellement intérêts, échéances de crédit, mandats.
+3. **Tour guidé** — Overlay pas-à-pas (intro.js / Shepherd.js) au premier lancement.
+4. **Statistiques personnelles** — Graphiques d'évolution du solde, répartition des dépenses par catégorie (Chart.js), top marchands, comparaison mois N vs N-1.
+5. **Budgets & objectifs** — Budget mensuel par catégorie avec alertes à 80 % / 100 %.
+6. **Cagnottes / pots communs** — Mini-compte partagé alimenté par plusieurs utilisateurs.
+7. **Export / import** — Export CSV/OFX/PDF des relevés (mPDF déjà installé), import OFX.
+8. **Recherche globale** — Barre `Ctrl+K` qui cherche dans transactions, contacts, comptes, tickets.
+
+## Produits bancaires
+
+9. **IBAN + RIB téléchargeable** — IBAN factice (FR + checksum) par compte, RIB PDF.
+10. **Virements SEPA externes simulés** — Saisie d'IBAN externe, statut "en cours" puis finalisation après X minutes via cron.
+11. **Cartes virtuelles éphémères** — Cartes à usage unique qui s'autodétruisent.
+12. **Catégorisation automatique** — Reconnaissance des libellés/marchands (regex) pour auto-tagger.
+13. **Plafonds & limites configurables** — Plafond retrait quotidien, mode "vacances", blocage temporaire d'une carte.
+14. **Découvert progressif** — Notification sous seuil + calcul d'agios fictifs.
+15. **Codes promo / cashback fictif** — Récompenses sur certaines catégories.
+
+## Multi-utilisateurs / social
+
+16. **Liste de bénéficiaires** — Carnet d'adresses IBAN+nom avec pré-validation.
+17. **Demande d'argent** — Request-to-pay entre utilisateurs.
+18. **Partage de dépense** — Transaction splittable entre N utilisateurs.
+19. **Coffres d'épargne (savings goals)** — Sous-compte virtuel pour un objectif, virement automatique mensuel.
+
+## Modération / observabilité
+
+20. **Tableau de bord modérateur** — Vue d'ensemble : utilisateurs actifs, volume transactions, comptes gelés, tickets en attente.
+21. **Détection d'anomalies pédagogique** — Marquage automatique des transactions suspectes (montant, fréquence, IBAN nouveau).
+22. **Audit log utilisateur** — Permettre à l'utilisateur de voir son propre journal d'actions.
+23. **Mode "incident"** — Bouton admin simulant une panne d'un service, pour démontrer la résilience UX. *(Voir aussi : système de feature flags ci-dessous.)*
+
+## API & intégrations
+
+24. **Webhooks sortants** — URL appelée sur événement (transaction reçue, solde sous seuil).
+25. **Sandbox API publique** — Documenter la fake banking API + tableau de bord de clés API et logs.
+26. **Mode SCA / 3-D Secure simulé** — Validation par PIN ou code reçu en messagerie interne.
+
+## Plateforme
+
+27. **PWA installable** — Manifest + service worker (mode hors-ligne lecture).
+28. **Notifications push** (Web Push) — En complément de la table notifications existante.
+29. **Mode sombre** — Toggle persisté par utilisateur.
+30. **Locale switcher EN/FR** — Lié à l'item i18n.
+
+## Couche pédagogique
+
+31. **Bandeau "simulateur"** — Mention permanente discrète "Application fictive — aucune valeur réelle".
+32. **Explications contextuelles** — Tooltips expliquant les concepts (mandat SEPA, débit différé, intérêts composés, ratio d'endettement).
+33. **Scénarios prêts à l'emploi** — Boutons "Charger scénario : étudiant", "famille", "TPE artisan" avec données cohérentes.
+34. **Mode comparaison** — Visualiser côte-à-côte deux simulations de crédit.
+
+---
+
+# 🚦 Feature flags / interrupteurs de fonctionnalité
+
+Système permettant à un modérateur de **désactiver dynamiquement** certaines fonctionnalités du site sans déploiement : connexion, inscription, ouverture de compte, virements, exécution d'opérations, partage de comptes, etc. Utile pour les démos, la maintenance, ou la simulation d'incidents (cf. item 23).
+
+- Stockage : table `feature_flags` (`key`, `enabled`, `label`, `description`).
+- Helper global `feature_enabled('key')` + `feature_require('key')`.
+- Page de modération `/moderation/features` pour basculer les flags.
+- Vue dédiée "Fonctionnalité indisponible" affichée quand un flag est désactivé.
+- Toute modification est tracée dans l'audit log.
+
