@@ -12,7 +12,7 @@ Audit réalisé le 16 mai 2026. Liste des axes d'amélioration classés par prio
 
 ## 🟠 Important (avant prod / v1)
 
-6. **Indexes DB manquants** sur les FK (`accounts.user_id`, `transactions.account_id`, `transfers.user_id`, `transactions.scheduled_at`). Ajouter une migration `053_add_missing_indexes.sql`.
+6. **Indexes DB manquants** sur les colonnes utilisées dans les filtres WHERE des tâches cron et du calcul de solde à venir (`transactions.scheduled_at`, `transfers(status, scheduled_at)`, `recurring_transfers(status, next_execution_at)`). ✅ *Traité dans la migration `053_add_missing_indexes.sql`.*
 7. **Pas de DI Container** — duplication marquée entre `ModerationController` et `ModerationLoanController` (~40 lignes identiques). Introduire un container minimal ou PHP-DI.
 8. **Middleware route-level** — actuellement chaque controller appelle manuellement `requireAuth`. Ajouter un système de middleware déclaratif dans `app/Core/Router.php`.
 9. **Tests insuffisants** (~15–20 % de couverture, 19 tests unitaires). Manquent les controllers critiques : `AuthController`, `AccountController`, `TransferController`, `LoanController`, `ModerationController`.
