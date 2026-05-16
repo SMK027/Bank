@@ -37,7 +37,7 @@
                            maxlength="100" placeholder="Ex : Carte courses, Carte voyage…">
                 </div>
 
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem;">
+                <div class="card-form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem;">
                     <div class="form-group">
                         <label for="expires_at" class="form-label">
                             Date d'expiration

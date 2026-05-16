@@ -3545,3 +3545,16 @@ input[type="date"].form-control {
     }
 }
 
+/* =============================================================
+   Mobile responsive — Issue #14 (Cartes /cards)
+   ============================================================= */
+@media (max-width: 480px) {
+    .card-form-row {
+        grid-template-columns: 1fr !important;
+        gap: 0 !important;
+    }
+    .card-form-row > * {
+        width: 100%;
+    }
+}
+
