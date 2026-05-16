@@ -3374,3 +3374,35 @@ input[type="date"].form-control {
     }
 }
 
+/* =============================================================
+   Mobile responsive — Issue #9 (Profil /profile)
+   ============================================================= */
+@media (max-width: 600px) {
+    .profile-header {
+        flex-direction: column;
+        text-align: center;
+    }
+    .grid.grid-2 {
+        grid-template-columns: 1fr !important;
+    }
+    .profile-header + * table.table th,
+    .profile-header + * table.table td {
+        display: block;
+        width: 100% !important;
+        padding: 0.4rem 0.5rem;
+        word-break: break-word;
+    }
+    .profile-header + * table.table th {
+        background: transparent;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: #6b7280;
+        padding-bottom: 0;
+    }
+    .profile-header + * table.table tr {
+        display: block;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e5e7eb;
+    }
+}
+

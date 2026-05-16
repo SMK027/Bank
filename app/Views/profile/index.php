@@ -298,7 +298,8 @@
                        border:none;font-size:1.5rem;cursor:pointer;color:#666;line-height:1;"
                 title="Fermer">&times;</button>
         <img id="qr-modal-img" src="" alt="QR Code connexion PIN agrandi"
-             style="width:280px;height:280px;display:block;border-radius:6px;">
+             class="qr-modal-img"
+             style="width:min(280px, 80vw);height:min(280px, 80vw);display:block;border-radius:6px;margin:0 auto;">
         <p style="margin:0.75rem 0 0;font-size:0.85rem;color:#666;">
             <i class="bi bi-qr-code-scan"></i> Scannez ce QR code pour vous connecter par PIN
         </p>
