@@ -1,3 +1,4 @@
+<div class="interests-page">
 <div class="page-header">
     <div>
         <h1><i class="bi bi-percent"></i> Mes intérêts d'épargne</h1>
@@ -53,3 +54,4 @@
     </div>
 </div>
 <?php endif; ?>
+</div>

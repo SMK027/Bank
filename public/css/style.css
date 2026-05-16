@@ -3585,3 +3585,30 @@ input[type="date"].form-control {
     }
 }
 
+/* =============================================================
+   Mobile responsive — Issue #17 (Intérêts)
+   ============================================================= */
+@media (max-width: 600px) {
+    .interests-page .empty-state .empty-icon {
+        font-size: clamp(3rem, 12vw, 4.5rem);
+        line-height: 1;
+        margin-bottom: 0.75rem;
+    }
+    .interests-page .empty-state .btn,
+    .interests-page .empty-state .btn-outline {
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.6rem 1rem;
+    }
+    .interests-page .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.4rem;
+    }
+    .interests-page .page-description {
+        font-size: 0.92rem;
+    }
+}
+
