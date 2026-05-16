@@ -8,7 +8,9 @@ use App\Core\Model;
 use App\Models\DeferredDebit;
 use App\Models\DirectDebit;
 use App\Models\Guardianship;
+use App\Models\Loan;
 use App\Models\LoanInstallment;
+use App\Models\Mandate;
 use App\Models\User;
 
 class Account extends Model
@@ -335,6 +337,130 @@ class Account extends Model
         }
 
         return $balance;
+    }
+
+    /**
+     * Calcule en batch les soldes courant et "à venir" de plusieurs comptes.
+     *
+     * Effectue un nombre constant de requêtes (5) quelle que soit la cardinalité
+     * de $accountIds, contrairement à des appels individuels à getBalance() /
+     * getFutureBalance() qui produisent un comportement N+1 sur le dashboard.
+     *
+     * @param int[] $accountIds
+     * @return array<int, array{balance: float, future_balance: float}>
+     */
+    public function getBalancesBatch(array $accountIds): array
+    {
+        $result = [];
+        foreach ($accountIds as $id) {
+            $result[(int) $id] = ['balance' => 0.0, 'future_balance' => 0.0];
+        }
+        if (empty($result)) {
+            return $result;
+        }
+
+        $ids          = array_keys($result);
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $pdo          = $this->getPdo();
+        $now          = date('Y-m-d H:i:s');
+        $monthStart   = date('Y-m-01 00:00:00');
+        $monthEnd     = date('Y-m-t 23:59:59');
+
+        // 1. Transactions : solde courant (non planifiées) + base du solde à venir
+        $stmt = $pdo->prepare(
+            "SELECT account_id,
+                    SUM(CASE WHEN (scheduled_at IS NULL OR scheduled_at <= ?)
+                             THEN CASE WHEN type = 'income' THEN amount ELSE -amount END
+                             ELSE 0 END) AS current_balance,
+                    SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END) AS total_balance
+               FROM transactions
+              WHERE account_id IN ($placeholders)
+              GROUP BY account_id"
+        );
+        $stmt->execute(array_merge([$now], $ids));
+        foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+            $aid = (int) $row['account_id'];
+            $result[$aid]['balance']        = (float) $row['current_balance'];
+            $result[$aid]['future_balance'] = (float) $row['total_balance'];
+        }
+
+        // 2. Prélèvements (direct debits) planifiés : compte cible débité
+        $stmt = $pdo->prepare(
+            "SELECT to_account_id AS aid, SUM(amount) AS total
+               FROM direct_debits
+              WHERE status = ? AND to_account_id IN ($placeholders)
+              GROUP BY to_account_id"
+        );
+        $stmt->execute(array_merge([DirectDebit::STATUS_SCHEDULED], $ids));
+        foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+            $result[(int) $row['aid']]['future_balance'] -= (float) $row['total'];
+        }
+
+        // 3. Prélèvements planifiés : compte émetteur crédité
+        $stmt = $pdo->prepare(
+            "SELECT from_account_id AS aid, SUM(amount) AS total
+               FROM direct_debits
+              WHERE status = ? AND from_account_id IN ($placeholders)
+              GROUP BY from_account_id"
+        );
+        $stmt->execute(array_merge([DirectDebit::STATUS_SCHEDULED], $ids));
+        foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+            $result[(int) $row['aid']]['future_balance'] += (float) $row['total'];
+        }
+
+        // 4. Mandats actifs avec prochaine exécution dans le mois courant
+        $stmt = $pdo->prepare(
+            "SELECT emitter_account_id, recipient_account_id, amount
+               FROM mandates
+              WHERE status = ?
+                AND next_execution_at IS NOT NULL
+                AND next_execution_at BETWEEN ? AND ?
+                AND (emitter_account_id IN ($placeholders) OR recipient_account_id IN ($placeholders))"
+        );
+        $stmt->execute(array_merge([Mandate::STATUS_ACTIVE, $monthStart, $monthEnd], $ids, $ids));
+        foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+            $amount    = (float) $row['amount'];
+            $recipient = (int) $row['recipient_account_id'];
+            $emitter   = (int) ($row['emitter_account_id'] ?? 0);
+            if (isset($result[$recipient])) {
+                $result[$recipient]['future_balance'] -= $amount;
+            }
+            if ($emitter !== 0 && isset($result[$emitter])) {
+                $result[$emitter]['future_balance'] += $amount;
+            }
+        }
+
+        // 5. Débits différés en attente
+        $stmt = $pdo->prepare(
+            "SELECT account_id, SUM(amount) AS total
+               FROM deferred_debits
+              WHERE status = ? AND account_id IN ($placeholders)
+              GROUP BY account_id"
+        );
+        $stmt->execute(array_merge([DeferredDebit::STATUS_PENDING], $ids));
+        foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+            $result[(int) $row['account_id']]['future_balance'] -= (float) $row['total'];
+        }
+
+        // 6. Échéances de crédit à venir (crédits actifs / en cours d'approbation)
+        $stmt = $pdo->prepare(
+            "SELECT l.account_id AS aid, SUM(li.amount) AS total
+               FROM loan_installments li
+               JOIN loans l ON l.id = li.loan_id
+              WHERE li.status = ?
+                AND l.status IN (?, ?)
+                AND l.account_id IN ($placeholders)
+              GROUP BY l.account_id"
+        );
+        $stmt->execute(array_merge(
+            [LoanInstallment::STATUS_PENDING, Loan::STATUS_PENDING, Loan::STATUS_ACTIVE],
+            $ids
+        ));
+        foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+            $result[(int) $row['aid']]['future_balance'] -= (float) $row['total'];
+        }
+
+        return $result;
     }
 
     public function isOwner(int $accountId, int $userId): bool
