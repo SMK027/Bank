@@ -3558,3 +3558,30 @@ input[type="date"].form-control {
     }
 }
 
+/* =============================================================
+   Mobile responsive — Issue #16 (Crédits & Simulateur)
+   ============================================================= */
+@media (max-width: 600px) {
+    .loan-types-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.6rem;
+    }
+    .loan-types-grid > :last-child:nth-child(odd) {
+        grid-column: span 2;
+    }
+    .loan-details > summary {
+        min-height: 48px;
+        display: flex;
+        align-items: center;
+        padding: 0.6rem 0.75rem;
+        font-size: 0.95rem;
+    }
+    .form-row {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .form-row > .form-group {
+        width: 100%;
+    }
+}
+

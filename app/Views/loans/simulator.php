@@ -53,7 +53,7 @@ $typesJson    = json_encode($types, JSON_HEX_QUOT | JSON_HEX_TAG);
                         <div class="form-group">
                             <label class="form-label" for="amount">Montant emprunté (€)</label>
                             <input type="number" id="amount" name="amount" class="form-control"
-                                   step="100" min="1"
+                                   step="100" min="1" inputmode="decimal"
                                    value="<?= e((string) ($sim['amount'] ?? '')) ?>"
                                    placeholder="Ex : 10 000" required>
                             <small id="amount-hint" class="form-hint"></small>
@@ -61,7 +61,7 @@ $typesJson    = json_encode($types, JSON_HEX_QUOT | JSON_HEX_TAG);
                         <div class="form-group">
                             <label class="form-label" for="months">Durée (mois)</label>
                             <input type="number" id="months" name="months" class="form-control"
-                                   step="1" min="1"
+                                   step="1" min="1" inputmode="numeric"
                                    value="<?= e((string) ($sim['months'] ?? '')) ?>"
                                    placeholder="Ex : 60" required>
                             <small id="months-hint" class="form-hint"></small>
