@@ -65,7 +65,7 @@
                     <div class="form-group" id="overdraft-group">
                         <label for="overdraft" class="form-label">Découvert autorisé</label>
                         <input type="number" id="overdraft" name="overdraft" class="form-control"
-                               placeholder="0.00" min="0" step="0.01" value="0">
+                               inputmode="decimal" placeholder="0.00" min="0" step="0.01" value="0">
                         <span class="form-hint">Montant maximal de découvert autorisé</span>
                     </div>
                 </div>
@@ -76,7 +76,7 @@
                 <div class="form-group" id="cap-group" style="display:none;">
                     <label for="cap" class="form-label">Plafond d'épargne</label>
                     <input type="number" id="cap" name="cap" class="form-control"
-                           placeholder="Ex : 50000.00" min="0" step="0.01" value="">
+                           inputmode="decimal" placeholder="Ex : 50000.00" min="0" step="0.01" value="">
                     <span class="form-hint">Solde maximum autorisé (0 ou vide = pas de plafond)</span>
                 </div>
                 <div class="form-group">

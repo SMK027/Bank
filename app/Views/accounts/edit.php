@@ -62,6 +62,7 @@
                     <div class="form-group" id="overdraft-group">
                         <label for="overdraft" class="form-label">Découvert autorisé</label>
                         <input type="number" id="overdraft" name="overdraft" class="form-control"
+                               inputmode="decimal"
                                value="<?= e((string) ($account['overdraft'] ?? 0)) ?>" min="0" step="0.01">
                     </div>
                     <?php endif; ?>
@@ -74,6 +75,7 @@
                 <div class="form-group" id="cap-group" style="display:none;">
                     <label for="cap" class="form-label">Plafond d'épargne</label>
                     <input type="number" id="cap" name="cap" class="form-control"
+                           inputmode="decimal"
                            value="<?= e((string) ($account['cap'] ?? '')) ?>"
                            min="0" step="0.01" placeholder="Ex : 50000.00">
                     <span class="form-hint">Solde maximum autorisé (0 ou vide = pas de plafond)</span>
@@ -82,6 +84,7 @@
                 <div class="form-group">
                     <label for="balance_alert_threshold" class="form-label">Seuil d'alerte de solde</label>
                     <input type="number" id="balance_alert_threshold" name="balance_alert_threshold" class="form-control"
+                           inputmode="decimal"
                            value="<?= e((string) ($account['balance_alert_threshold'] ?? '')) ?>"
                            min="0" step="0.01" placeholder="Ex : 500.00">
                     <span class="form-hint">Notification envoyée lorsque le solde passe sous ce seuil. Laisser vide pour désactiver.</span>
@@ -98,6 +101,7 @@
                         <i class="bi bi-percent"></i> Taux d'intérêt annuel (%)
                     </label>
                     <input type="number" id="interest_rate" name="interest_rate" class="form-control"
+                           inputmode="decimal"
                            value="<?= e($currentInterestRatePct) ?>"
                            step="0.0001" placeholder="Ex : 3.00"
                            <?php if (!empty($isInternal)): ?>

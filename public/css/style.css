@@ -3302,3 +3302,32 @@ input[type="date"].form-control {
     }
 }
 
+/* =============================================================
+   Mobile responsive — Issue #6 (Créer/Modifier un compte)
+   ============================================================= */
+.auth-container .alert {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    padding: 0.75rem 1rem;
+}
+.auth-container select.form-control {
+    height: 48px;
+    min-height: 48px;
+}
+.auth-container .btn-primary.btn-block {
+    margin-bottom: 1rem;
+}
+.auth-container p.text-center a {
+    display: block;
+    padding: 0.75rem 0;
+    margin-top: 0.5rem;
+}
+@media (max-width: 480px) {
+    .auth-container .form-row {
+        flex-direction: column;
+    }
+    .auth-container .form-row > * {
+        width: 100%;
+    }
+}
+
