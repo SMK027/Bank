@@ -14,7 +14,7 @@ class JWTTest extends TestCase
 {
     protected function setUp(): void
     {
-        putenv('APP_KEY=test_secret_key_for_jwt');
+        putenv('APP_KEY=test_secret_key_for_jwt_at_least_32_characters_long');
     }
 
     public function testEncodeReturnsString(): void

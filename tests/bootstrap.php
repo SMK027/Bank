@@ -9,6 +9,6 @@
 require_once __DIR__ . '/../vendor/autoload.php';
 
 // Variables d'environnement pour les tests
-putenv('APP_KEY=test_secret_key_for_jwt');
+putenv('APP_KEY=test_secret_key_for_jwt_at_least_32_characters_long');
 putenv('APP_URL=http://localhost:8080');
 putenv('APP_DEBUG=true');

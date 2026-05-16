@@ -76,9 +76,38 @@ class JWT
         return $payload;
     }
 
+    /**
+     * Longueur minimale requise pour la clé secrète APP_KEY.
+     * 32 caractères correspond à 256 bits d'entropie, recommandation pour HS256.
+     */
+    private const MIN_SECRET_LENGTH = 32;
+
+    /**
+     * Récupère la clé secrète depuis l'environnement.
+     *
+     * @throws \RuntimeException si APP_KEY est absente ou trop courte.
+     */
     private static function getSecret(): string
     {
-        $key = getenv('APP_KEY') ?: ($_ENV['APP_KEY'] ?? 'default_insecure_key');
+        $key = getenv('APP_KEY');
+        if ($key === false || $key === '') {
+            $key = $_ENV['APP_KEY'] ?? '';
+        }
+
+        if (!is_string($key) || $key === '') {
+            throw new \RuntimeException(
+                'APP_KEY non définie. Configurez la variable d\'environnement APP_KEY avec une chaîne aléatoire d\'au moins '
+                . self::MIN_SECRET_LENGTH . ' caractères.'
+            );
+        }
+
+        if (strlen($key) < self::MIN_SECRET_LENGTH) {
+            throw new \RuntimeException(
+                'APP_KEY trop courte (' . strlen($key) . ' caractères). Minimum requis : '
+                . self::MIN_SECRET_LENGTH . ' caractères.'
+            );
+        }
+
         return $key;
     }
 
