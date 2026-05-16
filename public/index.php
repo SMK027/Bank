@@ -40,6 +40,36 @@ use App\Controllers\Api\PaymentApiController;
 Session::start();
 
 // ============================================================
+// En-têtes de sécurité HTTP
+// ============================================================
+// Empêche le rendu de la page dans une iframe (clickjacking).
+header('X-Frame-Options: DENY');
+// Empêche le navigateur de "deviner" le type MIME.
+header('X-Content-Type-Options: nosniff');
+// Limite les informations envoyées dans le header Referer.
+header('Referrer-Policy: strict-origin-when-cross-origin');
+// Restreint les permissions navigateur sensibles non utilisées.
+header('Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()');
+// Politique de contenu : autorise self + CDN jsDelivr utilisé pour les icônes.
+header(
+    "Content-Security-Policy: default-src 'self'; "
+    . "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    . "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    . "img-src 'self' data:; "
+    . "font-src 'self' https://cdn.jsdelivr.net data:; "
+    . "connect-src 'self'; "
+    . "frame-ancestors 'none'; "
+    . "base-uri 'self'; "
+    . "form-action 'self'"
+);
+// HSTS : forcer HTTPS si l'application est servie en HTTPS.
+$isHttps = ($_SERVER['HTTPS'] ?? '') === 'on'
+    || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+if ($isHttps) {
+    header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+}
+
+// ============================================================
 // En-têtes CORS (à adapter selon les besoins)
 // ============================================================
 $allowedOrigin = getenv('APP_URL') ?: 'http://localhost:8080';
