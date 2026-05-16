@@ -22,10 +22,16 @@ class Session
         }
 
         if (session_status() === PHP_SESSION_NONE) {
+            // Le flag "secure" du cookie n'est activé que si l'application
+            // tourne derrière HTTPS (proxy Traefik en prod, ou APP_ENV=production).
+            $secure = ($_SERVER['HTTPS'] ?? '') === 'on'
+                || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https'
+                || strtolower((string) getenv('APP_ENV')) === 'production';
+
             session_set_cookie_params([
                 'lifetime' => 0,
                 'path'     => '/',
-                'secure'   => false, // Mettre à true en production avec HTTPS
+                'secure'   => $secure,
                 'httponly'  => true,
                 'samesite' => 'Lax',
             ]);
