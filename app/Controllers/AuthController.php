@@ -34,7 +34,13 @@ class AuthController extends Controller
      */
     public function loginForm(): void
     {
-        $this->requireFeature('auth.login');
+        // Le formulaire reste accessible même si la fonctionnalité est désactivée,
+        // afin de permettre aux modérateurs de se connecter pour la réactiver.
+        // Le contrôle effectif est réalisé dans login() où l'identifiant est connu.
+        if (!\App\Models\FeatureFlag::isEnabled('auth.login')) {
+            $flag = \App\Models\FeatureFlag::get('auth.login');
+            $this->setFlash('warning', 'La connexion est temporairement désactivée. Seuls les modérateurs peuvent se connecter (' . ($flag['label'] ?? 'auth.login') . ').');
+        }
         $ip           = LoginRateLimit::resolveClientIp();
         $blockedUntil = $this->rateLimitModel->getBlockedUntil($ip);
         if ($blockedUntil !== null) {
@@ -49,12 +55,16 @@ class AuthController extends Controller
      */
     public function login(): void
     {
-        $this->requireFeature('auth.login');
         $this->validateCSRF();
 
         $ip   = LoginRateLimit::resolveClientIp();
         $data = $this->getPostData(['email', 'password']);
         $targetIsModerator = !empty($data['email']) && $this->isModeratorEmail((string) $data['email']);
+
+        // Les modérateurs contournent la restriction de fonctionnalité auth.login.
+        if (!$targetIsModerator) {
+            $this->requireFeature('auth.login');
+        }
 
         if (!$targetIsModerator && $this->rateLimitModel->isBlocked($ip)) {
             AuditLog::log(null, AuditLog::ACTION_AUTH_LOGIN_FAILED, ['ip_blocked' => true]);
@@ -126,7 +136,10 @@ class AuthController extends Controller
      */
     public function loginPinForm(): void
     {
-        $this->requireFeature('auth.login_pin');
+        if (!\App\Models\FeatureFlag::isEnabled('auth.login_pin')) {
+            $flag = \App\Models\FeatureFlag::get('auth.login_pin');
+            $this->setFlash('warning', 'La connexion par code PIN est temporairement désactivée. Seuls les modérateurs peuvent se connecter (' . ($flag['label'] ?? 'auth.login_pin') . ').');
+        }
         $raw      = strtoupper(trim($_GET['account'] ?? ''));
         $prefilled = preg_match('/^BK\d{8}$/', $raw) ? $raw : '';
 
@@ -148,7 +161,6 @@ class AuthController extends Controller
      */
     public function loginPin(): void
     {
-        $this->requireFeature('auth.login_pin');
         $this->validateCSRF();
 
         $ip = LoginRateLimit::resolveClientIp();
@@ -157,6 +169,11 @@ class AuthController extends Controller
         $accountNumber = trim($data['account_number'] ?? '');
         $pin           = $data['pin'] ?? '';
         $targetIsModerator = $accountNumber !== '' && $this->isModeratorAccountNumber($accountNumber);
+
+        // Les modérateurs contournent la restriction de fonctionnalité auth.login_pin.
+        if (!$targetIsModerator) {
+            $this->requireFeature('auth.login_pin');
+        }
 
         if (!$targetIsModerator && $this->rateLimitModel->isBlocked($ip)) {
             AuditLog::log(null, AuditLog::ACTION_AUTH_LOGIN_FAILED, ['ip_blocked' => true]);
