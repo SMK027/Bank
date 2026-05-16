@@ -41,6 +41,7 @@
  * @var array       $posPayments
  */
 ?>
+<div class="account-show-page">
 <div class="page-header">
     <div>
         <h1>
@@ -376,7 +377,7 @@
                     <div class="form-group">
                         <label for="amount" class="form-label">Montant</label>
                         <input type="number" id="amount" name="amount" class="form-control"
-                               placeholder="0.00" min="0.01" step="0.01" required>
+                               inputmode="decimal" placeholder="0.00" min="0.01" step="0.01" required>
                     </div>
                 </div>
                 <div class="form-row">
@@ -636,7 +637,7 @@
                     <div class="form-group">
                         <label for="dd-amount" class="form-label">Montant</label>
                         <input type="number" id="dd-amount" name="amount" class="form-control"
-                               placeholder="0.00" min="0.01" step="0.01" required>
+                               inputmode="decimal" placeholder="0.00" min="0.01" step="0.01" required>
                     </div>
                     <div class="form-group">
                         <label for="dd-category" class="form-label">Catégorie</label>
@@ -2333,3 +2334,6 @@ function toggleExpires(select) {
 }());
 </script>
 <?php endif; ?>
+
+
+</div><!-- /.account-show-page -->

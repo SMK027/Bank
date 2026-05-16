@@ -3239,3 +3239,66 @@ input[type="date"].form-control {
     }
 }
 
+/* =============================================================
+   Mobile responsive — Issue #5 (Détail compte /accounts/{id})
+   ============================================================= */
+@media (max-width: 600px) {
+    .account-show-page .page-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .account-show-page .page-header .btn-group {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+        width: 100%;
+    }
+    .account-show-page .page-header .btn-group .btn,
+    .account-show-page .page-header .btn-group form {
+        width: 100%;
+    }
+    .account-show-page .page-header .btn-group .btn {
+        min-height: 44px;
+        font-size: 0.78rem;
+        padding: 0.5rem 0.25rem;
+        text-align: center;
+        white-space: normal;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .account-show-page .page-header .btn-group form .btn {
+        width: 100%;
+    }
+    .account-show-page .form-group + .form-group {
+        margin-top: 1rem;
+    }
+    .account-show-page .filter-bar {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    .account-show-page .filter-bar > * {
+        width: 100% !important;
+    }
+    .account-show-page table th,
+    .account-show-page table td {
+        padding: 0.5rem 0.4rem;
+        font-size: 0.85rem;
+    }
+    .account-show-page table .btn-sm {
+        min-width: 36px;
+        min-height: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    /* Section headers : titre + bouton sur 2 lignes */
+    .account-show-page h2 + .btn,
+    .account-show-page .d-flex.justify-between {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 0.5rem;
+    }
+}
+
