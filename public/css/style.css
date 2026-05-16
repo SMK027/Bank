@@ -3355,3 +3355,22 @@ input[type="date"].form-control {
     }
 }
 
+/* =============================================================
+   Mobile responsive — Issue #8 (Virement /transfers/create)
+   ============================================================= */
+.transfer-tab-btn.active {
+    border-bottom-color: var(--primary, #3b82f6) !important;
+    font-weight: 700 !important;
+    color: var(--primary, #3b82f6) !important;
+}
+.btn-primary.btn-block:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
+}
+@media (max-width: 380px) {
+    [onclick*="setSchedMode"] {
+        font-size: 0.78rem !important;
+        white-space: nowrap;
+    }
+}
+

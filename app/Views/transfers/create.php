@@ -151,7 +151,7 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                         <div class="form-group">
                             <label for="amount-p" class="form-label">Montant</label>
                             <input type="number" id="amount-p" name="amount" class="form-control"
-                                   placeholder="0.00" min="0.01" step="0.01" required>
+                                   inputmode="decimal" placeholder="0.00" min="0.01" step="0.01" required>
                         </div>
                         <div class="form-group">
                             <label for="motif-p" class="form-label">Motif <span class="text-muted">(optionnel)</span></label>
@@ -307,6 +307,7 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                         <div class="form-group">
                             <label for="amount-m" class="form-label">Montant</label>
                             <input type="number" id="amount-m" name="amount" class="form-control"
+                                   inputmode="decimal"
                                    placeholder="0.00" min="0.01" step="0.01" required>
                         </div>
                         <div class="form-group">
