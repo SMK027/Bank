@@ -2,7 +2,7 @@
 /** @var array $account Compte bancaire */
 ?>
 
-<div class="container" style="max-width:560px; margin:0 auto; padding:1.5rem 1rem;">
+<div class="container statement-form" style="max-width:560px; margin:0 auto; padding:1.5rem 1rem;">
     <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1.5rem; flex-wrap:wrap;">
         <a href="/accounts/<?= (int) $account['id'] ?>" class="btn btn-outline btn-sm">
             <i class="bi bi-arrow-left"></i> Retour
@@ -28,7 +28,7 @@
 
             <form method="GET" action="/accounts/<?= (int) $account['id'] ?>/statement/pdf" target="_blank">
 
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:1rem;">
+                <div class="statement-date-range" style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:1rem;">
                     <div>
                         <label for="date_from" style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.3rem;">
                             <i class="bi bi-calendar-event"></i> Date de début
@@ -52,7 +52,7 @@
                 </div>
 
                 <!-- Raccourcis de périodes -->
-                <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:1.25rem;">
+                <div class="statement-period-presets" style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:1.25rem;">
                     <button type="button" class="btn btn-outline btn-sm period-preset"
                             data-from="<?= date('Y-m-01') ?>" data-to="<?= date('Y-m-d') ?>">
                         Mois en cours

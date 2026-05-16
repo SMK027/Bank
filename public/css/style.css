@@ -3331,3 +3331,27 @@ input[type="date"].form-control {
     }
 }
 
+/* =============================================================
+   Mobile responsive — Issue #7 (Relevé /accounts/{id}/statement)
+   ============================================================= */
+@media (max-width: 480px) {
+    .statement-form .statement-date-range {
+        grid-template-columns: 1fr !important;
+        gap: 0.75rem !important;
+    }
+    .statement-form .statement-period-presets {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+    }
+    .statement-form .statement-period-presets .btn {
+        width: 100%;
+        min-height: 44px;
+        font-size: 0.85rem;
+    }
+    .statement-form .btn-primary.btn-block {
+        min-height: 52px;
+        font-size: 1rem;
+    }
+}
+
