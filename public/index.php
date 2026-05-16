@@ -150,6 +150,8 @@ $router->post('/transfers/recurring/{id}/cancel', TransferController::class, 'ca
 
 // --- Modération ---
 $router->get('/moderation', ModerationController::class, 'index');
+$router->get('/moderation/features', ModerationController::class, 'features');
+$router->post('/moderation/features/{key}/toggle', ModerationController::class, 'toggleFeature');
 $router->get('/moderation/transfers', ModerationController::class, 'transfers');
 $router->post('/moderation/transfers/{id}/cancel', ModerationController::class, 'cancelTransfer');
 $router->get('/moderation/users', ModerationController::class, 'users');

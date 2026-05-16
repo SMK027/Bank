@@ -2431,5 +2431,62 @@ class ModerationController extends Controller
 
         $this->redirect('/interests/' . $interestId . '/confirm');
     }
+
+    // ── Feature flags ────────────────────────────────────────────────────────
+
+    /**
+     * Page d'administration des feature flags.
+     */
+    public function features(): void
+    {
+        $this->requireModerator();
+
+        $grouped = \App\Models\FeatureFlag::getAllGrouped();
+
+        $this->render('moderation/features', [
+            'title'   => 'Modération — Fonctionnalités',
+            'grouped' => $grouped,
+        ]);
+    }
+
+    /**
+     * Bascule on/off un feature flag (POST).
+     */
+    public function toggleFeature(string $key): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $flag = \App\Models\FeatureFlag::get($key);
+        if (!$flag) {
+            $this->setFlash('danger', 'Fonctionnalité inconnue.');
+            $this->redirect('/moderation/features');
+            return;
+        }
+
+        $newState = !((int) $flag['enabled'] === 1);
+        $modId    = $this->getCurrentUserId();
+        $ok       = \App\Models\FeatureFlag::setEnabled($key, $newState, $modId);
+
+        if ($ok) {
+            AuditLog::log(
+                $modId,
+                AuditLog::ACTION_FEATURE_FLAG_TOGGLE,
+                ['key' => $key, 'enabled' => $newState]
+            );
+            $this->setFlash(
+                'success',
+                sprintf(
+                    'Fonctionnalité « %s » %s.',
+                    $flag['label'] ?: $key,
+                    $newState ? 'activée' : 'désactivée'
+                )
+            );
+        } else {
+            $this->setFlash('warning', 'Aucune modification effectuée.');
+        }
+
+        $this->redirect('/moderation/features');
+    }
 }
 
