@@ -52,16 +52,17 @@ class AuthController extends Controller
         $this->requireFeature('auth.login');
         $this->validateCSRF();
 
-        $ip = LoginRateLimit::resolveClientIp();
-        if ($this->rateLimitModel->isBlocked($ip)) {
+        $ip   = LoginRateLimit::resolveClientIp();
+        $data = $this->getPostData(['email', 'password']);
+        $targetIsModerator = !empty($data['email']) && $this->isModeratorEmail((string) $data['email']);
+
+        if (!$targetIsModerator && $this->rateLimitModel->isBlocked($ip)) {
             AuditLog::log(null, AuditLog::ACTION_AUTH_LOGIN_FAILED, ['ip_blocked' => true]);
             $remaining = $this->minutesRemaining($this->rateLimitModel->getBlockedUntil($ip));
             $this->setFlash('danger', "Trop de tentatives de connexion échouées. Réessayez dans {$remaining} minute" . ($remaining > 1 ? 's' : '') . '.');
             $this->redirect('/login');
             return;
         }
-
-        $data = $this->getPostData(['email', 'password']);
 
         if (empty($data['email']) || empty($data['password'])) {
             $this->setFlash('danger', 'Tous les champs sont requis.');
@@ -72,7 +73,7 @@ class AuthController extends Controller
         $user = $this->userModel->authenticate($data['email'], $data['password']);
 
         if (!$user) {
-            $justBlocked = $this->rateLimitModel->recordFailedAttempt($ip);
+            $justBlocked = !$targetIsModerator && $this->rateLimitModel->recordFailedAttempt($ip);
             AuditLog::log(null, AuditLog::ACTION_AUTH_LOGIN_FAILED, ['email' => $data['email']]);
             if ($justBlocked) {
                 AuditLog::log(null, AuditLog::ACTION_AUTH_IP_BLOCKED, ['ip' => $ip]);
@@ -151,18 +152,19 @@ class AuthController extends Controller
         $this->validateCSRF();
 
         $ip = LoginRateLimit::resolveClientIp();
-        if ($this->rateLimitModel->isBlocked($ip)) {
-            AuditLog::log(null, AuditLog::ACTION_AUTH_LOGIN_FAILED, ['ip_blocked' => true]);
-            $remaining = $this->minutesRemaining($this->rateLimitModel->getBlockedUntil($ip));
-            $this->setFlash('danger', "Trop de tentatives de connexion échouées. Réessayez dans {$remaining} minute" . ($remaining > 1 ? 's' : '') . '.');
-            $this->redirect('/login/pin');
-            return;
-        }
-
         $data = $this->getPostData(['account_number', 'pin']);
 
         $accountNumber = trim($data['account_number'] ?? '');
         $pin           = $data['pin'] ?? '';
+        $targetIsModerator = $accountNumber !== '' && $this->isModeratorAccountNumber($accountNumber);
+
+        if (!$targetIsModerator && $this->rateLimitModel->isBlocked($ip)) {
+            AuditLog::log(null, AuditLog::ACTION_AUTH_LOGIN_FAILED, ['ip_blocked' => true]);
+            $remaining = $this->minutesRemaining($this->rateLimitModel->getBlockedUntil($ip));
+            $this->setFlash('danger', "Trop de tentatives de connexion échouées. Réessayez dans {$remaining} minute" . ($remaining > 1 ? 's' : '') . '.');
+            $this->redirect('/login/pin');
+            return;
+        }
 
         if ($accountNumber === '' || $pin === '') {
             $this->setFlash('danger', 'Tous les champs sont requis.');
@@ -179,7 +181,7 @@ class AuthController extends Controller
         $user = $this->userModel->authenticateByPin($accountNumber, $pin);
 
         if (!$user) {
-            $justBlocked = $this->rateLimitModel->recordFailedAttempt($ip);
+            $justBlocked = !$targetIsModerator && $this->rateLimitModel->recordFailedAttempt($ip);
             AuditLog::log(null, AuditLog::ACTION_AUTH_LOGIN_FAILED, ['account_number' => $accountNumber]);
             if ($justBlocked) {
                 AuditLog::log(null, AuditLog::ACTION_AUTH_IP_BLOCKED, ['ip' => $ip]);
@@ -444,5 +446,24 @@ class AuthController extends Controller
             return 0;
         }
         return max(1, (int) ceil((strtotime($blockedUntil) - time()) / 60));
+    }
+
+    /**
+     * Indique si l'adresse e-mail correspond à un compte modérateur.
+     * Utilisé pour exempter les modérateurs de la restriction de connexion.
+     */
+    private function isModeratorEmail(string $email): bool
+    {
+        $user = $this->userModel->findByEmail($email);
+        return $user !== null && ($user['global_role'] ?? 'user') === 'moderator';
+    }
+
+    /**
+     * Indique si le numéro de compte correspond à un modérateur.
+     */
+    private function isModeratorAccountNumber(string $accountNumber): bool
+    {
+        $user = $this->userModel->findByAccountNumber($accountNumber);
+        return $user !== null && ($user['global_role'] ?? 'user') === 'moderator';
     }
 }
