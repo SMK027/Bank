@@ -3406,3 +3406,53 @@ input[type="date"].form-control {
     }
 }
 
+/* =============================================================
+   Mobile responsive — Issue #10 (Modération /moderation/*)
+   ============================================================= */
+@media (max-width: 640px) {
+    /* Toutes les tables modération deviennent scrollables horizontalement */
+    .card-body > .table,
+    .card-body > table.table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+    }
+    /* Boutons d'actions dans tables : zone tactile 40px */
+    .table .btn-sm,
+    .table form .btn-sm {
+        min-width: 40px;
+        min-height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+    }
+    /* Barre d'onglets de modération (sous-navigation) scrollable */
+    .page-header + .btn-group,
+    .moderation-tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+        scrollbar-width: none;
+        padding-bottom: 0.25rem;
+    }
+    .page-header + .btn-group::-webkit-scrollbar,
+    .moderation-tabs::-webkit-scrollbar {
+        display: none;
+    }
+    /* Filtres en grille 1col */
+    .filter-bar,
+    .filters-grid,
+    .filter-grid {
+        grid-template-columns: 1fr !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    .filter-bar > *,
+    .filters-grid > *,
+    .filter-grid > * {
+        width: 100% !important;
+    }
+}
+
