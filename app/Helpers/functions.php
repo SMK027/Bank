@@ -107,6 +107,15 @@ function is_moderator(): bool
 }
 
 /**
+ * Indique si une fonctionnalité gérée par feature flag est activée.
+ * Utilisable depuis les vues pour cacher des liens / boutons.
+ */
+function feature_enabled(string $key, bool $default = true): bool
+{
+    return \App\Models\FeatureFlag::isEnabled($key, $default);
+}
+
+/**
  * Vérifie si l'utilisateur connecté possède un profil professionnel validé.
  */
 function is_professional(): bool

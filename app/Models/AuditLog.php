@@ -132,6 +132,9 @@ class AuditLog extends Model
     public const ACTION_POS_MERCHANT_RESUME  = 'pos.merchant_resume';
     public const ACTION_POS_REFUND           = 'pos.refund';
 
+    // Feature flags (modération)
+    public const ACTION_FEATURE_FLAG_TOGGLE = 'feature_flag.toggle';
+
     // ── Labels lisibles ─────────────────────────────────────────────────────
 
     public const LABELS = [
@@ -198,6 +201,7 @@ class AuditLog extends Model
         'pos.merchant_suspend'     => 'Commerçant TPE suspendu',
         'pos.merchant_resume'      => 'Commerçant TPE réactivé',
         'pos.refund'               => 'Remboursement partiel TPE',
+        'feature_flag.toggle'      => 'Feature flag basculé',
     ];
 
     /** Couleur Bootstrap associée à chaque catégorie. */
@@ -218,6 +222,7 @@ class AuditLog extends Model
         'api_client'       => 'bg-secondary',
         'api_payment'      => 'bg-info text-dark',
         'pos'              => 'bg-success',
+        'feature_flag'     => 'bg-dark',
     ];
 
     /**

@@ -179,6 +179,48 @@ abstract class Controller
     }
 
     /**
+     * Vérifie qu'une fonctionnalité est activée via les feature flags.
+     * Si elle est désactivée, interrompt la requête (réponse JSON 503 ou
+     * page « fonctionnalité indisponible »).
+     *
+     * Les modérateurs ne sont jamais bloqués : ils doivent pouvoir continuer
+     * à administrer le site même quand certaines fonctionnalités publiques
+     * sont coupées.
+     */
+    protected function requireFeature(string $key): void
+    {
+        if (\App\Models\FeatureFlag::isEnabled($key)) {
+            return;
+        }
+
+        if (Session::get('global_role') === 'moderator') {
+            return;
+        }
+
+        $flag = \App\Models\FeatureFlag::get($key);
+        $label = $flag['label'] ?? $key;
+        $description = $flag['description'] ?? '';
+
+        if ($this->isAjax()) {
+            $this->jsonResponse([
+                'success'      => false,
+                'feature_off'  => true,
+                'feature_key'  => $key,
+                'message'      => 'Fonctionnalité « ' . $label . ' » temporairement indisponible.',
+            ], 503);
+        }
+
+        http_response_code(503);
+        $this->render('errors/feature_disabled', [
+            'title'       => 'Fonctionnalité indisponible',
+            'featureKey'  => $key,
+            'label'       => $label,
+            'description' => $description,
+        ]);
+        exit;
+    }
+
+    /**
      * Récupère et filtre les données POST.
      */
     protected function getPostData(array $keys): array
