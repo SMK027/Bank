@@ -3525,3 +3525,23 @@ input[type="date"].form-control {
     }
 }
 
+/* =============================================================
+   Mobile responsive — Issue #13 (Tickets /tickets)
+   ============================================================= */
+@media (max-width: 480px) {
+    .form-actions {
+        flex-direction: column-reverse;
+        gap: 0.75rem;
+    }
+    .form-actions .btn-primary {
+        width: 100%;
+        min-height: 48px;
+    }
+    .form-actions .btn-cancel,
+    .form-actions .btn-outline {
+        width: 100%;
+        text-align: center;
+        min-height: 44px;
+    }
+}
+

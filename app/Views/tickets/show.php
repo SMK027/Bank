@@ -96,7 +96,7 @@ $statusLabel = \App\Models\Ticket::statusLabel($ticket['status']);
         <h3><i class="bi bi-reply"></i> Répondre</h3>
     </div>
     <div class="card-body">
-        <form method="POST" action="/tickets/<?= (int) $ticket['id'] ?>/reply">
+        <form method="POST" action="/tickets/<?= (int) $ticket['id'] ?>/reply" class="reply-form">
             <?= csrf_field() ?>
             <div class="form-group" style="margin-bottom:0.75rem;">
                 <textarea name="body" class="form-control" rows="4"

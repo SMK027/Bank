@@ -67,8 +67,8 @@
                 <div style="font-size:0.78rem;color:var(--text-secondary);margin-top:0.3rem;">Minimum 10 caractères.</div>
             </div>
 
-            <div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1rem;">
-                <a href="/tickets" class="btn btn-outline">Annuler</a>
+            <div class="form-actions" style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1rem;">
+                <a href="/tickets" class="btn btn-outline btn-cancel">Annuler</a>
                 <button type="submit" class="btn btn-primary">
                     <i class="bi bi-send"></i> Envoyer la demande
                 </button>
