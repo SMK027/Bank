@@ -609,9 +609,11 @@ class TransactionController extends Controller
             return;
         }
 
-        // Différés issus d'un paiement TPE : édition réservée à la page de
-        // modération des paiements TPE (y compris pour les modérateurs).
-        if (str_starts_with((string) ($dd['comment'] ?? ''), '[TPE')) {
+        // Différés issus d'un paiement TPE : édition réservée aux modérateurs.
+        // Les utilisateurs sont redirigés vers la page de modération des
+        // paiements TPE, qui reste le point d'entrée unique pour l'annulation
+        // (réversion du crédit côté commerçant).
+        if (str_starts_with((string) ($dd['comment'] ?? ''), '[TPE') && !$this->isModerator()) {
             $this->setFlash('danger', 'Ce débit différé provient d\'un paiement par carte (TPE) et doit être modifié depuis la page de modération des paiements TPE.');
             $this->redirect('/accounts/' . $accountId);
             return;

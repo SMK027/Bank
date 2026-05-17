@@ -1303,7 +1303,8 @@
                                 $periodEndTs = strtotime($dd['period_end_date'] ?? '');
                                 $ddLocked = $periodEndTs && (time() - $periodEndTs) > 7 * 86400;
                                 $ddIsTpe  = str_starts_with((string) ($dd['comment'] ?? ''), '[TPE');
-                                if ($ddIsTpe) { $ddLocked = true; }
+                                // Les opérations TPE ne sont modifiables que par les modérateurs.
+                                if ($ddIsTpe && !is_moderator()) { $ddLocked = true; }
                             ?>
                             <tr style="opacity:0.85;font-style:italic;">
                                 <td>
@@ -1433,7 +1434,8 @@
                             $periodEndTs = strtotime($dd['period_end_date'] ?? '');
                             $ddLocked = $periodEndTs && (time() - $periodEndTs) > 7 * 86400;
                             $ddIsTpe  = str_starts_with((string) ($dd['comment'] ?? ''), '[TPE');
-                            if ($ddIsTpe) { $ddLocked = true; }
+                            // Les opérations TPE ne sont modifiables que par les modérateurs.
+                            if ($ddIsTpe && !is_moderator()) { $ddLocked = true; }
                         ?>
                         <tr>
                             <td>
