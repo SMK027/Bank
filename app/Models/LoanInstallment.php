@@ -56,6 +56,8 @@ class LoanInstallment extends Model
     public function getDue(): array
     {
         $today = date('Y-m-d');
+        // Les crédits dont le compte de prélèvement a été supprimé (account_id IS NULL)
+        // sont exclus tant qu'un nouveau compte ne leur a pas été réaffecté par la modération.
         $stmt  = $this->getPdo()->prepare(
             'SELECT li.*, l.account_id, l.user_id, l.amount AS loan_amount,
                     l.amount_repaid, a.currency, a.name AS account_name
@@ -64,7 +66,8 @@ class LoanInstallment extends Model
              JOIN `accounts` a ON a.id = l.account_id
              WHERE li.status = ?
                AND li.due_date <= ?
-               AND l.status = ?'
+               AND l.status = ?
+               AND l.account_id IS NOT NULL'
         );
         $stmt->execute([self::STATUS_PENDING, $today, Loan::STATUS_ACTIVE]);
         return $stmt->fetchAll();

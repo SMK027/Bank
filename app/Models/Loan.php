@@ -57,7 +57,7 @@ class Loan extends Model
                     u.email       AS owner_email,
                     m.username    AS granted_by_username
              FROM `loans` l
-             JOIN `accounts` a ON a.id = l.account_id
+             LEFT JOIN `accounts` a ON a.id = l.account_id
              JOIN `users`    u ON u.id = l.user_id
              JOIN `users`    m ON m.id = l.granted_by
              ORDER BY l.granted_at DESC'
@@ -80,7 +80,7 @@ class Loan extends Model
                     u.email       AS owner_email,
                     m.username    AS granted_by_username
              FROM `loans` l
-             JOIN `accounts` a ON a.id = l.account_id
+             LEFT JOIN `accounts` a ON a.id = l.account_id
              JOIN `users`    u ON u.id = l.user_id
              JOIN `users`    m ON m.id = l.granted_by
              WHERE l.id = ?
@@ -102,7 +102,7 @@ class Loan extends Model
                     a.currency AS account_currency,
                     m.username AS granted_by_username
              FROM `loans` l
-             JOIN `accounts` a ON a.id = l.account_id
+             LEFT JOIN `accounts` a ON a.id = l.account_id
              JOIN `users`    m ON m.id = l.granted_by
              WHERE l.user_id = ?
              ORDER BY l.granted_at DESC'
@@ -122,7 +122,7 @@ class Loan extends Model
                     a.currency AS account_currency,
                     m.username AS granted_by_username
              FROM `loans` l
-             JOIN `accounts` a ON a.id = l.account_id
+             LEFT JOIN `accounts` a ON a.id = l.account_id
              JOIN `users`    m ON m.id = l.granted_by
              WHERE l.user_id = ? AND l.status = ?
              ORDER BY l.granted_at DESC'
@@ -143,6 +143,34 @@ class Loan extends Model
         );
         $stmt->execute([$accountId, self::STATUS_ACTIVE, self::STATUS_PENDING]);
         return (int) $stmt->fetchColumn() > 0;
+    }
+
+    /**
+     * Retourne les crédits actifs ou en attente d'un utilisateur dont le
+     * compte de prélèvement a été supprimé (account_id IS NULL).
+     * Utilisé par la modération pour réaffecter le crédit à un autre compte.
+     */
+    public function getOrphanedForUser(int $userId): array
+    {
+        $stmt = $this->getPdo()->prepare(
+            'SELECT * FROM `loans`
+             WHERE user_id = ? AND account_id IS NULL
+               AND status IN (?, ?)
+             ORDER BY granted_at DESC'
+        );
+        $stmt->execute([$userId, self::STATUS_ACTIVE, self::STATUS_PENDING]);
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Réaffecte un crédit orphelin (account_id NULL) à un autre compte du
+     * contractant. Aucune vérification de propriété n'est faite ici : le
+     * contrôleur doit s'assurer que le compte appartient bien à l'utilisateur
+     * du crédit (loan.user_id == account.user_id).
+     */
+    public function reassignAccount(int $loanId, int $newAccountId): bool
+    {
+        return $this->update($loanId, ['account_id' => $newAccountId]);
     }
 
     // ── Actions de cycle de vie ──────────────────────────────────────────────

@@ -82,6 +82,7 @@ class AuditLog extends Model
     public const ACTION_LOAN_INSTALLMENT_PENALTY_UPDATED = 'loan.installment_penalty_updated';
     public const ACTION_LOAN_CLOSED      = 'loan.closed';
     public const ACTION_LOAN_CANCELLED   = 'loan.cancelled';
+    public const ACTION_LOAN_REASSIGNED  = 'loan.reassigned';
 
     // Utilisateurs (modération)
     public const ACTION_USER_ROLE_CHANGE = 'user.role_change';

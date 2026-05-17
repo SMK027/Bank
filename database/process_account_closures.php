@@ -37,6 +37,7 @@ use App\Models\AccountAccess;
 use App\Models\AuditLog;
 use App\Models\DirectDebit;
 use App\Models\Guardianship;
+use App\Models\Loan;
 use App\Models\Mandate;
 use App\Models\Notification;
 use App\Models\RecurringTransfer;
@@ -50,6 +51,7 @@ $mandateModel           = new Mandate();
 $recurringTransferModel = new RecurringTransfer();
 $notifModel             = new Notification();
 $guardianshipModel      = new Guardianship();
+$loanModel              = new Loan();
 
 $closed = 0;
 $errors = 0;
@@ -122,6 +124,26 @@ foreach ($accounts as $account) {
             $accessModel->delete((int) $a['id']);
         }
 
+        /* ── 5bis. Détecter les crédits actifs qui vont devenir orphelins ─
+         * Grâce à la contrainte ON DELETE SET NULL sur loans.account_id, le
+         * crédit est conservé. On notifie le contractant et les modérateurs
+         * pour que ces derniers puissent réaffecter un autre compte de
+         * prélèvement avant la prochaine échéance.
+         */
+        $loansToOrphan = $loanModel->findBy(['account_id' => $accountId]);
+        $activeOrphanedIds = [];
+        foreach ($loansToOrphan as $l) {
+            if (in_array($l['status'] ?? '', [Loan::STATUS_ACTIVE, Loan::STATUS_PENDING], true)) {
+                $activeOrphanedIds[] = (int) $l['id'];
+            }
+        }
+        if (!empty($activeOrphanedIds)) {
+            echo sprintf("  → %d crédit(s) actif(s) conservé(s) — compte de prélèvement à réaffecter par la modération : #%s\n",
+                count($activeOrphanedIds),
+                implode(', #', $activeOrphanedIds)
+            );
+        }
+
         /* ── 6. Supprimer le compte ─────────────────────────────────────── */
         $accountModel->delete($accountId);
 
@@ -151,6 +173,40 @@ foreach ($accounts as $account) {
                 'account_closed',
                 'Compte « ' . $name . ' » supprimé',
                 'Le compte bancaire dont vous étiez responsable légal a été définitivement supprimé.'
+            );
+        }
+
+        // Notifier l'utilisateur et les modérateurs si des crédits sont devenus orphelins
+        if (!empty($activeOrphanedIds)) {
+            $loanList = '#' . implode(', #', $activeOrphanedIds);
+            $notifModel->notify(
+                $userId,
+                'loan_account_orphaned',
+                'Compte de prélèvement à réaffecter pour vos crédits',
+                'La suppression du compte « ' . $name . ' » a laissé '
+                . count($activeOrphanedIds) . ' crédit(s) actif(s) sans compte de prélèvement ('
+                . $loanList . '). La modération vous contactera pour réaffecter ces prélèvements '
+                . 'à un autre de vos comptes.',
+                '/loans'
+            );
+            $notifModel->notifyModerators(
+                'loan_account_orphaned',
+                'Crédit(s) à réaffecter suite à la clôture d\'un compte',
+                'Le compte « ' . $name . ' » (utilisateur #' . $userId . ') a été supprimé. '
+                . count($activeOrphanedIds) . ' crédit(s) actif(s) doivent être réaffectés à un autre compte du contractant : '
+                . $loanList . '.',
+                '/moderation/loans'
+            );
+            AuditLog::log(
+                0,
+                AuditLog::ACTION_ACCOUNT_CLOSE,
+                [
+                    'name'              => $name,
+                    'event'             => 'loans_orphaned',
+                    'orphaned_loan_ids' => $activeOrphanedIds,
+                ],
+                targetAccountId: $accountId,
+                targetUserId: $userId
             );
         }
 

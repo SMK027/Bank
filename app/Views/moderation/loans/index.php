@@ -97,7 +97,15 @@
                     <td>
                         <span class="fw-medium"><?= htmlspecialchars($loan['owner_username'] ?? '—') ?></span>
                     </td>
-                    <td style="font-size:0.85rem;color:var(--text-muted)"><?= htmlspecialchars($loan['account_name'] ?? '—') ?></td>
+                    <td style="font-size:0.85rem;color:var(--text-muted)">
+                        <?php if (empty($loan['account_id'])): ?>
+                            <span class="badge badge-warning" title="Le compte de prélèvement a été supprimé">
+                                <i class="bi bi-exclamation-triangle"></i> À réaffecter
+                            </span>
+                        <?php else: ?>
+                            <?= htmlspecialchars($loan['account_name'] ?? '—') ?>
+                        <?php endif; ?>
+                    </td>
                     <td>
                         <?php $t = $types[$loan['loan_type']] ?? null; ?>
                         <?php if ($t): ?>

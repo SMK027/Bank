@@ -671,12 +671,11 @@ class AccountController extends Controller
             return;
         }
 
-        // Bloquer la résiliation si un crédit actif est lié au compte
-        if ($this->loanModel->hasActiveLoanForAccount($accountId)) {
-            $this->setFlash('danger', 'Impossible de résilier ce compte : un crédit actif y est associé. Remboursez entièrement le crédit avant de pouvoir résilier.');
-            $this->redirect('/accounts/' . $accountId);
-            return;
-        }
+        // Si un crédit actif est associé au compte, on n'efface pas le crédit :
+        // la suppression du compte (en fin de mois) mettra simplement account_id à NULL
+        // (ON DELETE SET NULL). La modération devra ensuite réaffecter ce crédit
+        // à un autre compte du contractant pour les prélèvements de mensualités.
+        $hasActiveLoan = $this->loanModel->hasActiveLoanForAccount($accountId);
 
         // Bloquer la résiliation si des débits différés sont en attente
         $pendingDD = $this->deferredDebitModel->getPendingByAccount($accountId);
@@ -690,8 +689,16 @@ class AccountController extends Controller
         }
 
         $this->accountModel->disableAccount($accountId);
-        AuditLog::log($userId, AuditLog::ACTION_ACCOUNT_DISABLE, ['name' => $account['name'] ?? '?'], targetAccountId: $accountId);
-        $this->setFlash('success', 'Compte désactivé. Il sera définitivement supprimé à la fin du mois.');
+        AuditLog::log($userId, AuditLog::ACTION_ACCOUNT_DISABLE, ['name' => $account['name'] ?? '?', 'has_active_loan' => $hasActiveLoan], targetAccountId: $accountId);
+        if ($hasActiveLoan) {
+            $this->setFlash('warning',
+                'Compte désactivé. Il sera définitivement supprimé à la fin du mois. '
+                . 'Attention : un crédit actif est associé à ce compte. Il sera conservé, '
+                . 'mais la modération devra réaffecter les prélèvements à un autre de vos comptes.'
+            );
+        } else {
+            $this->setFlash('success', 'Compte désactivé. Il sera définitivement supprimé à la fin du mois.');
+        }
         $this->redirect('/accounts/' . $accountId);
     }
 

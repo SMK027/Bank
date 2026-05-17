@@ -197,6 +197,18 @@ class ModerationLoanController extends Controller
         $remaining           = max(0.0, round(max((float) $loan['amount'], $totalScheduled) - (float) $loan['amount_repaid'], 2));
         $rate                = round((float) $loan['annual_rate'] / 100.0, 8);
 
+        // Si le crédit est orphelin (compte de prélèvement supprimé), récupérer
+        // les autres comptes actifs du contractant pour permettre la réaffectation.
+        $reassignableAccounts = [];
+        if (empty($loan['account_id'])
+            && in_array($loan['status'], [Loan::STATUS_ACTIVE, Loan::STATUS_PENDING], true)
+        ) {
+            $reassignableAccounts = array_values(array_filter(
+                $this->accountModel->getByUser((int) $loan['user_id']),
+                fn ($a) => empty($a['disabled_at'])
+            ));
+        }
+
         $this->render('moderation/loans/show', [
             'title'          => 'Crédit #' . $id . ' — ' . $loan['owner_username'],
             'loan'           => $loan,
@@ -212,6 +224,7 @@ class ModerationLoanController extends Controller
             'statusBadge'    => Loan::STATUS_BADGE,
             'iLabels'        => LoanInstallment::STATUS_LABELS,
             'iBadge'         => LoanInstallment::STATUS_BADGE,
+            'reassignableAccounts' => $reassignableAccounts,
             'csrfToken'      => csrf_token(),
         ]);
     }
@@ -527,6 +540,95 @@ class ModerationLoanController extends Controller
 
     // ── Annulation d'un crédit par la modération ─────────────────────────────
 
+    /**
+     * Réaffecte un crédit orphelin (account_id NULL) à un autre compte du
+     * contractant. Utilisé après suppression du compte de prélèvement initial.
+     */
+    public function reassign(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $modId  = $this->getCurrentUserId();
+        $loanId = (int) $id;
+        $loan   = $this->loanModel->find($loanId);
+
+        if (!$loan) {
+            $this->setFlash('danger', 'Crédit introuvable.');
+            $this->redirect('/moderation/loans');
+            return;
+        }
+
+        if (!empty($loan['account_id'])) {
+            $this->setFlash('danger', 'Ce crédit est déjà rattaché à un compte. La réaffectation est réservée aux crédits dont le compte de prélèvement a été supprimé.');
+            $this->redirect('/moderation/loans/' . $loanId);
+            return;
+        }
+
+        if (!in_array($loan['status'], [Loan::STATUS_ACTIVE, Loan::STATUS_PENDING], true)) {
+            $this->setFlash('danger', 'Seuls les crédits actifs ou en attente d\'acceptation peuvent être réaffectés.');
+            $this->redirect('/moderation/loans/' . $loanId);
+            return;
+        }
+
+        $newAccountId = (int) ($_POST['new_account_id'] ?? 0);
+        if ($newAccountId <= 0) {
+            $this->setFlash('danger', 'Veuillez sélectionner un compte de prélèvement.');
+            $this->redirect('/moderation/loans/' . $loanId);
+            return;
+        }
+
+        $newAccount = $this->accountModel->find($newAccountId);
+        if (!$newAccount) {
+            $this->setFlash('danger', 'Compte introuvable.');
+            $this->redirect('/moderation/loans/' . $loanId);
+            return;
+        }
+
+        // Le compte doit appartenir au contractant et être actif
+        if ((int) $newAccount['user_id'] !== (int) $loan['user_id']) {
+            $this->setFlash('danger', 'Le compte sélectionné n\'appartient pas au contractant du crédit.');
+            $this->redirect('/moderation/loans/' . $loanId);
+            return;
+        }
+
+        if (!empty($newAccount['disabled_at'])) {
+            $this->setFlash('danger', 'Le compte sélectionné est en cours de résiliation. Choisissez un compte actif.');
+            $this->redirect('/moderation/loans/' . $loanId);
+            return;
+        }
+
+        $this->loanModel->reassignAccount($loanId, $newAccountId);
+
+        AuditLog::log($modId, AuditLog::ACTION_LOAN_REASSIGNED, [
+            'loan_id'         => $loanId,
+            'new_account_id'  => $newAccountId,
+            'new_account'     => $newAccount['name'] ?? '?',
+        ], targetAccountId: $newAccountId, targetUserId: (int) $loan['user_id']);
+
+        $typeLabel = LoanSimulation::getTypes()[$loan['loan_type']]['label'] ?? $loan['loan_type'];
+        $this->notifModel->notify(
+            (int) $loan['user_id'],
+            'loan_account_reassigned',
+            'Compte de prélèvement réaffecté',
+            sprintf(
+                'Votre crédit %s #%d est désormais prélevé sur le compte « %s ».',
+                $typeLabel,
+                $loanId,
+                $newAccount['name'] ?? ''
+            ),
+            '/loans/' . $loanId
+        );
+
+        $this->setFlash('success', sprintf(
+            'Crédit #%d réaffecté au compte « %s ».',
+            $loanId,
+            $newAccount['name'] ?? ''
+        ));
+        $this->redirect('/moderation/loans/' . $loanId);
+    }
+
+    // ── Annulation d'un crédit par la modération ─────────────────────────────
     public function cancelLoan(string $id): void
     {
         $this->requireModerator();

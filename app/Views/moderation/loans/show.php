@@ -12,6 +12,7 @@
 /** @var array  $statusBadge */
 /** @var array  $iLabels */
 /** @var array  $iBadge */
+/** @var array  $reassignableAccounts */
 /** @var string $csrfToken */
 
 use App\Models\Loan;
@@ -21,6 +22,7 @@ $typeInfo  = $types[$loan['loan_type']] ?? null;
 $canEdit   = in_array($loan['status'], [Loan::STATUS_PENDING, Loan::STATUS_ACTIVE], true);
 $isPending = $loan['status'] === Loan::STATUS_PENDING;
 $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
+$isOrphaned = empty($loan['account_id']);
 ?>
 <div class="page-header">
     <div>
@@ -37,9 +39,11 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
         <a href="/moderation/loans" class="btn btn-outline btn-sm">
             <i class="bi bi-arrow-left"></i> Liste des crédits
         </a>
+        <?php if (!$isOrphaned): ?>
         <a href="/accounts/<?= (int)$loan['account_id'] ?>" class="btn btn-outline btn-sm">
             <i class="bi bi-wallet2"></i> Voir le compte
         </a>
+        <?php endif; ?>
         <?php if ($canEdit): ?>
         <form method="POST"
               action="/moderation/loans/<?= (int)$loan['id'] ?>/cancel"
@@ -131,14 +135,58 @@ $isActive  = $loan['status'] === Loan::STATUS_ACTIVE;
     <!-- ── Infos compte ──────────────────────────────────────────────────── -->
     <div class="card">
         <div class="card-header">
-            <h3 style="margin:0;font-size:1rem;"><i class="bi bi-wallet2"></i> Compte bénéficiaire</h3>
+            <h3 style="margin:0;font-size:1rem;"><i class="bi bi-wallet2"></i> Compte de prélèvement</h3>
         </div>
         <div class="card-body" style="font-size:0.9rem;">
+            <?php if ($isOrphaned): ?>
+            <div class="alert alert-warning" style="margin-bottom:0.75rem;">
+                <i class="bi bi-exclamation-triangle"></i>
+                <strong>Compte de prélèvement supprimé.</strong>
+                Le compte initialement rattaché à ce crédit a été clôturé. Aucune mensualité ne pourra être prélevée
+                tant qu'un nouveau compte n'aura pas été affecté.
+            </div>
+            <?php if ($canEdit && !empty($reassignableAccounts)): ?>
+            <form method="POST" action="/moderation/loans/<?= (int)$loan['id'] ?>/reassign"
+                  onsubmit="return confirm('Confirmer la réaffectation des prélèvements à ce compte ?')">
+                <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
+                <div style="display:flex;gap:0.5rem;align-items:flex-end;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:200px;">
+                        <label for="new_account_id" style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:0.25rem;">
+                            Nouveau compte de prélèvement
+                        </label>
+                        <select id="new_account_id" name="new_account_id" required class="form-control form-control-sm">
+                            <option value="">— Choisir un compte —</option>
+                            <?php foreach ($reassignableAccounts as $a): ?>
+                            <option value="<?= (int)$a['id'] ?>">
+                                <?= htmlspecialchars($a['name']) ?>
+                                — <?= htmlspecialchars($a['type'] ?? '') ?>
+                                (<?= htmlspecialchars($a['currency'] ?? 'EUR') ?>)
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm" style="white-space:nowrap;">
+                        <i class="bi bi-arrow-left-right"></i> Réaffecter
+                    </button>
+                </div>
+            </form>
+            <?php elseif ($canEdit): ?>
+            <p style="margin:0;color:var(--text-muted);font-size:0.85rem;">
+                <i class="bi bi-info-circle"></i>
+                Le contractant n'a aucun autre compte actif disponible pour réaffecter ce crédit.
+            </p>
+            <?php endif; ?>
+            <p style="margin:0.5rem 0 0.35rem"><strong>Titulaire :</strong> <?= htmlspecialchars($loan['owner_username'] ?? '—') ?></p>
+            <p style="margin:0"><strong>Accepté le :</strong>
+                <?= $loan['accepted_at'] ? date('d/m/Y à H:i', strtotime($loan['accepted_at'])) : '<span style="color:var(--text-muted)">—</span>' ?>
+            </p>
+            <?php else: ?>
             <p style="margin:0 0 0.35rem"><strong>Compte :</strong> <?= htmlspecialchars($loan['account_name'] ?? '—') ?></p>
             <p style="margin:0 0 0.35rem"><strong>Titulaire :</strong> <?= htmlspecialchars($loan['owner_username'] ?? '—') ?></p>
             <p style="margin:0"><strong>Accepté le :</strong>
                 <?= $loan['accepted_at'] ? date('d/m/Y à H:i', strtotime($loan['accepted_at'])) : '<span style="color:var(--text-muted)">—</span>' ?>
             </p>
+            <?php endif; ?>
         </div>
     </div>
 </div>

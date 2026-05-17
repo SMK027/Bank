@@ -258,6 +258,7 @@ $router->post('/moderation/loans/{id}/installments/{iid}/reschedule', Moderation
 $router->post('/moderation/loans/{id}/installments/{iid}/penalty', ModerationLoanController::class, 'updatePenalty');
 $router->post('/moderation/loans/{id}/installments/{iid}/refund', ModerationLoanController::class, 'refundInstallment');
 $router->post('/moderation/loans/{id}/cancel', ModerationLoanController::class, 'cancelLoan');
+$router->post('/moderation/loans/{id}/reassign', ModerationLoanController::class, 'reassign');
 $router->post('/moderation/loans/process-installments', ModerationLoanController::class, 'processInstallments');
 
 // --- Modération : taux d'intérêt épargne ---
