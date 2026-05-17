@@ -791,7 +791,20 @@ class ModerationController extends Controller
         $amount      = (float) $transfer['amount'];
         $motif       = 'Annulation virement #' . $transferId;
 
-        // Remboursement sur le compte émetteur (income)
+        // Pour un virement inter-devises, le compte destinataire avait été crédité
+        // du montant converti (avec le taux figé au moment du virement). On utilise
+        // ce même montant pour le débit de restitution afin de ne pas pénaliser ni
+        // avantager les utilisateurs en cas de variation du taux de change.
+        $debitAmount = isset($transfer['converted_amount']) && $transfer['converted_amount'] !== null
+            ? (float) $transfer['converted_amount']
+            : $amount;
+
+        $fromAccount = $this->accountModel->find((int) $transfer['from_account_id']);
+        $toAccount   = $this->accountModel->find((int) $transfer['to_account_id']);
+        $fromCurrency = $transfer['from_currency'] ?? ($fromAccount['currency'] ?? '');
+        $toCurrency   = $transfer['to_currency']   ?? ($toAccount['currency']   ?? '');
+
+        // Remboursement sur le compte émetteur (income) — devise émetteur
         // user_id = 0 : action de modération → affiché comme "Modération" sur le compte
         $this->transactionModel->addTransaction(
             (int) $transfer['from_account_id'],
@@ -802,11 +815,11 @@ class ModerationController extends Controller
             0
         );
 
-        // Récupération sur le compte destinataire (expense)
+        // Récupération sur le compte destinataire (expense) — devise destinataire
         $this->transactionModel->addTransaction(
             (int) $transfer['to_account_id'],
             'expense',
-            $amount,
+            $debitAmount,
             'Virement',
             $motif,
             0
@@ -814,17 +827,21 @@ class ModerationController extends Controller
 
         $this->transferModel->markCancelled($transferId);
 
-        AuditLog::log($moderatorId, AuditLog::ACTION_TRANSFER_CANCEL, ['transfer_id' => $transferId, 'amount' => $amount], targetAccountId: (int) $transfer['from_account_id']);
+        AuditLog::log($moderatorId, AuditLog::ACTION_TRANSFER_CANCEL, [
+            'transfer_id'      => $transferId,
+            'amount'           => $amount,
+            'from_currency'    => $fromCurrency,
+            'debit_amount'     => $debitAmount,
+            'to_currency'      => $toCurrency,
+        ], targetAccountId: (int) $transfer['from_account_id']);
         // Notifier les propriétaires des comptes concernés (et leurs tuteurs si mineurs)
-        $fromAccount = $this->accountModel->find((int) $transfer['from_account_id']);
-        $toAccount   = $this->accountModel->find((int) $transfer['to_account_id']);
         if ($fromAccount) {
             $this->notifyAccountOwner(
                 (int) $fromAccount['user_id'],
                 (int) $fromAccount['id'],
                 'transfer_cancelled',
                 'Virement #' . $transferId . ' annulé',
-                'Le virement de ' . number_format($amount, 2, ',', ' ') . ' € depuis votre compte « ' . $fromAccount['name'] . ' » a été annulé par la modération. Le montant a été recrédité.'
+                'Le virement de ' . number_format($amount, 2, ',', ' ') . ' ' . $fromCurrency . ' depuis votre compte « ' . $fromAccount['name'] . ' » a été annulé par la modération. Le montant a été recrédité.'
             );
         }
         if ($toAccount && $toAccount['user_id'] !== ($fromAccount['user_id'] ?? null)) {
@@ -833,7 +850,7 @@ class ModerationController extends Controller
                 (int) $toAccount['id'],
                 'transfer_cancelled',
                 'Virement #' . $transferId . ' annulé',
-                'Un virement de ' . number_format($amount, 2, ',', ' ') . ' € vers votre compte « ' . $toAccount['name'] . ' » a été annulé par la modération.'
+                'Un virement de ' . number_format($debitAmount, 2, ',', ' ') . ' ' . $toCurrency . ' vers votre compte « ' . $toAccount['name'] . ' » a été annulé par la modération.'
             );
         }
 
