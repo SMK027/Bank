@@ -79,6 +79,19 @@ class DeferredDebit extends Model
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 
+    /**
+     * Nombre d'opérations en attente dont la période est échue.
+     */
+    public function countDue(): int
+    {
+        $stmt = $this->getPdo()->prepare(
+            "SELECT COUNT(*) FROM `{$this->table}`
+             WHERE status = :status AND period_end_date <= CURDATE()"
+        );
+        $stmt->execute(['status' => self::STATUS_PENDING]);
+        return (int) $stmt->fetchColumn();
+    }
+
     public function markExecuted(int $id, int $transactionId): bool
     {
         return $this->update($id, [

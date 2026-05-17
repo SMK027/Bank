@@ -20,6 +20,27 @@
     </div>
 </div>
 
+<?php if (!empty($pendingDeferredDebitCount)): ?>
+<div class="card mb-2" style="border-left:4px solid var(--warning);">
+    <div class="card-body" style="padding:0.85rem 1.1rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+        <div style="flex:1;min-width:240px;">
+            <strong><i class="bi bi-calendar-event"></i> Débits différés — fin de période</strong>
+            <div class="text-muted text-small" style="margin-top:0.2rem;">
+                <?= (int) $pendingDeferredDebitCount ?> débit(s) différé(s) échu(s) en attente d'exécution
+                par le CRON. Vous pouvez forcer l'exécution immédiate sans attendre la prochaine minute.
+            </div>
+        </div>
+        <form method="POST" action="/moderation/deferred-debits/force-process" style="margin:0;">
+            <?= csrf_field() ?>
+            <button type="submit" class="btn btn-warning btn-sm"
+                    onclick="return confirm('Forcer l\'exécution immédiate de <?= (int) $pendingDeferredDebitCount ?> débit(s) différé(s) échu(s) ?\n\nLes transactions de dépense correspondantes seront créées et les opérations marquées comme exécutées.');">
+                <i class="bi bi-lightning-charge"></i> Forcer les débits différés (<?= (int) $pendingDeferredDebitCount ?>)
+            </button>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
+
 <?php if (!empty($pendingClosureCount)): ?>
 <div class="card mb-2" style="border-left:4px solid var(--danger);">
     <div class="card-body" style="padding:0.85rem 1.1rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">

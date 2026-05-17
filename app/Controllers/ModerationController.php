@@ -84,10 +84,13 @@ class ModerationController extends Controller
         }
         unset($acc);
 
+        $deferredDebitModel = new DeferredDebit();
+
         $this->render('moderation/index', [
             'title'       => 'Modération — Comptes',
             'allAccounts' => $allAccounts,
-            'pendingClosureCount' => $this->accountModel->countDisabled(),
+            'pendingClosureCount'        => $this->accountModel->countDisabled(),
+            'pendingDeferredDebitCount'  => $deferredDebitModel->countDue(),
         ]);
     }
 
@@ -352,6 +355,73 @@ class ModerationController extends Controller
             $this->setFlash('success', sprintf(
                 'Clôture forcée terminée : %d compte(s) définitivement supprimé(s).',
                 $closed
+            ));
+        }
+
+        $this->redirect('/moderation');
+    }
+
+    /**
+     * Forcer immédiatement l'exécution des débits différés échus
+     * (équivalent de la section 5 du CRON principal, déclenché manuellement).
+     */
+    public function forceProcessDeferredDebits(): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $deferredDebitModel = new DeferredDebit();
+        $pending = $deferredDebitModel->countDue();
+        if ($pending === 0) {
+            $this->setFlash('info', 'Aucun débit différé échu à exécuter.');
+            $this->redirect('/moderation');
+            return;
+        }
+
+        // Inclusion du script de cron, sortie capturée pour le journal.
+        ob_start();
+        try {
+            require dirname(__DIR__, 2) . '/database/process_deferred_debits.php';
+        } catch (\Throwable $e) {
+            ob_end_clean();
+            AuditLog::log(
+                $this->getCurrentUserId(),
+                'deferred_debit.force_process_failed',
+                ['error' => $e->getMessage()]
+            );
+            $this->setFlash('danger', 'Erreur lors du traitement forcé des débits différés : ' . $e->getMessage());
+            $this->redirect('/moderation');
+            return;
+        }
+        $output = ob_get_clean();
+
+        // Persiste la sortie dans un fichier de log dédié.
+        $logFile = dirname(__DIR__, 2) . '/data/deferred-debits-cron.log';
+        @file_put_contents(
+            $logFile,
+            sprintf("[%s] === Forçage manuel par modérateur #%d ===\n", date('Y-m-d H:i:s'), $this->getCurrentUserId())
+                . $output . "\n",
+            FILE_APPEND
+        );
+
+        $executed = $result['executed'] ?? 0;
+        $errors   = $result['errors']   ?? 0;
+
+        AuditLog::log(
+            $this->getCurrentUserId(),
+            'deferred_debit.force_process',
+            ['executed' => $executed, 'errors' => $errors, 'pending_before' => $pending]
+        );
+
+        if ($errors > 0) {
+            $this->setFlash('warning', sprintf(
+                'Traitement forcé terminé : %d débit(s) différé(s) exécuté(s), %d erreur(s). Voir le journal.',
+                $executed, $errors
+            ));
+        } else {
+            $this->setFlash('success', sprintf(
+                'Traitement forcé terminé : %d débit(s) différé(s) exécuté(s).',
+                $executed
             ));
         }
 
