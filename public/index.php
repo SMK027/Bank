@@ -36,6 +36,7 @@ use App\Controllers\PosController;
 use App\Controllers\ApiClientController;
 use App\Controllers\Api\PaymentApiController;
 use App\Controllers\BudgetController;
+use App\Controllers\PaymentRequestController;
 
 // Démarrer la session
 Session::start();
@@ -147,6 +148,14 @@ $router->post('/accounts/{accountId}/deferred-debits/{debitId}/cancel', Transact
 // --- Budgets mensuels ---
 $router->get('/budget', BudgetController::class, 'index');
 $router->post('/budget/save', BudgetController::class, 'save');
+
+// --- Demandes d'argent ---
+$router->get('/payment-requests', PaymentRequestController::class, 'index');
+$router->post('/payment-requests/create', PaymentRequestController::class, 'create');
+$router->post('/payment-requests/{id}/pay', PaymentRequestController::class, 'pay');
+$router->post('/payment-requests/{id}/refuse', PaymentRequestController::class, 'refuse');
+$router->post('/payment-requests/{id}/cancel', PaymentRequestController::class, 'cancel');
+$router->get('/payment-requests/search-users', PaymentRequestController::class, 'searchUsers');
 
 // --- Virements ---
 $router->get('/transfers/create', TransferController::class, 'createForm');

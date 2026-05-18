@@ -65,6 +65,9 @@ class Notification extends Model
         'loan_installment_due'  => 'bi-calendar-check-fill text-warning',
         'loan_installment_failed' => 'bi-exclamation-triangle-fill text-danger',
         'loan_closed'           => 'bi-check-circle-fill text-success',
+        'payment_request_received' => 'bi-send-fill text-primary',
+        'payment_request_paid'     => 'bi-check-circle-fill text-success',
+        'payment_request_refused'  => 'bi-x-circle-fill text-danger',
     ];
 
     // ── Création ─────────────────────────────────────────────────────────────

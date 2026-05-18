@@ -27,6 +27,8 @@
                         $__unreadMsgs   = $__convModel->countTotalUnread((int) current_user_id());
                         $__notifModel   = new \App\Models\Notification();
                         $__unreadNotifs = $__notifModel->countUnread((int) current_user_id());
+                        $__prModel      = new \App\Models\PaymentRequest();
+                        $__pendingPR    = $__prModel->countPendingForRecipient((int) current_user_id());
                     ?>
 
                     <!-- Liens principaux -->
@@ -122,6 +124,12 @@
 
                     <!-- Icônes rapides (messagerie + notifications) -->
                     <div class="navbar-group navbar-quick-icons">
+                        <a href="/payment-requests" class="navbar-icon-link" title="Demandes d'argent">
+                            <i class="bi bi-send<?= $__pendingPR > 0 ? '-fill' : '' ?>"></i>
+                            <?php if ($__pendingPR > 0): ?>
+                                <span class="notif-badge"><?= $__pendingPR > 99 ? '99+' : $__pendingPR ?></span>
+                            <?php endif; ?>
+                        </a>
                         <a href="/messages" class="navbar-icon-link" title="Messagerie">
                             <i class="bi bi-envelope<?= $__unreadMsgs > 0 ? '-fill' : '' ?>"></i>
                             <?php if ($__unreadMsgs > 0): ?>
