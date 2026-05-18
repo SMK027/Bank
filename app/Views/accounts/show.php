@@ -169,12 +169,10 @@
                 $overdraftLimit   = $typeAllowsOd ? -(float)($account['overdraft'] ?? 0) : 0.0;
                 $isOverdraftExceed = $balance < $overdraftLimit;
             ?>
-            <?php if ($isOverdraftExceed): ?>
-                <button type="button" class="btn btn-danger btn-sm"
-                        onclick="openAgiosModal()">
-                    <i class="bi bi-exclamation-triangle-fill"></i> Prélever agios
-                </button>
-            <?php endif; ?>
+            <button type="button" class="btn <?= $isOverdraftExceed ? 'btn-danger' : 'btn-warning' ?> btn-sm"
+                    onclick="openAgiosModal()">
+                <i class="bi bi-exclamation-triangle-fill"></i> Prélever agios
+            </button>
             <a href="/moderation/accounts/<?= (int) $account['id'] ?>/agios"
                class="btn btn-outline btn-sm"
                title="Rapport des épisodes de dépassement de découvert et rejets associés">
@@ -2184,16 +2182,25 @@ function toggleExpires(select) {
             <button type="button" onclick="closeAgiosModal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.3rem;line-height:1;padding:0 0.2rem;">&times;</button>
         </div>
 
+        <?php if (!$isOverdraftExceed): ?>
         <div class="alert alert-warning" style="font-size:0.84rem;margin-bottom:1rem;">
-            <i class="bi bi-info-circle"></i>
+            <i class="bi bi-exclamation-triangle"></i>
+            <strong>Solde actuellement régularisé</strong> — le découvert a été compensé
+            (solde&nbsp;: <strong><?= number_format($balance, 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>).
+            Vous pouvez tout de même prélever des agios en raison d'un dépassement antérieur.
+        </div>
+        <?php else: ?>
+        <div class="alert alert-danger" style="font-size:0.84rem;margin-bottom:1rem;">
+            <i class="bi bi-exclamation-triangle-fill"></i>
             Solde actuel&nbsp;: <strong><?= number_format($balance, 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>.
             <?php if ($typeAllowsOd && (float)($account['overdraft'] ?? 0) > 0): ?>
                 Découvert autorisé&nbsp;: <strong><?= number_format((float)$account['overdraft'], 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>.
-                Dépassement&nbsp;: <strong style="color:var(--danger);"><?= number_format(abs($balance + (float)$account['overdraft']), 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>.
+                Dépassement actif&nbsp;: <strong><?= number_format(abs($balance + (float)$account['overdraft']), 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>.
             <?php else: ?>
-                Aucun découvert autorisé. Dépassement&nbsp;: <strong style="color:var(--danger);"><?= number_format(abs($balance), 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>.
+                Aucun découvert autorisé. Dépassement actif&nbsp;: <strong><?= number_format(abs($balance), 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>.
             <?php endif; ?>
         </div>
+        <?php endif; ?>
 
         <form method="POST" action="/moderation/accounts/<?= (int) $account['id'] ?>/charge-agios">
             <?= csrf_field() ?>

@@ -366,9 +366,16 @@ function balClass(float $v, float $limit): string {
 
         </div><!-- /onglets -->
 
-        <!-- Bouton prélever agios si épisode toujours en cours et pas d'agios récent -->
-        <?php if ($isOngoing): ?>
+        <!-- Formulaire prélever agios (disponible sur tout épisode, actif ou compensé) -->
+        <?php /* toujours visible pour permettre le prélèvement rétroactif */ ?>
         <div style="margin-top:1rem;padding-top:0.75rem;border-top:1px solid var(--border-color);">
+            <?php if (!$isOngoing): ?>
+            <div class="alert alert-warning" style="font-size:0.82rem;margin-bottom:0.7rem;padding:0.5rem 0.75rem;">
+                <i class="bi bi-clock-history"></i>
+                Cet épisode est <strong>clôturé</strong> (découvert compensé le <?= fmtDate($ep['ended_at']) ?>).
+                Vous pouvez tout de même prélever des agios rétroactivement pour cette période.
+            </div>
+            <?php endif; ?>
             <form method="POST" action="/moderation/accounts/<?= (int) $account['id'] ?>/charge-agios">
                 <?= csrf_field() ?>
                 <div style="display:flex;align-items:center;flex-wrap:wrap;gap:0.6rem;">
@@ -378,7 +385,7 @@ function balClass(float $v, float $limit): string {
                                style="width:130px;font-size:0.84rem;padding:0.35rem 0.55rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);">
                         <span style="font-size:0.82rem;color:var(--text-muted);"><?= e($currency) ?></span>
                         <input type="text" name="comment" maxlength="255"
-                               placeholder="Commentaire (optionnel)"
+                               value="Agios — période du <?= fmtDateShort($ep['started_at']) ?><?= $ep['ended_at'] ? ' au ' . fmtDateShort($ep['ended_at']) : ' (en cours)' ?>"
                                style="flex:1;font-size:0.84rem;padding:0.35rem 0.55rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);">
                     </div>
                     <button type="submit" class="btn btn-danger btn-sm"
@@ -388,7 +395,6 @@ function balClass(float $v, float $limit): string {
                 </div>
             </form>
         </div>
-        <?php endif; ?>
     </div>
 </div>
 <?php endforeach; ?>

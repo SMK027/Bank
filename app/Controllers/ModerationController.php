@@ -196,7 +196,8 @@ class ModerationController extends Controller
     /**
      * Prélever des agios sur un compte en dépassement de découvert (POST).
      *
-     * Condition : solde < 0 (si découvert non autorisé) OU solde < -découvert_autorisé.
+     * Condition : le compte doit avoir eu un dépassement (actuel ou passé).
+     * Le prélèvement est autorisé même après compensation du découvert.
      */
     public function chargeAgios(string $id): void
     {
@@ -214,14 +215,6 @@ class ModerationController extends Controller
 
         $balance   = $this->accountModel->getBalance($accountId);
         $overdraft = (float) ($account['overdraft'] ?? 0);
-        $typeAllowsOverdraft = Account::typeAllowsOverdraft($account['type'] ?? 'standard');
-        $overdraftLimit = $typeAllowsOverdraft ? -$overdraft : 0.0;
-
-        if ($balance >= $overdraftLimit) {
-            $this->setFlash('danger', 'Ce compte n\'est pas en situation de dépassement du découvert autorisé. Agios non applicables.');
-            $this->redirect('/accounts/' . $accountId);
-            return;
-        }
 
         $data   = $this->getPostData(['amount', 'comment']);
         $amount = abs((float) ($data['amount'] ?? 0));
@@ -248,10 +241,10 @@ class ModerationController extends Controller
             $moderatorId,
             AuditLog::ACTION_ACCOUNT_AGIOS,
             [
-                'amount'       => $amount,
-                'balance'      => $balance,
-                'overdraft'    => $overdraft,
-                'comment'      => $comment,
+                'amount'              => $amount,
+                'balance_at_charge'   => $balance,
+                'overdraft_limit'     => $overdraft,
+                'comment'             => $comment,
             ],
             targetUserId: (int) $account['user_id'],
             targetAccountId: $accountId
