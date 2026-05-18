@@ -12,6 +12,29 @@ $statusLabels = [
     'expired' => ['label' => 'Expirée',   'class' => 'badge-secondary'],
     'revoked' => ['label' => 'Révoquée',  'class' => 'badge-danger'],
 ];
+
+// Construire la liste des utilisateurs uniques (pour le filtre)
+$__owners = [];
+foreach ($allAccounts as $__acc) {
+    $uid = (int) $__acc['user_id'];
+    if (!isset($__owners[$uid])) {
+        $__owners[$uid] = $__acc['owner_name'];
+    }
+}
+asort($__owners);
+
+// Préparer le JSON des comptes pour le JS
+$__accountsJson = json_encode(array_values(array_map(function ($a) {
+    return [
+        'id'        => (int) $a['id'],
+        'name'      => $a['name'],
+        'owner'     => $a['owner_name'],
+        'user_id'   => (int) $a['user_id'],
+        'type'      => $a['type'] ?? 'standard',
+        'currency'  => $a['currency'],
+        'overdraft' => (float) ($a['overdraft'] ?? 0),
+    ];
+}, $allAccounts)), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE);
 ?>
 
 <div class="page-header">
@@ -27,23 +50,40 @@ $statusLabels = [
         <h3><i class="bi bi-plus-circle"></i> Nouvelle autorisation</h3>
     </div>
     <div class="card-body">
-        <form method="POST" action="/moderation/overdraft-authorizations/create">
+        <form method="POST" action="/moderation/overdraft-authorizations/create" id="oa-form">
             <?= csrf_field() ?>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem;">
 
+                <!-- Filtre utilisateur (autocomplete) -->
+                <div class="form-group" style="margin:0;position:relative;">
+                    <label class="form-label"><i class="bi bi-person"></i> Filtrer par utilisateur</label>
+                    <input type="text" id="oa-user-input" class="form-control"
+                           placeholder="Rechercher un utilisateur…"
+                           autocomplete="off">
+                    <div id="oa-user-dropdown"
+                         style="display:none;position:absolute;z-index:200;background:#fff;border:1px solid var(--gray-light);border-radius:var(--border-radius-sm);width:100%;box-shadow:var(--shadow);max-height:200px;overflow-y:auto;"></div>
+                    <!-- Champ caché portant l'id sélectionné -->
+                    <input type="hidden" id="oa-filter-user" value="">
+                </div>
+
+                <!-- Filtre type de compte -->
                 <div class="form-group" style="margin:0;">
-                    <label class="form-label">Compte cible <span class="text-danger">*</span></label>
-                    <select name="account_id" class="form-control" required>
-                        <option value="">— Choisir un compte —</option>
-                        <?php foreach ($allAccounts as $acc): ?>
-                            <option value="<?= (int) $acc['id'] ?>">
-                                <?= e($acc['name']) ?> (<?= e($acc['owner_name']) ?>) — <?= e($acc['currency']) ?>
-                                <?php if ((float) ($acc['overdraft'] ?? 0) > 0): ?>
-                                    — découvert : <?= fmt_amount_smart((float) $acc['overdraft']) ?> <?= e($acc['currency']) ?>
-                                <?php endif; ?>
-                            </option>
+                    <label class="form-label"><i class="bi bi-tag"></i> Filtrer par type</label>
+                    <select id="oa-filter-type" class="form-control">
+                        <option value="">— Tous les types —</option>
+                        <?php foreach (Account::TYPES as $key => $def): ?>
+                            <option value="<?= e($key) ?>"><?= e($def['label']) ?></option>
                         <?php endforeach; ?>
                     </select>
+                </div>
+
+                <!-- Sélecteur de compte (filtré dynamiquement) -->
+                <div class="form-group" style="margin:0;grid-column:1/-1;">
+                    <label class="form-label">Compte cible <span class="text-danger">*</span></label>
+                    <select name="account_id" id="oa-account-select" class="form-control" required>
+                        <option value="">— Choisir un compte —</option>
+                    </select>
+                    <span class="form-hint" id="oa-account-hint" style="display:none;color:var(--text-muted);"></span>
                 </div>
 
                 <div class="form-group" style="margin:0;">
@@ -80,6 +120,137 @@ $statusLabels = [
         </form>
     </div>
 </div>
+
+<script>
+(function () {
+    var accounts   = <?= $__accountsJson ?>;
+    var owners     = <?= json_encode(array_map(fn($uid, $uname) => ['id' => (int)$uid, 'name' => $uname], array_keys($__owners), array_values($__owners)), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;
+    var typeLabels = <?= json_encode(array_map(fn($d) => $d['label'], Account::TYPES), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;
+
+    var filterUserHidden = document.getElementById('oa-filter-user');
+    var userInput        = document.getElementById('oa-user-input');
+    var userDropdown     = document.getElementById('oa-user-dropdown');
+    var filterType       = document.getElementById('oa-filter-type');
+    var select           = document.getElementById('oa-account-select');
+    var hint             = document.getElementById('oa-account-hint');
+
+    // ── Autocomplete utilisateur ──────────────────────────────────────────
+
+    function showUserDropdown(items) {
+        userDropdown.innerHTML = '';
+        if (!items.length) { userDropdown.style.display = 'none'; return; }
+
+        // Option "Tous" en tête
+        var allItem = document.createElement('div');
+        allItem.style.cssText = 'padding:0.4rem 0.75rem;cursor:pointer;color:var(--text-muted);font-style:italic;';
+        allItem.textContent = '— Tous les utilisateurs —';
+        allItem.addEventListener('mousedown', function (e) {
+            e.preventDefault();
+            filterUserHidden.value = '';
+            userInput.value = '';
+            userDropdown.style.display = 'none';
+            rebuildSelect();
+        });
+        userDropdown.appendChild(allItem);
+
+        items.forEach(function (u) {
+            var item = document.createElement('div');
+            item.style.cssText = 'padding:0.4rem 0.75rem;cursor:pointer;display:flex;align-items:center;gap:0.5rem;';
+            item.innerHTML = '<i class="bi bi-person" style="color:var(--primary);flex-shrink:0;"></i><span>' + u.name + '</span>';
+            item.addEventListener('mouseenter', function () { item.style.background = 'var(--gray-lighter,#f3f4f6)'; });
+            item.addEventListener('mouseleave', function () { item.style.background = ''; });
+            item.addEventListener('mousedown', function (e) {
+                e.preventDefault();
+                filterUserHidden.value = u.id;
+                userInput.value = u.name;
+                userDropdown.style.display = 'none';
+                rebuildSelect();
+            });
+            userDropdown.appendChild(item);
+        });
+        userDropdown.style.display = 'block';
+    }
+
+    userInput.addEventListener('input', function () {
+        var q = userInput.value.trim().toLowerCase();
+        // Réinitialiser le filtre si le champ est vidé
+        if (!q) {
+            filterUserHidden.value = '';
+            rebuildSelect();
+        }
+        var matches = owners.filter(function (u) {
+            return u.name.toLowerCase().includes(q);
+        });
+        showUserDropdown(matches);
+    });
+
+    userInput.addEventListener('focus', function () {
+        var q = userInput.value.trim().toLowerCase();
+        var matches = q
+            ? owners.filter(function (u) { return u.name.toLowerCase().includes(q); })
+            : owners;
+        showUserDropdown(matches);
+    });
+
+    userInput.addEventListener('blur', function () {
+        setTimeout(function () { userDropdown.style.display = 'none'; }, 150);
+    });
+
+    // ── Construction du select compte ────────────────────────────────────
+
+    function rebuildSelect() {
+        var uid  = filterUserHidden.value ? parseInt(filterUserHidden.value, 10) : null;
+        var type = filterType.value || null;
+
+        var filtered = accounts.filter(function (a) {
+            if (uid  !== null && a.user_id !== uid)  return false;
+            if (type !== null && a.type    !== type) return false;
+            return true;
+        });
+
+        var prev = select.value;
+        select.innerHTML = '';
+
+        var placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = filtered.length
+            ? '— Choisir un compte (' + filtered.length + ') —'
+            : '— Aucun compte correspondant —';
+        select.appendChild(placeholder);
+
+        filtered.forEach(function (a) {
+            var opt = document.createElement('option');
+            opt.value = a.id;
+            var label = a.name + ' · ' + a.owner;
+            label += ' · ' + (typeLabels[a.type] || a.type);
+            label += ' · ' + a.currency;
+            if (a.overdraft > 0) {
+                label += ' (découvert : ' + a.overdraft.toLocaleString('fr-FR', {minimumFractionDigits: 2}) + ' ' + a.currency + ')';
+            }
+            opt.textContent = label;
+            if (String(a.id) === prev) opt.selected = true;
+            select.appendChild(opt);
+        });
+
+        if (filtered.length === 0 && (uid !== null || type !== null)) {
+            hint.textContent = 'Aucun compte ne correspond aux filtres sélectionnés.';
+            hint.style.color = 'var(--danger)';
+            hint.style.display = '';
+        } else if (filtered.length > 0 && (uid !== null || type !== null)) {
+            hint.textContent = filtered.length + ' compte' + (filtered.length > 1 ? 's' : '') + ' affiché' + (filtered.length > 1 ? 's' : '') + '.';
+            hint.style.color = 'var(--text-muted)';
+            hint.style.display = '';
+        } else {
+            hint.style.display = 'none';
+        }
+    }
+
+    filterType.addEventListener('change', rebuildSelect);
+
+    // Initialisation
+    rebuildSelect();
+})();
+</script>
 
 <!-- ── Liste des autorisations ───────────────────────────────────────────── -->
 <div class="card">

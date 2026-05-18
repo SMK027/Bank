@@ -16,12 +16,14 @@ class ModerationOverdraftController extends Controller
     private OverdraftAuthorization $authModel;
     private Account $accountModel;
     private User $userModel;
+    private Notification $notifModel;
 
     public function __construct()
     {
         $this->authModel    = new OverdraftAuthorization();
         $this->accountModel = new Account();
         $this->userModel    = new User();
+        $this->notifModel   = new Notification();
     }
 
     // ── Liste globale ─────────────────────────────────────────────────────────
@@ -142,7 +144,7 @@ class ModerationOverdraftController extends Controller
         $owner = $this->userModel->find((int) $account['user_id']);
         if ($owner) {
             $currency = $account['currency'] ?? 'EUR';
-            Notification::notify(
+            $this->notifModel->notify(
                 (int) $owner['id'],
                 'overdraft_authorization',
                 'Autorisation de découvert accordée',
@@ -207,7 +209,7 @@ class ModerationOverdraftController extends Controller
         if ($account) {
             $owner = $this->userModel->find((int) $account['user_id']);
             if ($owner) {
-                Notification::notify(
+                $this->notifModel->notify(
                     (int) $owner['id'],
                     'overdraft_authorization_revoked',
                     'Autorisation de découvert révoquée',
