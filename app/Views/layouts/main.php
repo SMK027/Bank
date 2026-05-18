@@ -29,6 +29,8 @@
                         $__unreadNotifs = $__notifModel->countUnread((int) current_user_id());
                         $__prModel      = new \App\Models\PaymentRequest();
                         $__pendingPR    = $__prModel->countPendingForRecipient((int) current_user_id());
+                        $__friendModel  = new \App\Models\Friendship();
+                        $__pendingFR    = $__friendModel->countPendingReceived((int) current_user_id());
                     ?>
 
                     <!-- Liens principaux -->
@@ -124,6 +126,12 @@
 
                     <!-- Icônes rapides (messagerie + notifications) -->
                     <div class="navbar-group navbar-quick-icons">
+                        <a href="/friends" class="navbar-icon-link" title="Amis">
+                            <i class="bi bi-people<?= $__pendingFR > 0 ? '-fill' : '' ?>"></i>
+                            <?php if ($__pendingFR > 0): ?>
+                                <span class="notif-badge"><?= $__pendingFR > 99 ? '99+' : $__pendingFR ?></span>
+                            <?php endif; ?>
+                        </a>
                         <a href="/payment-requests" class="navbar-icon-link" title="Demandes d'argent">
                             <i class="bi bi-send<?= $__pendingPR > 0 ? '-fill' : '' ?>"></i>
                             <?php if ($__pendingPR > 0): ?>

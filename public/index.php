@@ -37,6 +37,8 @@ use App\Controllers\ApiClientController;
 use App\Controllers\Api\PaymentApiController;
 use App\Controllers\BudgetController;
 use App\Controllers\PaymentRequestController;
+use App\Controllers\FriendController;
+use App\Controllers\ExpenseSplitController;
 
 // Démarrer la session
 Session::start();
@@ -156,6 +158,19 @@ $router->post('/payment-requests/{id}/pay', PaymentRequestController::class, 'pa
 $router->post('/payment-requests/{id}/refuse', PaymentRequestController::class, 'refuse');
 $router->post('/payment-requests/{id}/cancel', PaymentRequestController::class, 'cancel');
 $router->get('/payment-requests/search-users', PaymentRequestController::class, 'searchUsers');
+
+// --- Amis ---
+$router->get('/friends', FriendController::class, 'index');
+$router->post('/friends/send', FriendController::class, 'send');
+$router->post('/friends/{id}/accept', FriendController::class, 'accept');
+$router->post('/friends/{id}/refuse', FriendController::class, 'refuse');
+$router->post('/friends/{id}/cancel', FriendController::class, 'cancel');
+$router->post('/friends/{id}/remove', FriendController::class, 'remove');
+$router->get('/friends/search-users', FriendController::class, 'searchUsers');
+$router->get('/friends/list', FriendController::class, 'listFriends');
+
+// --- Répartition de dépenses ---
+$router->post('/accounts/{accountId}/transactions/{transactionId}/split', ExpenseSplitController::class, 'create');
 
 // --- Virements ---
 $router->get('/transfers/create', TransferController::class, 'createForm');

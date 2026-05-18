@@ -68,6 +68,9 @@ class Notification extends Model
         'payment_request_received' => 'bi-send-fill text-primary',
         'payment_request_paid'     => 'bi-check-circle-fill text-success',
         'payment_request_refused'  => 'bi-x-circle-fill text-danger',
+        'friend_request'           => 'bi-person-plus-fill text-primary',
+        'friend_accepted'          => 'bi-person-check-fill text-success',
+        'expense_split_request'    => 'bi-people-fill text-warning',
     ];
 
     // ── Création ─────────────────────────────────────────────────────────────

@@ -1679,9 +1679,16 @@
                         </tr>
                     </thead>
                     <tbody>
+                        <?php
+                        // Récupère en une seule requête les transactions déjà réparties sur cette page
+                        $__splitModel  = new \App\Models\ExpenseSplit();
+                        $__txIdsPage   = array_column($executedTransactions, 'id');
+                        $__splitTxIds  = array_flip($__splitModel->getSplitTransactionIds($__txIdsPage));
+                        ?>
                         <?php foreach ($executedTransactions as $t):
                             $txIsLinked  = in_array((int) $t['id'], $linkedTxIds ?? []);
                             $txIsTpe     = \App\Models\Transaction::isModerationOnly($t);
+                            $txIsAlreadySplit = isset($__splitTxIds[(int) $t['id']]);
                             $txAge       = time() - strtotime($t['created_at']);
                             $txEditable  = !$txIsLinked && !$txIsTpe && ($isModerator || $txAge <= 7 * 86400);
                             $txHasScheduled = !empty($t['scheduled_at']);
@@ -1744,6 +1751,20 @@
                                     <?= $t['type'] === 'income' ? '+' : '-' ?><?= fmt_amount_smart((float) $t['amount']) ?>
                                 </td>
                                 <td style="white-space:nowrap;">
+                                    <?php if ($t['type'] === 'expense' && !$txIsTpe && empty($t['pending'])): ?>
+                                    <button type="button"
+                                            class="btn btn-outline btn-sm"
+                                            style="padding:0.15rem 0.4rem;font-size:0.82rem;<?= $txIsAlreadySplit ? 'opacity:0.45;' : '' ?>"
+                                            title="<?= $txIsAlreadySplit ? 'Dépense déjà répartie' : 'Répartir cette dépense entre amis' ?>"
+                                            <?php if (!$txIsAlreadySplit): ?>
+                                            onclick="openSplitModal(<?= (int) $t['id'] ?>, '<?= e(addslashes($t['comment'] ?? '')) ?>', <?= (float) $t['amount'] ?>, '<?= e($account['currency']) ?>')"
+                                            <?php else: ?>
+                                            disabled
+                                            <?php endif; ?>
+                                            >
+                                        <i class="bi bi-<?= $txIsAlreadySplit ? 'people-fill' : 'people' ?>"></i>
+                                    </button>
+                                    <?php endif; ?>
                                     <?php if ($t['type'] === 'expense' && !$txIsTpe): ?>
                                     <form method="POST"
                                           action="/accounts/<?= (int) $account['id'] ?>/transactions/<?= (int) $t['id'] ?>/toggle-budget-exclusion"
@@ -1927,6 +1948,230 @@
 </div>
 
 <?php /* Section "Mandats" supprimée — les prélèvements liés aux mandats sont désormais affichés dans "Opérations à venir > Prélèvements planifiés". */ ?>
+
+<!-- ── Modale de répartition de dépense ───────────────────────────────── -->
+<div id="split-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1050;align-items:center;justify-content:center;">
+    <div class="card" style="max-width:520px;width:100%;margin:1rem;max-height:90vh;display:flex;flex-direction:column;">
+        <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+            <h3 style="margin:0;"><i class="bi bi-people-fill"></i> Répartir la dépense</h3>
+            <button type="button" class="btn btn-outline btn-sm" onclick="closeSplitModal()" style="padding:0.2rem 0.5rem;">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="card-body" style="overflow-y:auto;">
+            <p id="split-tx-label" style="font-size:0.88rem;color:var(--text-muted);margin-bottom:0.75rem;"></p>
+
+            <!-- Résumé montants -->
+            <div style="display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;">
+                <div style="background:var(--bg-secondary,#f3f4f6);border-radius:var(--border-radius-sm);padding:0.5rem 0.9rem;">
+                    <div style="font-size:0.75rem;color:var(--text-muted);">Montant total</div>
+                    <div style="font-weight:700;" id="split-total-amount"></div>
+                </div>
+                <div style="background:var(--bg-secondary,#f3f4f6);border-radius:var(--border-radius-sm);padding:0.5rem 0.9rem;">
+                    <div style="font-size:0.75rem;color:var(--text-muted);">Montant réparti</div>
+                    <div style="font-weight:700;" id="split-assigned-amount" style="color:var(--primary);">0,00</div>
+                </div>
+                <div style="background:var(--bg-secondary,#f3f4f6);border-radius:var(--border-radius-sm);padding:0.5rem 0.9rem;">
+                    <div style="font-size:0.75rem;color:var(--text-muted);">Restant</div>
+                    <div style="font-weight:700;" id="split-remaining-amount"></div>
+                </div>
+            </div>
+
+            <div id="split-no-friends" style="display:none;padding:1rem 0;text-align:center;color:var(--text-muted);">
+                <i class="bi bi-people" style="font-size:2rem;"></i>
+                <p style="margin-top:0.5rem;">Vous n'avez pas encore d'amis.<br>
+                <a href="/friends">Ajouter des amis</a> pour répartir vos dépenses.</p>
+            </div>
+
+            <div id="split-loading" style="text-align:center;padding:1.5rem;">
+                <i class="bi bi-hourglass-split"></i> Chargement…
+            </div>
+
+            <form id="split-form" method="POST" action="" style="display:none;">
+                <?= csrf_field() ?>
+                <div id="split-participants-list"></div>
+
+                <div id="split-error" style="display:none;padding:0.5rem 0.75rem;background:rgba(239,71,111,0.1);border-radius:var(--border-radius-sm);color:var(--danger);font-size:0.85rem;margin-top:0.5rem;">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <span id="split-error-msg"></span>
+                </div>
+
+                <div style="display:flex;gap:0.75rem;margin-top:1.25rem;">
+                    <button type="submit" class="btn btn-primary" id="split-submit-btn">
+                        <i class="bi bi-send"></i> Envoyer les demandes
+                    </button>
+                    <button type="button" class="btn btn-outline" onclick="closeSplitModal()">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var modal      = document.getElementById('split-modal');
+    var form       = document.getElementById('split-form');
+    var listEl     = document.getElementById('split-participants-list');
+    var loadingEl  = document.getElementById('split-loading');
+    var noFriends  = document.getElementById('split-no-friends');
+    var errorEl    = document.getElementById('split-error');
+    var errorMsg   = document.getElementById('split-error-msg');
+    var submitBtn  = document.getElementById('split-submit-btn');
+    var txLabel    = document.getElementById('split-tx-label');
+    var totalAmtEl = document.getElementById('split-total-amount');
+    var assignedEl = document.getElementById('split-assigned-amount');
+    var remainEl   = document.getElementById('split-remaining-amount');
+
+    var currentTxAmount = 0;
+    var currency        = '';
+
+    function fmt(n) {
+        return n.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '\u00a0' + currency;
+    }
+
+    function updateTotals() {
+        var inputs = listEl.querySelectorAll('input[type="number"]');
+        var total  = 0;
+        inputs.forEach(function (inp) { total += parseFloat(inp.value) || 0; });
+        total = Math.round(total * 100) / 100;
+        assignedEl.textContent = fmt(total);
+        var remaining = Math.round((currentTxAmount - total) * 100) / 100;
+        remainEl.textContent  = fmt(remaining);
+        remainEl.style.color  = remaining < -0.001 ? 'var(--danger)' : (remaining < 0.001 ? 'var(--success)' : '');
+        assignedEl.style.color = remaining < -0.001 ? 'var(--danger)' : 'var(--primary)';
+    }
+
+    window.openSplitModal = function (txId, comment, amount, cur) {
+        currentTxAmount = amount;
+        currency        = cur;
+
+        txLabel.textContent    = comment ? '« ' + comment + ' »' : 'Opération #' + txId;
+        totalAmtEl.textContent = fmt(amount);
+        assignedEl.textContent = fmt(0);
+        remainEl.textContent   = fmt(amount);
+        remainEl.style.color   = '';
+        assignedEl.style.color = 'var(--primary)';
+
+        form.action = '/accounts/<?= (int) $account['id'] ?>/transactions/' + txId + '/split';
+        form.style.display = 'none';
+        loadingEl.style.display = '';
+        noFriends.style.display  = 'none';
+        errorEl.style.display    = 'none';
+        listEl.innerHTML         = '';
+        modal.style.display      = 'flex';
+
+        fetch('/friends/list')
+            .then(function (r) { return r.json(); })
+            .then(function (friends) {
+                loadingEl.style.display = 'none';
+                if (!friends.length) {
+                    noFriends.style.display = '';
+                    return;
+                }
+                listEl.innerHTML = '';
+                friends.forEach(function (f, i) {
+                    var row = document.createElement('div');
+                    row.style.cssText = 'display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem;';
+
+                    var cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.id   = 'split-cb-' + f.id;
+                    cb.style.marginTop = '0';
+
+                    var label = document.createElement('label');
+                    label.htmlFor    = 'split-cb-' + f.id;
+                    label.style.cssText = 'min-width:130px;cursor:pointer;font-weight:500;';
+                    label.innerHTML  = '<i class="bi bi-person"></i> ' + f.username;
+
+                    var amtWrapper = document.createElement('div');
+                    amtWrapper.style.cssText = 'display:flex;align-items:center;gap:0.3rem;flex:1;';
+
+                    var amtInput = document.createElement('input');
+                    amtInput.type        = 'number';
+                    amtInput.name        = 'participants[' + i + '][amount]';
+                    amtInput.min         = '0.01';
+                    amtInput.step        = '0.01';
+                    amtInput.placeholder = '0,00';
+                    amtInput.className   = 'form-control';
+                    amtInput.style.cssText = 'width:110px;';
+                    amtInput.disabled    = true;
+
+                    var hiddenUid = document.createElement('input');
+                    hiddenUid.type  = 'hidden';
+                    hiddenUid.name  = 'participants[' + i + '][user_id]';
+                    hiddenUid.value = f.id;
+
+                    var curLabel = document.createElement('span');
+                    curLabel.style.color    = 'var(--text-muted)';
+                    curLabel.style.fontSize = '0.85em';
+                    curLabel.textContent    = cur;
+
+                    cb.addEventListener('change', function () {
+                        amtInput.disabled = !cb.checked;
+                        hiddenUid.disabled = !cb.checked;
+                        if (!cb.checked) { amtInput.value = ''; }
+                        updateTotals();
+                    });
+
+                    amtInput.addEventListener('input', updateTotals);
+
+                    amtWrapper.appendChild(amtInput);
+                    amtWrapper.appendChild(curLabel);
+                    row.appendChild(cb);
+                    row.appendChild(label);
+                    row.appendChild(amtWrapper);
+                    row.appendChild(hiddenUid);
+                    listEl.appendChild(row);
+                });
+                form.style.display = '';
+                updateTotals();
+            })
+            .catch(function () {
+                loadingEl.style.display = 'none';
+                noFriends.style.display  = '';
+                noFriends.querySelector('p').innerHTML = 'Impossible de charger la liste des amis. <a href="/friends">Gérer les amis</a>.';
+            });
+    };
+
+    window.closeSplitModal = function () {
+        modal.style.display = 'none';
+    };
+
+    modal.addEventListener('click', function (e) {
+        if (e.target === modal) closeSplitModal();
+    });
+
+    form.addEventListener('submit', function (e) {
+        // Validation côté client
+        var checked = listEl.querySelectorAll('input[type="checkbox"]:checked');
+        if (!checked.length) {
+            e.preventDefault();
+            errorMsg.textContent  = 'Veuillez sélectionner au moins un participant.';
+            errorEl.style.display = '';
+            return;
+        }
+        var total = 0;
+        checked.forEach(function (cb) {
+            var amtId = cb.id.replace('split-cb-', '');
+            var inp   = listEl.querySelector('input[name*="[' + listEl.querySelector('input[type="checkbox"]:checked').id.replace('split-cb-', '') + '"]');
+            // Retrouver l'input du même row
+            var row = cb.closest('div');
+            var amt = row ? parseFloat(row.querySelector('input[type="number"]').value) || 0 : 0;
+            total  += amt;
+        });
+        total = Math.round(total * 100) / 100;
+        if (total > Math.round((currentTxAmount + 0.001) * 100) / 100) {
+            e.preventDefault();
+            errorMsg.textContent  = 'Le total (' + fmt(total) + ') dépasse le montant de la dépense (' + fmt(currentTxAmount) + ').';
+            errorEl.style.display = '';
+            return;
+        }
+        errorEl.style.display = 'none';
+        submitBtn.disabled    = true;
+        submitBtn.innerHTML   = '<i class="bi bi-hourglass-split"></i> Envoi…';
+    });
+})();
+</script>
 
 <?php if (($account['type'] ?? '') === 'pro' && isset($posPayments)): ?>
 <!-- ======================================================= -->
