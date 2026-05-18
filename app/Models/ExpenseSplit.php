@@ -8,7 +8,8 @@ use App\Core\Model;
 
 class ExpenseSplit extends Model
 {
-    protected string $table = 'expense_splits';
+    protected string $table     = 'expense_splits';
+    protected bool   $hasUpdatedAt = false;
 
     // ── Création ─────────────────────────────────────────────────────────────
 
