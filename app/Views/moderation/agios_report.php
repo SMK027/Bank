@@ -376,22 +376,82 @@ function balClass(float $v, float $limit): string {
                 Vous pouvez tout de même prélever des agios rétroactivement pour cette période.
             </div>
             <?php endif; ?>
+
+            <!-- Toggle mode Manuel / Par TAEG -->
+            <div style="display:flex;border:1px solid var(--border-color);border-radius:4px;overflow:hidden;margin-bottom:0.6rem;font-size:0.78rem;width:fit-content;">
+                <button type="button" id="ep<?= $i ?>BtnManuel" onclick="agiosEpMode(<?= $i ?>,'manuel')"
+                        style="border:none;padding:0.3rem 0.75rem;cursor:pointer;font-weight:600;background:var(--danger);color:#fff;">
+                    <i class="bi bi-pencil"></i> Manuel
+                </button>
+                <button type="button" id="ep<?= $i ?>BtnTaeg" onclick="agiosEpMode(<?= $i ?>,'taeg')"
+                        style="border:none;padding:0.3rem 0.75rem;cursor:pointer;font-weight:500;background:var(--card-bg,#fff);color:var(--text-color);">
+                    <i class="bi bi-calculator"></i> Par TAEG
+                </button>
+            </div>
+
             <form method="POST" action="/moderation/accounts/<?= (int) $account['id'] ?>/charge-agios">
                 <?= csrf_field() ?>
-                <div style="display:flex;align-items:center;flex-wrap:wrap;gap:0.6rem;">
-                    <div style="display:flex;align-items:center;gap:0.4rem;flex:1;min-width:200px;">
-                        <input type="number" name="amount" min="0.01" step="0.01" required
+                <input type="hidden" name="taeg_rate"    id="ep<?= $i ?>HiddenRate"    value="">
+                <input type="hidden" name="taeg_capital" id="ep<?= $i ?>HiddenCapital" value="">
+                <input type="hidden" name="taeg_days"    id="ep<?= $i ?>HiddenDays"    value="">
+
+                <!-- Panel Manuel -->
+                <div id="ep<?= $i ?>PanelManuel">
+                    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+                        <input type="number" name="amount" id="ep<?= $i ?>Amount"
+                               min="0.01" step="0.01" required
                                placeholder="Montant agios"
                                style="width:130px;font-size:0.84rem;padding:0.35rem 0.55rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);">
                         <span style="font-size:0.82rem;color:var(--text-muted);"><?= e($currency) ?></span>
+                        <input type="text" name="comment" id="ep<?= $i ?>Comment" maxlength="255"
+                               value="Agios — période du <?= fmtDateShort($ep['started_at']) ?><?= $ep['ended_at'] ? ' au ' . fmtDateShort($ep['ended_at']) : ' (en cours)' ?>"
+                               style="flex:1;min-width:180px;font-size:0.84rem;padding:0.35rem 0.55rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);">
+                        <button type="submit" class="btn btn-danger btn-sm"
+                                onclick="return agiosEpSubmit(<?= $i ?>)">
+                            <i class="bi bi-exclamation-triangle-fill"></i> Prélever agios
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Panel TAEG -->
+                <div id="ep<?= $i ?>PanelTaeg" style="display:none;">
+                    <div style="display:flex;align-items:flex-end;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.4rem;">
+                        <div>
+                            <label style="display:block;font-size:0.76rem;font-weight:600;margin-bottom:0.2rem;">TAEG&nbsp;(%)</label>
+                            <input type="number" id="ep<?= $i ?>TaegRate" min="0.01" step="0.01"
+                                   placeholder="ex.&nbsp;15.00" oninput="agiosEpCalc(<?= $i ?>)"
+                                   style="width:90px;font-size:0.84rem;padding:0.32rem 0.5rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);">
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:0.76rem;font-weight:600;margin-bottom:0.2rem;">Capital&nbsp;(<?= e($currency) ?>)</label>
+                            <input type="number" id="ep<?= $i ?>TaegCapital" min="0.01" step="0.01"
+                                   value="<?= round((float)$ep['max_depth'], 2) ?>"
+                                   oninput="agiosEpCalc(<?= $i ?>)"
+                                   style="width:110px;font-size:0.84rem;padding:0.32rem 0.5rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);">
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:0.76rem;font-weight:600;margin-bottom:0.2rem;">Jours</label>
+                            <input type="number" id="ep<?= $i ?>TaegDays" min="1" step="1"
+                                   value="<?= (int)$ep['duration_days'] ?>"
+                                   oninput="agiosEpCalc(<?= $i ?>)"
+                                   style="width:70px;font-size:0.84rem;padding:0.32rem 0.5rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);">
+                        </div>
+                        <div style="font-size:0.84rem;padding-bottom:0.25rem;">
+                            = <strong id="ep<?= $i ?>TaegResult" style="color:var(--danger);">—</strong>
+                        </div>
+                    </div>
+                    <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:0.45rem;">
+                        Capital &times; TAEG&nbsp;% &divide; 100 &times; Jours &divide; 365
+                    </div>
+                    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
                         <input type="text" name="comment" maxlength="255"
                                value="Agios — période du <?= fmtDateShort($ep['started_at']) ?><?= $ep['ended_at'] ? ' au ' . fmtDateShort($ep['ended_at']) : ' (en cours)' ?>"
-                               style="flex:1;font-size:0.84rem;padding:0.35rem 0.55rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);">
+                               style="flex:1;min-width:180px;font-size:0.84rem;padding:0.32rem 0.55rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);">
+                        <button type="submit" class="btn btn-danger btn-sm"
+                                onclick="return agiosEpSubmit(<?= $i ?>)">
+                            <i class="bi bi-exclamation-triangle-fill"></i> Prélever agios
+                        </button>
                     </div>
-                    <button type="submit" class="btn btn-danger btn-sm"
-                            onclick="return confirm('Prélever des agios sur ce compte ?')">
-                        <i class="bi bi-exclamation-triangle-fill"></i> Prélever agios
-                    </button>
                 </div>
             </form>
         </div>
@@ -461,5 +521,55 @@ function showEpTab(epId, tab, btn) {
     if (btn) {
         btn.classList.add('active');
     }
+}
+function agiosEpMode(i, mode) {
+    var isManuel = mode === 'manuel';
+    var panelM = document.getElementById('ep' + i + 'PanelManuel');
+    var panelT = document.getElementById('ep' + i + 'PanelTaeg');
+    var btnM   = document.getElementById('ep' + i + 'BtnManuel');
+    var btnT   = document.getElementById('ep' + i + 'BtnTaeg');
+    if (panelM) panelM.style.display = isManuel ? '' : 'none';
+    if (panelT) panelT.style.display = isManuel ? 'none' : '';
+    if (btnM) { btnM.style.background = isManuel ? 'var(--danger)' : 'var(--card-bg,#fff)'; btnM.style.color = isManuel ? '#fff' : 'var(--text-color)'; }
+    if (btnT) { btnT.style.background = isManuel ? 'var(--card-bg,#fff)' : 'var(--danger)'; btnT.style.color = isManuel ? 'var(--text-color)' : '#fff'; }
+    var amt = document.getElementById('ep' + i + 'Amount');
+    if (amt) amt.required = isManuel;
+    if (isManuel) {
+        document.getElementById('ep' + i + 'HiddenRate').value    = '';
+        document.getElementById('ep' + i + 'HiddenCapital').value = '';
+        document.getElementById('ep' + i + 'HiddenDays').value    = '';
+    } else {
+        agiosEpCalc(i);
+    }
+}
+function agiosEpCalc(i) {
+    var rate    = parseFloat(document.getElementById('ep' + i + 'TaegRate').value);
+    var capital = parseFloat(document.getElementById('ep' + i + 'TaegCapital').value);
+    var days    = parseFloat(document.getElementById('ep' + i + 'TaegDays').value);
+    var resultEl = document.getElementById('ep' + i + 'TaegResult');
+    var amt      = document.getElementById('ep' + i + 'Amount');
+    if (rate > 0 && capital > 0 && days > 0) {
+        var amount = Math.round(capital * (rate / 100) * (days / 365) * 100) / 100;
+        if (resultEl) resultEl.textContent = amount.toFixed(2).replace('.', ',');
+        if (amt) amt.value = amount;
+        document.getElementById('ep' + i + 'HiddenRate').value    = rate;
+        document.getElementById('ep' + i + 'HiddenCapital').value = capital;
+        document.getElementById('ep' + i + 'HiddenDays').value    = days;
+    } else {
+        if (resultEl) resultEl.textContent = '—';
+        if (amt) amt.value = '';
+        document.getElementById('ep' + i + 'HiddenRate').value    = '';
+        document.getElementById('ep' + i + 'HiddenCapital').value = '';
+        document.getElementById('ep' + i + 'HiddenDays').value    = '';
+    }
+}
+function agiosEpSubmit(i) {
+    var amt = document.getElementById('ep' + i + 'Amount');
+    var amount = amt ? parseFloat(amt.value) : 0;
+    if (!amount || amount <= 0) {
+        alert('Veuillez saisir un montant ou renseigner les trois champs TAEG.');
+        return false;
+    }
+    return confirm('Prélever des agios sur ce compte ?');
 }
 </script>

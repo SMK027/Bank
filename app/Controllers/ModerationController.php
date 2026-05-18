@@ -216,7 +216,7 @@ class ModerationController extends Controller
         $balance   = $this->accountModel->getBalance($accountId);
         $overdraft = (float) ($account['overdraft'] ?? 0);
 
-        $data   = $this->getPostData(['amount', 'comment']);
+        $data   = $this->getPostData(['amount', 'comment', 'taeg_rate', 'taeg_capital', 'taeg_days']);
         $amount = abs((float) ($data['amount'] ?? 0));
 
         if ($amount <= 0) {
@@ -245,6 +245,9 @@ class ModerationController extends Controller
                 'balance_at_charge'   => $balance,
                 'overdraft_limit'     => $overdraft,
                 'comment'             => $comment,
+                'taeg_rate'           => !empty($data['taeg_rate'])    ? round((float) $data['taeg_rate'], 4)    : null,
+                'taeg_capital'        => !empty($data['taeg_capital']) ? round((float) $data['taeg_capital'], 2) : null,
+                'taeg_days'           => !empty($data['taeg_days'])    ? (int) $data['taeg_days']                : null,
             ],
             targetUserId: (int) $account['user_id'],
             targetAccountId: $accountId

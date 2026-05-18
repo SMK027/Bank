@@ -2202,10 +2202,28 @@ function toggleExpires(select) {
         </div>
         <?php endif; ?>
 
-        <form method="POST" action="/moderation/accounts/<?= (int) $account['id'] ?>/charge-agios">
+        <?php $currentOverdraft = round(max(0.0, $overdraftLimit - $balance), 2); ?>
+        <form method="POST" action="/moderation/accounts/<?= (int) $account['id'] ?>/charge-agios" id="agiosModalForm">
             <?= csrf_field() ?>
+            <!-- Paramètres TAEG transmis au contrôleur pour l'audit (remplis par JS) -->
+            <input type="hidden" name="taeg_rate"    id="agiosHiddenRate"    value="">
+            <input type="hidden" name="taeg_capital" id="agiosHiddenCapital" value="">
+            <input type="hidden" name="taeg_days"    id="agiosHiddenDays"    value="">
 
-            <div style="margin-bottom:0.9rem;">
+            <!-- ── Toggle mode ── -->
+            <div style="display:flex;border:1px solid var(--border-color);border-radius:4px;overflow:hidden;margin-bottom:0.9rem;font-size:0.82rem;">
+                <button type="button" id="agiosBtnManuel" onclick="agiosSwitchMode('manuel')"
+                        style="flex:1;border:none;padding:0.4rem 0.6rem;cursor:pointer;font-weight:600;background:var(--danger);color:#fff;">
+                    <i class="bi bi-pencil"></i> Manuel
+                </button>
+                <button type="button" id="agiosBtnTaeg" onclick="agiosSwitchMode('taeg')"
+                        style="flex:1;border:none;padding:0.4rem 0.6rem;cursor:pointer;font-weight:500;background:var(--card-bg,#fff);color:var(--text-color);">
+                    <i class="bi bi-calculator"></i> Par TAEG
+                </button>
+            </div>
+
+            <!-- ── Panel Manuel ── -->
+            <div id="agiosPanelManuel" style="margin-bottom:0.9rem;">
                 <label style="display:block;font-size:0.83rem;font-weight:600;margin-bottom:0.35rem;">
                     Montant des agios <span style="color:var(--danger)">*</span>
                 </label>
@@ -2218,6 +2236,38 @@ function toggleExpires(select) {
                 </div>
             </div>
 
+            <!-- ── Panel TAEG ── -->
+            <div id="agiosPanelTaeg" style="display:none;margin-bottom:0.9rem;">
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-bottom:0.5rem;">
+                    <div>
+                        <label style="display:block;font-size:0.78rem;font-weight:600;margin-bottom:0.25rem;">TAEG&nbsp;(%)</label>
+                        <input type="number" id="agiosTaegRate" min="0.01" step="0.01"
+                               placeholder="ex.&nbsp;15.00" oninput="agiosCalcTaeg()"
+                               style="width:100%;font-size:0.84rem;padding:0.35rem 0.5rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:0.78rem;font-weight:600;margin-bottom:0.25rem;">Capital&nbsp;(<?= e($account['currency']) ?>)</label>
+                        <input type="number" id="agiosTaegCapital" min="0.01" step="0.01"
+                               value="<?= $currentOverdraft > 0 ? $currentOverdraft : '' ?>"
+                               placeholder="0.00" oninput="agiosCalcTaeg()"
+                               style="width:100%;font-size:0.84rem;padding:0.35rem 0.5rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:0.78rem;font-weight:600;margin-bottom:0.25rem;">Durée&nbsp;(jours)</label>
+                        <input type="number" id="agiosTaegDays" min="1" step="1"
+                               placeholder="ex.&nbsp;30" oninput="agiosCalcTaeg()"
+                               style="width:100%;font-size:0.84rem;padding:0.35rem 0.5rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);box-sizing:border-box;">
+                    </div>
+                </div>
+                <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.4rem;">
+                    Formule&nbsp;: Capital &times; TAEG&nbsp;% &divide; 100 &times; Jours &divide; 365
+                </div>
+                <div style="font-size:0.88rem;padding:0.4rem 0.65rem;background:var(--bg-subtle,#f8f9fa);border:1px solid var(--border-color);border-radius:4px;">
+                    Agios calculés&nbsp;:&nbsp;<strong id="agiosTaegResult" style="color:var(--danger);">—</strong>
+                </div>
+            </div>
+
+            <!-- ── Commentaire (commun) ── -->
             <div style="margin-bottom:1.2rem;">
                 <label style="display:block;font-size:0.83rem;font-weight:600;margin-bottom:0.35rem;">
                     Commentaire <span style="font-weight:400;color:var(--text-muted)">(facultatif)</span>
@@ -2238,9 +2288,58 @@ function toggleExpires(select) {
     </div>
 </div>
 <script>
+function agiosSwitchMode(mode) {
+    var isManuel = mode === 'manuel';
+    document.getElementById('agiosPanelManuel').style.display = isManuel ? '' : 'none';
+    document.getElementById('agiosPanelTaeg').style.display   = isManuel ? 'none' : '';
+    var btnM = document.getElementById('agiosBtnManuel');
+    var btnT = document.getElementById('agiosBtnTaeg');
+    btnM.style.background = isManuel ? 'var(--danger)' : 'var(--card-bg,#fff)';
+    btnM.style.color      = isManuel ? '#fff' : 'var(--text-color)';
+    btnT.style.background = isManuel ? 'var(--card-bg,#fff)' : 'var(--danger)';
+    btnT.style.color      = isManuel ? 'var(--text-color)' : '#fff';
+    var amt = document.getElementById('agiosAmount');
+    amt.required = isManuel;
+    if (isManuel) {
+        document.getElementById('agiosHiddenRate').value    = '';
+        document.getElementById('agiosHiddenCapital').value = '';
+        document.getElementById('agiosHiddenDays').value    = '';
+    } else {
+        agiosCalcTaeg();
+    }
+}
+function agiosCalcTaeg() {
+    var rate    = parseFloat(document.getElementById('agiosTaegRate').value);
+    var capital = parseFloat(document.getElementById('agiosTaegCapital').value);
+    var days    = parseFloat(document.getElementById('agiosTaegDays').value);
+    var resultEl = document.getElementById('agiosTaegResult');
+    var amt      = document.getElementById('agiosAmount');
+    if (rate > 0 && capital > 0 && days > 0) {
+        var amount = Math.round(capital * (rate / 100) * (days / 365) * 100) / 100;
+        resultEl.textContent = amount.toFixed(2).replace('.', ',') + ' <?= e($account['currency']) ?>';
+        amt.value = amount;
+        document.getElementById('agiosHiddenRate').value    = rate;
+        document.getElementById('agiosHiddenCapital').value = capital;
+        document.getElementById('agiosHiddenDays').value    = days;
+    } else {
+        resultEl.textContent = '—';
+        amt.value = '';
+        document.getElementById('agiosHiddenRate').value    = '';
+        document.getElementById('agiosHiddenCapital').value = '';
+        document.getElementById('agiosHiddenDays').value    = '';
+    }
+}
+document.getElementById('agiosModalForm').addEventListener('submit', function (e) {
+    var amount = parseFloat(document.getElementById('agiosAmount').value);
+    if (!amount || amount <= 0) {
+        e.preventDefault();
+        alert('Veuillez saisir un montant ou renseigner les trois champs TAEG.');
+    }
+});
 function openAgiosModal() {
     var overlay = document.getElementById('agiosModalOverlay');
     overlay.style.display = 'flex';
+    agiosSwitchMode('manuel');
     var inp = document.getElementById('agiosAmount');
     if (inp) { inp.value = ''; inp.focus(); }
 }
