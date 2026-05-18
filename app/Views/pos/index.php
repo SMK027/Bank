@@ -94,32 +94,66 @@ $posStatus = $posStatus ?? null;
     </div>
 <?php endif; ?>
 
-<?php if (empty($merchantAccounts) && !is_moderator()): ?>
+<?php
+    $allPosAccounts       = $merchantAccountsRaw ?? [];
+    $suspendedPosAccounts = array_values(array_filter($allPosAccounts, fn($a) => \App\Models\Account::isPosSuspended($a)));
+    $merchantSuspended    = !is_moderator() && empty($merchantAccounts) && !empty($suspendedPosAccounts);
+    $tpeBlocked           = $posStatus && !empty($posStatus['is_disabled']);
+    $blockForm            = $tpeBlocked || $merchantSuspended;
+?>
+
+<?php if ($merchantSuspended): ?>
+    <div class="alert alert-danger" role="alert" style="display:flex;align-items:flex-start;gap:0.75rem;">
+        <i class="bi bi-slash-circle" style="font-size:1.4rem;flex-shrink:0;margin-top:0.1rem;"></i>
+        <div>
+            <strong>Votre accès au TPE est suspendu par la modération.</strong>
+            <?php
+                $suspReason = '';
+                $suspUntil  = null;
+                foreach ($suspendedPosAccounts as $_sa) {
+                    if (!empty($_sa['pos_suspend_reason']) && $suspReason === '') {
+                        $suspReason = $_sa['pos_suspend_reason'];
+                    }
+                    if (!empty($_sa['pos_suspended_until']) && $suspUntil === null) {
+                        $suspUntil = $_sa['pos_suspended_until'];
+                    }
+                }
+            ?>
+            <?php if ($suspReason !== ''): ?>
+                <div class="text-small" style="margin-top:0.3rem;">
+                    Motif : <?= e($suspReason) ?>
+                </div>
+            <?php endif; ?>
+            <?php if ($suspUntil): ?>
+                <div class="text-small">
+                    Réactivation automatique prévue le
+                    <?= e(date('d/m/Y H:i', strtotime($suspUntil))) ?>.
+                </div>
+            <?php else: ?>
+                <div class="text-small">Aucune date de réactivation programmée. Contactez la modération pour plus d'informations.</div>
+            <?php endif; ?>
+            <div class="text-small" style="margin-top:0.4rem;">
+                Vous ne pouvez pas encaisser de paiements tant que la suspension est active.
+            </div>
+        </div>
+    </div>
+<?php elseif (empty($merchantAccounts) && !is_moderator()): ?>
     <div class="alert alert-info" role="alert">
         <i class="bi bi-info-circle-fill"></i>
-        <?php
-            // Détecter si tous les comptes pro existent mais sont suspendus du TPE
-            $allAccounts = $merchantAccountsRaw ?? [];
-            $hasSuspended = !empty(array_filter($allAccounts, fn($a) => \App\Models\Account::isPosSuspended($a)));
-        ?>
-        <?php if ($hasSuspended): ?>
-            Votre (vos) compte(s) professionnel(s) est (sont) suspendu(s) du TPE par la modération.
-            Vous ne pouvez pas encaisser de paiements tant que la suspension est active.
+        Vous ne disposez d'aucun compte professionnel. Vous pouvez tout de même
+        utiliser le TPE&nbsp;: la carte du client sera débitée et l'opération sera
+        enregistrée sans crédit commerçant.
+        <?php if (!is_professional()): ?>
+            <br><a href="/profile/professional">Activez votre statut professionnel</a> pour
+            associer un compte d'encaissement.
         <?php else: ?>
-            Vous ne disposez d'aucun compte professionnel. Vous pouvez tout de même
-            utiliser le TPE&nbsp;: la carte du client sera débitée et l'opération sera
-            enregistrée sans crédit commerçant.
-            <?php if (!is_professional()): ?>
-                <br><a href="/profile/professional">Activez votre statut professionnel</a> pour
-                associer un compte d'encaissement.
-            <?php else: ?>
-                <br><a href="/accounts/create">Créer un compte professionnel</a> pour bénéficier
-                du crédit automatique.
-            <?php endif; ?>
+            <br><a href="/accounts/create">Créer un compte professionnel</a> pour bénéficier
+            du crédit automatique.
         <?php endif; ?>
     </div>
 <?php endif; ?>
 
+<?php if (!$blockForm): ?>
     <div class="card" id="pos-form-card" style="max-width:680px;transition:border-color 0.3s;">
         <div class="card-body">
             <p class="text-muted" style="margin-top:0;">
@@ -210,6 +244,7 @@ $posStatus = $posStatus ?? null;
             </form>
         </div>
     </div>
+<?php endif; ?>
 
 <script>
 (function () {
