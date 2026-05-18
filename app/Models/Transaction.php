@@ -273,4 +273,104 @@ class Transaction extends Model
         ]);
         return (float) $stmt->fetchColumn();
     }
+
+    /**
+     * Reconstruit l'historique de solde d'un compte (toutes les transactions exécutées,
+     * ordre chronologique ASC) et identifie les épisodes de dépassement de découvert.
+     *
+     * Un épisode commence dès que le solde tombe sous $overdraftLimit (= -$overdraft, ou 0 si
+     * le type de compte n'autorise pas le découvert) et se termine quand il repasse au-dessus.
+     *
+     * Retourne un tableau de la forme :
+     * [
+     *   'transactions' => [...],   // toutes les tx exécutées (avec champ 'running_balance')
+     *   'episodes'     => [        // périodes en dépassement
+     *     [
+     *       'start_tx'       => [...],  // tx qui a déclenché le dépassement
+     *       'end_tx'         => [...],  // tx qui a soldé le dépassement (null si toujours en cours)
+     *       'started_at'     => '...',
+     *       'ended_at'       => '...' | null,
+     *       'max_depth'      => float,  // dépassement max (valeur absolue au-delà de la limite)
+     *       'snapshot'       => [...],  // toutes les tx pendant l'épisode (avec running_balance)
+     *     ],
+     *     ...
+     *   ],
+     * ]
+     *
+     * @param float $overdraftLimit Seuil en dessous duquel on considère un dépassement (négatif).
+     *                              Ex : -500 pour un découvert autorisé de 500, ou 0 sinon.
+     */
+    public function buildOverdraftHistory(int $accountId, float $overdraftLimit = 0.0): array
+    {
+        // Toutes les transactions exécutées, ordre chronologique
+        $stmt = $this->getPdo()->prepare(
+            "SELECT * FROM `{$this->table}`
+             WHERE account_id = ?
+               AND (scheduled_at IS NULL OR scheduled_at <= CURRENT_TIMESTAMP)
+             ORDER BY created_at ASC, id ASC"
+        );
+        $stmt->execute([$accountId]);
+        $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        $runningBalance = 0.0;
+        $transactions   = [];
+        foreach ($rows as $row) {
+            if ($row['type'] === 'income') {
+                $runningBalance += (float) $row['amount'];
+            } else {
+                $runningBalance -= (float) $row['amount'];
+            }
+            $row['running_balance'] = $runningBalance;
+            $transactions[] = $row;
+        }
+
+        // Identification des épisodes
+        $episodes        = [];
+        $inEpisode       = false;
+        $currentEpisode  = null;
+
+        foreach ($transactions as $tx) {
+            $bal = (float) $tx['running_balance'];
+
+            if (!$inEpisode) {
+                if ($bal < $overdraftLimit) {
+                    // Début d'un épisode
+                    $inEpisode      = true;
+                    $currentEpisode = [
+                        'start_tx'   => $tx,
+                        'end_tx'     => null,
+                        'started_at' => $tx['created_at'],
+                        'ended_at'   => null,
+                        'max_depth'  => $overdraftLimit - $bal,
+                        'snapshot'   => [$tx],
+                    ];
+                }
+            } else {
+                $depth = $overdraftLimit - $bal;
+                if ($depth > $currentEpisode['max_depth']) {
+                    $currentEpisode['max_depth'] = $depth;
+                }
+                $currentEpisode['snapshot'][] = $tx;
+
+                if ($bal >= $overdraftLimit) {
+                    // Fin de l'épisode
+                    $currentEpisode['end_tx']   = $tx;
+                    $currentEpisode['ended_at'] = $tx['created_at'];
+                    $episodes[]     = $currentEpisode;
+                    $inEpisode      = false;
+                    $currentEpisode = null;
+                }
+            }
+        }
+
+        // Épisode toujours en cours
+        if ($inEpisode && $currentEpisode !== null) {
+            $episodes[] = $currentEpisode;
+        }
+
+        return [
+            'transactions' => $transactions,
+            'episodes'     => $episodes,
+        ];
+    }
 }

@@ -175,6 +175,11 @@
                     <i class="bi bi-exclamation-triangle-fill"></i> Prélever agios
                 </button>
             <?php endif; ?>
+            <a href="/moderation/accounts/<?= (int) $account['id'] ?>/agios"
+               class="btn btn-outline btn-sm"
+               title="Rapport des épisodes de dépassement de découvert et rejets associés">
+                <i class="bi bi-graph-down-arrow"></i> Rapport agios
+            </a>
         <?php endif; ?>
     </div>
 </div>

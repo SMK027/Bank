@@ -163,6 +163,7 @@ $router->post('/moderation/users/{id}/pin/reset', ModerationController::class, '
 $router->post('/moderation/accounts/{id}/freeze', ModerationController::class, 'freeze');
 $router->post('/moderation/accounts/{id}/unfreeze', ModerationController::class, 'unfreeze');
 $router->post('/moderation/accounts/{id}/charge-agios', ModerationController::class, 'chargeAgios');
+$router->get('/moderation/accounts/{id}/agios', ModerationController::class, 'agiosReport');
 $router->post('/moderation/accounts/{id}/disable', ModerationController::class, 'disableAccount');
 $router->post('/moderation/accounts/{id}/enable', ModerationController::class, 'enableAccount');
 $router->post('/moderation/accounts/{id}/toggle-deferred-debit', ModerationController::class, 'toggleDeferredDebit');

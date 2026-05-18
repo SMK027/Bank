@@ -20,6 +20,8 @@ use App\Models\User;
 use App\Models\SavingsInterest;
 use App\Models\SavingsRate;
 use App\Models\DeferredDebit;
+use App\Models\Loan;
+use App\Models\LoanInstallment;
 use App\Models\RecurringTransfer;
 
 class ModerationController extends Controller
@@ -275,6 +277,114 @@ class ModerationController extends Controller
             $account['name']
         ));
         $this->redirect('/accounts/' . $accountId);
+    }
+
+    /**
+     * Rapport d'analyse des épisodes de dépassement de découvert pour un compte (GET).
+     * Affiche les périodes en dépassement, l'évolution du solde et les rejets associés.
+     */
+    public function agiosReport(string $id): void
+    {
+        $this->requireModerator();
+
+        $accountId = (int) $id;
+        $account   = $this->accountModel->find($accountId);
+
+        if (!$account) {
+            $this->setFlash('danger', 'Compte introuvable.');
+            $this->redirect('/moderation');
+            return;
+        }
+
+        $typeAllowsOd  = Account::typeAllowsOverdraft($account['type'] ?? 'standard');
+        $overdraft     = (float) ($account['overdraft'] ?? 0);
+        $overdraftLimit = $typeAllowsOd ? -$overdraft : 0.0;
+
+        // Reconstruction de l'historique de solde et des épisodes de dépassement
+        $history  = $this->transactionModel->buildOverdraftHistory($accountId, $overdraftLimit);
+        $episodes = $history['episodes'];
+        $allTx    = $history['transactions'];
+
+        // Pour chaque épisode, on enrichit les rejets pendant la période
+        $directDebitModel     = new DirectDebit();
+        $transferModel        = new Transfer();
+        $loanInstallmentModel = new LoanInstallment();
+
+        // Prélèvements (rejected/failed) sur ce compte
+        $allDirectDebits = $directDebitModel->findBy(['to_account_id' => (string) $accountId]);
+        $failedDd = array_filter($allDirectDebits, fn($d) =>
+            in_array($d['status'], [DirectDebit::STATUS_REJECTED, DirectDebit::STATUS_FAILED], true)
+        );
+
+        // Virements émis depuis ce compte (failed)
+        $allTransfers = $transferModel->findAll('created_at', 'ASC');
+        $failedTransfers = array_filter($allTransfers, fn($t) =>
+            (int) $t['from_account_id'] === $accountId
+            && $t['status'] === Transfer::STATUS_FAILED
+        );
+
+        // Mensualités de crédit échouées sur ce compte
+        $pdo              = \App\Core\Database::getInstance();
+        $stmtInst         = $pdo->prepare(
+            'SELECT li.*, l.amount AS loan_amount, l.loan_type
+             FROM loan_installments li
+             JOIN loans l ON l.id = li.loan_id
+             WHERE l.account_id = ? AND li.status = ?
+             ORDER BY li.due_date ASC'
+        );
+        $stmtInst->execute([$accountId, LoanInstallment::STATUS_FAILED]);
+        $failedInstallments = $stmtInst->fetchAll(\PDO::FETCH_ASSOC);
+
+        // Agios déjà prélevés (catégorie Agios, expense)
+        $agiosTx = array_filter($allTx, fn($t) =>
+            $t['type'] === 'expense' && ($t['category'] ?? '') === 'Agios'
+        );
+
+        // Injecte les rejets dans chaque épisode
+        foreach ($episodes as &$ep) {
+            $start = $ep['started_at'];
+            $end   = $ep['ended_at'] ?? date('Y-m-d H:i:s');
+
+            $ep['rejected_dd'] = array_values(array_filter($failedDd, fn($d) =>
+                !empty($d['scheduled_at'])
+                && $d['scheduled_at'] >= $start
+                && $d['scheduled_at'] <= $end
+            ));
+
+            $ep['failed_transfers'] = array_values(array_filter($failedTransfers, fn($t) =>
+                $t['created_at'] >= $start && $t['created_at'] <= $end
+            ));
+
+            $ep['failed_installments'] = array_values(array_filter($failedInstallments, fn($i) =>
+                !empty($i['due_date'])
+                && $i['due_date'] >= substr($start, 0, 10)
+                && $i['due_date'] <= substr($end, 0, 10)
+            ));
+
+            $ep['agios_charged'] = array_values(array_filter($agiosTx, fn($t) =>
+                $t['created_at'] >= $start && $t['created_at'] <= $end
+            ));
+
+            $ep['duration_days'] = (int) ceil(
+                (strtotime($end) - strtotime($ep['started_at'])) / 86400
+            );
+        }
+        unset($ep);
+
+        $owner = $this->userModel->find((int) $account['user_id']);
+
+        $this->render('moderation/agios_report', [
+            'title'          => 'Rapport agios — ' . $account['name'],
+            'account'        => $account,
+            'owner'          => $owner,
+            'overdraftLimit' => $overdraftLimit,
+            'overdraft'      => $overdraft,
+            'typeAllowsOd'   => $typeAllowsOd,
+            'episodes'       => array_reverse($episodes), // plus récent en tête
+            'allTx'          => $allTx,
+            'agiosTx'        => array_values($agiosTx),
+            'currentBalance' => $this->accountModel->getBalance($accountId),
+        ]);
     }
 
     /**
