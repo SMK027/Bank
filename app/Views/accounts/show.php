@@ -1284,7 +1284,7 @@
                     </span>
                 </h5>
             <div class="table-responsive" style="margin-bottom:1.25rem;">
-                <table class="table" id="deferred-debits-table-<?= e($groupKey) ?>">
+                <table class="table dd-table" id="deferred-debits-table-<?= e($groupKey) ?>">
                     <thead>
                         <tr>
                             <th>Date opération</th>

@@ -1917,6 +1917,188 @@ select.form-control {
         text-align: right;
         align-self: end;
     }
+
+    /* ── Prélèvements planifiés (#upcoming-debits-table) ──────────────── */
+
+    /* Re-afficher la colonne Sens (masquée par la règle ≤768px) */
+    #upcoming-debits-table th:nth-child(3),
+    #upcoming-debits-table td:nth-child(3) { display: block; }
+
+    #upcoming-debits-table thead { display: none; }
+
+    #upcoming-debits-table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        padding: 0.65rem 0.5rem;
+        gap: 0.15rem 0.5rem;
+        border-bottom: 1px solid var(--gray-light);
+        border-radius: 0;
+    }
+    #upcoming-debits-table tbody tr:last-child { border-bottom: none; }
+
+    #upcoming-debits-table td {
+        padding: 0;
+        border: none;
+        font-size: 0.85rem;
+    }
+
+    /* Col 3 — Sens (badge) : ligne 1 gauche */
+    #upcoming-debits-table td:nth-child(3) {
+        grid-column: 1; grid-row: 1;
+        align-self: center;
+    }
+
+    /* Col 6 — Montant : ligne 1 droite */
+    #upcoming-debits-table td:nth-child(6) {
+        grid-column: 2; grid-row: 1;
+        text-align: right;
+        font-size: 1rem;
+        align-self: center;
+    }
+
+    /* Col 1 — Date prévue : ligne 2, pleine largeur */
+    #upcoming-debits-table td:nth-child(1) {
+        grid-column: 1 / -1; grid-row: 2;
+        font-size: 0.73rem;
+        color: var(--gray);
+    }
+
+    /* Col 2 — N° mandat : ligne 3 gauche */
+    #upcoming-debits-table td:nth-child(2) {
+        grid-column: 1; grid-row: 3;
+        font-size: 0.78rem;
+    }
+
+    /* Col 4 — Contrepartie : ligne 3 droite */
+    #upcoming-debits-table td:nth-child(4) {
+        grid-column: 2; grid-row: 3;
+        font-size: 0.78rem;
+        text-align: right;
+    }
+
+    /* Col 5 — Motif : ligne 4, pleine largeur */
+    #upcoming-debits-table td:nth-child(5) {
+        grid-column: 1 / -1; grid-row: 4;
+        font-size: 0.78rem;
+        color: var(--gray);
+        font-style: italic;
+    }
+
+    /* ── Mensualités de crédit (#upcoming-installments-table) ─────────── */
+
+    #upcoming-installments-table thead { display: none; }
+
+    #upcoming-installments-table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        padding: 0.65rem 0.5rem;
+        gap: 0.15rem 0.5rem;
+        border-bottom: 1px solid var(--gray-light);
+        border-radius: 0;
+    }
+    #upcoming-installments-table tbody tr:last-child { border-bottom: none; }
+
+    #upcoming-installments-table td {
+        padding: 0;
+        border: none;
+        font-size: 0.85rem;
+    }
+
+    /* Col 2 — Type de crédit : ligne 1 gauche */
+    #upcoming-installments-table td:nth-child(2) {
+        grid-column: 1; grid-row: 1;
+        align-self: center;
+    }
+
+    /* Col 3 — Montant : ligne 1 droite */
+    #upcoming-installments-table td:nth-child(3) {
+        grid-column: 2; grid-row: 1;
+        text-align: right;
+        font-size: 1rem;
+        align-self: center;
+    }
+
+    /* Col 1 — Date d'échéance : ligne 2, pleine largeur */
+    #upcoming-installments-table td:nth-child(1) {
+        grid-column: 1 / -1; grid-row: 2;
+        font-size: 0.73rem;
+        color: var(--gray);
+    }
+
+    /* ── Encours / Débits différés (.dd-table) ─────────────────────────── */
+
+    .dd-table thead { display: none; }
+
+    .dd-table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        padding: 0.65rem 0.5rem;
+        gap: 0.15rem 0.5rem;
+        border-bottom: 1px solid var(--gray-light);
+        border-radius: 0;
+    }
+    .dd-table tbody tr:last-child { border-bottom: none; }
+
+    .dd-table td {
+        padding: 0;
+        border: none;
+        font-size: 0.85rem;
+    }
+
+    /* Col 3 — Catégorie : ligne 1 gauche */
+    .dd-table td:nth-child(3) {
+        grid-column: 1; grid-row: 1;
+        font-weight: 600;
+        align-self: center;
+    }
+
+    /* Col 6 — Montant : ligne 1 droite */
+    .dd-table td:nth-child(6) {
+        grid-column: 2; grid-row: 1;
+        text-align: right;
+        font-size: 1rem;
+        align-self: center;
+    }
+
+    /* Col 1 — Date opération : ligne 2, pleine largeur */
+    .dd-table td:nth-child(1) {
+        grid-column: 1 / -1; grid-row: 2;
+        font-size: 0.73rem;
+        color: var(--gray);
+    }
+
+    /* Col 2 — Fin de période : ligne 3, pleine largeur */
+    .dd-table td:nth-child(2) {
+        grid-column: 1 / -1; grid-row: 3;
+        font-size: 0.73rem;
+        color: var(--gray);
+    }
+
+    /* Col 5 — Commentaire : ligne 4 gauche */
+    .dd-table td:nth-child(5) {
+        grid-column: 1; grid-row: 4;
+        font-size: 0.78rem;
+        color: var(--gray);
+        font-style: italic;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 180px;
+    }
+
+    /* Col 4 — Par (auteur) : ligne 4 droite */
+    .dd-table td:nth-child(4) {
+        grid-column: 2; grid-row: 4;
+        font-size: 0.78rem;
+        text-align: right;
+    }
+
+    /* Col 7 — Actions : ligne 5 droite */
+    .dd-table td:nth-child(7) {
+        grid-column: 2; grid-row: 5;
+        text-align: right;
+        align-self: end;
+    }
 }
 
 /* =====================================================================
