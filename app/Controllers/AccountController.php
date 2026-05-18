@@ -21,6 +21,7 @@ use App\Models\SavingsInterest;
 use App\Models\SavingsRate;
 use App\Models\Loan;
 use App\Models\LoanInstallment;
+use App\Models\OverdraftAuthorization;
 use App\Models\User;
 
 class AccountController extends Controller
@@ -447,6 +448,8 @@ class AccountController extends Controller
             'txCards'                => $txCards,
             // Sync avec TransactionController::CARD_REQUIRED_SINCE
             'cardRequiredSince'      => \App\Controllers\TransactionController::CARD_REQUIRED_SINCE,
+            // Autorisation de dépassement de découvert active (null si aucune)
+            'overdraftAuthorization' => (new OverdraftAuthorization())->getActiveForAccount($accountId),
         ]);
     }
 

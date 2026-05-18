@@ -70,7 +70,9 @@ class Notification extends Model
         'payment_request_refused'  => 'bi-x-circle-fill text-danger',
         'friend_request'           => 'bi-person-plus-fill text-primary',
         'friend_accepted'          => 'bi-person-check-fill text-success',
-        'expense_split_request'    => 'bi-people-fill text-warning',
+        'expense_split_request'          => 'bi-people-fill text-warning',
+        'overdraft_authorization'         => 'bi-shield-plus text-success',
+        'overdraft_authorization_revoked' => 'bi-shield-x text-danger',
     ];
 
     // ── Création ─────────────────────────────────────────────────────────────

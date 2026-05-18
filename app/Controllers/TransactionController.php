@@ -9,6 +9,7 @@ use App\Models\Account;
 use App\Models\DeferredDebit;
 use App\Models\Guardianship;
 use App\Models\Notification;
+use App\Models\OverdraftAuthorization;
 use App\Models\PaymentCard;
 use App\Models\Transaction;
 use App\Models\User;
@@ -121,11 +122,19 @@ class TransactionController extends Controller
             $balance   = $this->accountModel->getFutureBalance($accId);
             $overdraft = (float) ($account['overdraft'] ?? 0);
             $accountType = $account['type'] ?? 'standard';
+
+            // Intégrer l'autorisation de dépassement émise par la modération
+            $authModel  = new OverdraftAuthorization();
+            $extraLimit = $authModel->getExtraLimitForAccount($accId);
+            $overdraft += $extraLimit;
+            $hasAuth    = $extraLimit > 0.0;
+
             $wouldExceed = ($balance - $amount) < -$overdraft;
 
             if ($wouldExceed) {
                 // Bloquer définitivement si le type de compte interdit le découvert
-                if (!\App\Models\Account::typeAllowsOverdraft($accountType)) {
+                // et qu'aucune autorisation de modération n'est active
+                if (!\App\Models\Account::typeAllowsOverdraft($accountType) && !$hasAuth) {
                     $this->setFlash('danger', 'Opération impossible : ce type de compte (' . (\App\Models\Account::TYPES[$accountType]['label'] ?? $accountType) . ') ne permet pas le solde négatif.');
                     $this->redirect('/accounts/' . $accountId);
                     return;

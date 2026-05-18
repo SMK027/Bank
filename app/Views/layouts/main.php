@@ -119,6 +119,12 @@
                                 <a href="/moderation/pos-payments" class="navbar-mod-item" role="menuitem">
                                     <i class="bi bi-shop"></i> Paiements TPE
                                 </a>
+
+                                <div class="navbar-mod-sep"></div>
+                                <div class="navbar-mod-group-label">Découvert</div>
+                                <a href="/moderation/overdraft-authorizations" class="navbar-mod-item" role="menuitem">
+                                    <i class="bi bi-shield-plus"></i> Autorisations de dépassement
+                                </a>
                             </div>
                         </div>
                     </div>

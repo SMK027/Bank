@@ -39,6 +39,7 @@ use App\Controllers\BudgetController;
 use App\Controllers\PaymentRequestController;
 use App\Controllers\FriendController;
 use App\Controllers\ExpenseSplitController;
+use App\Controllers\ModerationOverdraftController;
 
 // Démarrer la session
 Session::start();
@@ -338,6 +339,11 @@ $router->post('/moderation/pos-payments/merchant/{id}/suspend', PosController::c
 $router->post('/moderation/pos-payments/merchant/{id}/resume',  PosController::class, 'moderationMerchantResume');
 $router->post('/moderation/pos-payments/{id}/cancel',           PosController::class, 'moderationCancel');
 $router->post('/moderation/pos-payments/{id}/refund',           PosController::class, 'moderationRefund');
+
+// --- Autorisations de dépassement de découvert ---
+$router->get('/moderation/overdraft-authorizations',                       ModerationOverdraftController::class, 'index');
+$router->post('/moderation/overdraft-authorizations/create',               ModerationOverdraftController::class, 'create');
+$router->post('/moderation/overdraft-authorizations/{id}/revoke',          ModerationOverdraftController::class, 'revoke');
 
 // Dispatcher la requête
 $router->dispatch();

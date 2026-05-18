@@ -340,6 +340,36 @@
 </div>
 <?php endif; ?>
 
+<?php if (!empty($overdraftAuthorization)): ?>
+<?php
+    $__auth       = $overdraftAuthorization;
+    $__authStatus = \App\Models\OverdraftAuthorization::computeStatus($__auth);
+?>
+<div class="alert" style="border-left:4px solid var(--success);display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:0.75rem;">
+        <i class="bi bi-shield-plus" style="font-size:1.3rem;color:var(--success);flex-shrink:0;"></i>
+        <div>
+            <strong>Autorisation de dépassement active.</strong>
+            Limite supplémentaire de <strong><?= fmt_amount_smart((float) $__auth['extra_limit']) ?> <?= e($account['currency']) ?></strong>
+            accordée à partir du <?= e(date('d/m/Y', strtotime($__auth['start_date']))) ?>
+            <?= $__auth['end_date'] ? 'jusqu\'au ' . e(date('d/m/Y', strtotime($__auth['end_date']))) : '(sans date de fin)' ?>.
+            <?php if (!empty($__auth['reason'])): ?>
+                — <em><?= e($__auth['reason']) ?></em>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php if ($isModerator): ?>
+    <form method="POST" action="/moderation/overdraft-authorizations/<?= (int) $__auth['id'] ?>/revoke"
+          onsubmit="return confirm('Révoquer cette autorisation ?');" style="flex-shrink:0;">
+        <?= csrf_field() ?>
+        <button type="submit" class="btn btn-danger btn-sm">
+            <i class="bi bi-x-circle"></i> Révoquer
+        </button>
+    </form>
+    <?php endif; ?>
+</div>
+<?php endif; ?>
+
 <div class="account-detail-grid">
     <!-- Formulaire d'ajout de transaction -->
     <div class="card mb-2">

@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Models\Account;
 use App\Models\AuditLog;
+use App\Models\OverdraftAuthorization;
 use App\Models\Guardianship;
 use App\Models\Notification;
 use App\Models\RecurringTransfer;
@@ -183,10 +184,19 @@ class TransferController extends Controller
         $overdraft   = (float) ($fromAccount['overdraft'] ?? 0);
         $accountType = $fromAccount['type'] ?? 'standard';
 
+        // Intégrer l'autorisation de dépassement émise par la modération (hors mode modérateur)
+        $authExtraLimit = 0.0;
+        if (!$modMode) {
+            $authModel      = new OverdraftAuthorization();
+            $authExtraLimit = $authModel->getExtraLimitForAccount($fromId);
+            $overdraft     += $authExtraLimit;
+        }
+        $hasAuth = $authExtraLimit > 0.0;
+
         // Vérifier si le solde sera insuffisant
         $newBalance = $balance - $amount;
         if ($newBalance < -$overdraft) {
-            if (!Account::typeAllowsOverdraft($accountType)) {
+            if (!Account::typeAllowsOverdraft($accountType) && !$hasAuth) {
                 $this->setFlash('danger', sprintf(
                     'Virement impossible : le compte émetteur (%s) ne permet pas le solde négatif. Solde disponible : %s %s.',
                     $fromAccount['name'],
@@ -195,7 +205,7 @@ class TransferController extends Controller
                 ));
             } else {
                 $this->setFlash('danger', sprintf(
-                    'Fonds insuffisants : le virement dépasserait le découvert autorisé. Solde disponible : %s %s (découvert : %s %s).',
+                    'Fonds insuffisants : le virement dépasserait le découvert autorisé. Solde disponible : %s %s (découvert autorisé : %s %s).',
                     number_format($balance, 2, ',', ' '),
                     $fromAccount['currency'],
                     number_format($overdraft, 2, ',', ' '),
