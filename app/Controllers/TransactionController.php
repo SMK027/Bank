@@ -366,6 +366,56 @@ class TransactionController extends Controller
         $this->redirect('/accounts/' . $accountId);
     }
 
+    // ── EXCLUSION DU BUDGET ──────────────────────────────────────────────────
+
+    /**
+     * Bascule l'inclusion/exclusion d'une transaction dans le calcul des budgets.
+     * Accessible à tout utilisateur ayant accès au compte (propriétaire ou accès partagé).
+     * Seules les dépenses exécutées peuvent être concernées.
+     */
+    public function toggleBudgetExclusion(string $accountId, string $transactionId): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+
+        $accId  = (int) $accountId;
+        $txId   = (int) $transactionId;
+        $userId = $this->getCurrentUserId();
+
+        if (!$this->isModerator() && !$this->accountModel->hasAccess($accId, $userId)) {
+            $this->setFlash('danger', 'Accès refusé.');
+            $this->redirect('/dashboard');
+            return;
+        }
+
+        $transaction = $this->transactionModel->find($txId);
+        if (!$transaction || (int) $transaction['account_id'] !== $accId) {
+            $this->setFlash('danger', 'Transaction introuvable.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        if ($transaction['type'] !== 'expense') {
+            $this->setFlash('danger', 'Seules les dépenses peuvent être exclues du budget.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        // Ne pas toggler les transactions encore programmées (non exécutées)
+        if (!empty($transaction['scheduled_at']) && strtotime($transaction['scheduled_at']) > time()) {
+            $this->setFlash('danger', 'Les opérations programmées ne sont pas encore comptabilisées dans le budget.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $nowExcluded = $this->transactionModel->toggleBudgetExclusion($txId);
+        $msg = $nowExcluded
+            ? 'Opération exclue du budget mensuel.'
+            : 'Opération réintégrée dans le budget mensuel.';
+        $this->setFlash('success', $msg);
+        $this->redirect('/accounts/' . $accountId);
+    }
+
     // ── DÉBITS DIFFÉRÉS ─────────────────────────────────────────────────────
 
     public function createDeferredDebit(string $accountId): void

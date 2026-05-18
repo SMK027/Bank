@@ -137,6 +137,7 @@ $router->post('/accounts/{id}/toggle-hidden', AccountController::class, 'toggleH
 $router->post('/accounts/{accountId}/transactions', TransactionController::class, 'create');
 $router->post('/accounts/{accountId}/transactions/{transactionId}/edit', TransactionController::class, 'editTransaction');
 $router->post('/accounts/{accountId}/transactions/{transactionId}/delete', TransactionController::class, 'deleteTransaction');
+$router->post('/accounts/{accountId}/transactions/{transactionId}/toggle-budget-exclusion', TransactionController::class, 'toggleBudgetExclusion');
 
 // --- Débits différés ---
 $router->post('/accounts/{accountId}/deferred-debits', TransactionController::class, 'createDeferredDebit');

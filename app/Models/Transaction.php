@@ -150,6 +150,23 @@ class Transaction extends Model
             || str_starts_with($comment, 'Rejet prélèvement mandat ');
     }
 
+    /**
+     * Bascule l'exclusion budgétaire d'une transaction.
+     * Retourne le nouvel état (true = désormais exclue).
+     */
+    public function toggleBudgetExclusion(int $transactionId): bool
+    {
+        $stmt = $this->getPdo()->prepare(
+            "UPDATE `{$this->table}`
+             SET excluded_from_budget = 1 - excluded_from_budget
+             WHERE id = ?"
+        );
+        $stmt->execute([$transactionId]);
+
+        $row = $this->find($transactionId);
+        return (bool) ($row['excluded_from_budget'] ?? false);
+    }
+
     public function getByAccount(int $accountId, string $orderBy = 'created_at', string $direction = 'DESC'): array
     {
         return $this->findBy(['account_id' => (string) $accountId], $orderBy, $direction);
@@ -232,6 +249,7 @@ class Transaction extends Model
                   AND type = 'expense'
                   AND (scheduled_at IS NULL OR scheduled_at <= CURRENT_TIMESTAMP)
                   AND DATE_FORMAT(created_at, '%Y-%m') = ?
+                  AND excluded_from_budget = 0
                 GROUP BY category
                 ORDER BY total DESC";
         $params = array_merge($ids, [$yearMonth]);

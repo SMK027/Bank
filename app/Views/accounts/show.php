@@ -1744,6 +1744,26 @@
                                     <?= $t['type'] === 'income' ? '+' : '-' ?><?= fmt_amount_smart((float) $t['amount']) ?>
                                 </td>
                                 <td style="white-space:nowrap;">
+                                    <?php if ($t['type'] === 'expense' && !$txIsTpe): ?>
+                                    <form method="POST"
+                                          action="/accounts/<?= (int) $account['id'] ?>/transactions/<?= (int) $t['id'] ?>/toggle-budget-exclusion"
+                                          style="display:inline;">
+                                        <?= csrf_field() ?>
+                                        <?php if (!empty($t['excluded_from_budget'])): ?>
+                                        <button type="submit" class="btn btn-outline btn-sm"
+                                                title="Exclue du budget — cliquer pour réintégrer"
+                                                style="padding:0.15rem 0.4rem;font-size:0.82rem;opacity:0.55;color:var(--danger);border-color:var(--danger);">
+                                            <i class="bi bi-pie-chart"></i>
+                                        </button>
+                                        <?php else: ?>
+                                        <button type="submit" class="btn btn-outline btn-sm"
+                                                title="Incluse dans le budget — cliquer pour exclure"
+                                                style="padding:0.15rem 0.4rem;font-size:0.82rem;">
+                                            <i class="bi bi-pie-chart-fill"></i>
+                                        </button>
+                                        <?php endif; ?>
+                                    </form>
+                                    <?php endif; ?>
                                     <?php if ($txIsTpe): ?>
                                     <span class="badge badge-secondary" style="font-size:0.7rem;" title="Opération de modération — non modifiable">
                                         <i class="bi bi-shield-lock"></i> Modération
