@@ -123,6 +123,11 @@ class Transaction extends Model
      */
     public static function isModerationOnly(array $transaction): bool
     {
+        // Les agios sont prélevés exclusivement par la modération
+        if (($transaction['category'] ?? '') === 'Agios') {
+            return true;
+        }
+
         $comment = (string) ($transaction['comment'] ?? '');
         return str_starts_with($comment, '[TPE')
             || str_starts_with($comment, 'Annulation virement')
