@@ -1951,7 +1951,7 @@
 
 <!-- ── Modale de répartition de dépense ───────────────────────────────── -->
 <div id="split-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1050;align-items:center;justify-content:center;">
-    <div class="card" style="max-width:520px;width:100%;margin:1rem;max-height:90vh;display:flex;flex-direction:column;">
+    <div class="card" style="max-width:540px;width:100%;margin:1rem;max-height:90vh;display:flex;flex-direction:column;">
         <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
             <h3 style="margin:0;"><i class="bi bi-people-fill"></i> Répartir la dépense</h3>
             <button type="button" class="btn btn-outline btn-sm" onclick="closeSplitModal()" style="padding:0.2rem 0.5rem;">
@@ -1962,42 +1962,56 @@
             <p id="split-tx-label" style="font-size:0.88rem;color:var(--text-muted);margin-bottom:0.75rem;"></p>
 
             <!-- Résumé montants -->
-            <div style="display:flex;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;">
-                <div style="background:var(--bg-secondary,#f3f4f6);border-radius:var(--border-radius-sm);padding:0.5rem 0.9rem;">
-                    <div style="font-size:0.75rem;color:var(--text-muted);">Montant total</div>
-                    <div style="font-weight:700;" id="split-total-amount"></div>
+            <div style="display:flex;gap:0.75rem;margin-bottom:1.1rem;flex-wrap:wrap;">
+                <div style="background:var(--bg-secondary,#f3f4f6);border-radius:var(--border-radius-sm);padding:0.45rem 0.85rem;flex:1;min-width:100px;">
+                    <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;">Total</div>
+                    <div style="font-weight:700;font-size:0.95rem;" id="split-total-amount"></div>
                 </div>
-                <div style="background:var(--bg-secondary,#f3f4f6);border-radius:var(--border-radius-sm);padding:0.5rem 0.9rem;">
-                    <div style="font-size:0.75rem;color:var(--text-muted);">Montant réparti</div>
-                    <div style="font-weight:700;" id="split-assigned-amount" style="color:var(--primary);">0,00</div>
+                <div style="background:var(--bg-secondary,#f3f4f6);border-radius:var(--border-radius-sm);padding:0.45rem 0.85rem;flex:1;min-width:100px;">
+                    <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;">Réparti</div>
+                    <div style="font-weight:700;font-size:0.95rem;" id="split-assigned-amount"></div>
                 </div>
-                <div style="background:var(--bg-secondary,#f3f4f6);border-radius:var(--border-radius-sm);padding:0.5rem 0.9rem;">
-                    <div style="font-size:0.75rem;color:var(--text-muted);">Restant</div>
-                    <div style="font-weight:700;" id="split-remaining-amount"></div>
+                <div style="background:var(--bg-secondary,#f3f4f6);border-radius:var(--border-radius-sm);padding:0.45rem 0.85rem;flex:1;min-width:100px;">
+                    <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;">Restant</div>
+                    <div style="font-weight:700;font-size:0.95rem;" id="split-remaining-amount"></div>
                 </div>
             </div>
 
-            <div id="split-no-friends" style="display:none;padding:1rem 0;text-align:center;color:var(--text-muted);">
-                <i class="bi bi-people" style="font-size:2rem;"></i>
-                <p style="margin-top:0.5rem;">Vous n'avez pas encore d'amis.<br>
-                <a href="/friends">Ajouter des amis</a> pour répartir vos dépenses.</p>
+            <!-- Champ de recherche d'amis -->
+            <div style="position:relative;margin-bottom:1rem;">
+                <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:0.3rem;">
+                    <i class="bi bi-person-plus"></i> Ajouter un participant
+                </label>
+                <input type="text"
+                       id="split-search-input"
+                       class="form-control"
+                       placeholder="Rechercher un ami…"
+                       autocomplete="off"
+                       style="padding-right:2.2rem;">
+                <div id="split-search-dropdown"
+                     style="display:none;position:absolute;z-index:200;background:#fff;border:1px solid var(--gray-light);border-radius:var(--border-radius-sm);width:100%;box-shadow:var(--shadow);max-height:200px;overflow-y:auto;">
+                </div>
+                <div id="split-search-hint" style="font-size:0.78rem;color:var(--text-muted);margin-top:0.2rem;display:none;">
+                    Cet utilisateur n'est pas dans vos amis. <a href="/friends">Ajouter des amis</a>.
+                </div>
             </div>
 
-            <div id="split-loading" style="text-align:center;padding:1.5rem;">
-                <i class="bi bi-hourglass-split"></i> Chargement…
-            </div>
-
-            <form id="split-form" method="POST" action="" style="display:none;">
+            <!-- Liste des participants sélectionnés -->
+            <form id="split-form" method="POST" action="">
                 <?= csrf_field() ?>
-                <div id="split-participants-list"></div>
+                <div id="split-participants-list" style="margin-bottom:0.5rem;"></div>
+
+                <div id="split-empty-hint" style="text-align:center;color:var(--text-muted);font-size:0.85rem;padding:0.75rem 0;">
+                    <i class="bi bi-people"></i> Aucun participant ajouté.
+                </div>
 
                 <div id="split-error" style="display:none;padding:0.5rem 0.75rem;background:rgba(239,71,111,0.1);border-radius:var(--border-radius-sm);color:var(--danger);font-size:0.85rem;margin-top:0.5rem;">
                     <i class="bi bi-exclamation-triangle-fill"></i>
                     <span id="split-error-msg"></span>
                 </div>
 
-                <div style="display:flex;gap:0.75rem;margin-top:1.25rem;">
-                    <button type="submit" class="btn btn-primary" id="split-submit-btn">
+                <div style="display:flex;gap:0.75rem;margin-top:1.1rem;">
+                    <button type="submit" class="btn btn-primary" id="split-submit-btn" disabled>
                         <i class="bi bi-send"></i> Envoyer les demandes
                     </button>
                     <button type="button" class="btn btn-outline" onclick="closeSplitModal()">Annuler</button>
@@ -2012,8 +2026,7 @@
     var modal      = document.getElementById('split-modal');
     var form       = document.getElementById('split-form');
     var listEl     = document.getElementById('split-participants-list');
-    var loadingEl  = document.getElementById('split-loading');
-    var noFriends  = document.getElementById('split-no-friends');
+    var emptyHint  = document.getElementById('split-empty-hint');
     var errorEl    = document.getElementById('split-error');
     var errorMsg   = document.getElementById('split-error-msg');
     var submitBtn  = document.getElementById('split-submit-btn');
@@ -2021,9 +2034,15 @@
     var totalAmtEl = document.getElementById('split-total-amount');
     var assignedEl = document.getElementById('split-assigned-amount');
     var remainEl   = document.getElementById('split-remaining-amount');
+    var searchInput    = document.getElementById('split-search-input');
+    var searchDropdown = document.getElementById('split-search-dropdown');
+    var searchHint     = document.getElementById('split-search-hint');
 
     var currentTxAmount = 0;
     var currency        = '';
+    // Map userId → {username, index} pour les participants déjà ajoutés
+    var selectedUsers   = {};
+    var participantIndex = 0;
 
     function fmt(n) {
         return n.toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + '\u00a0' + currency;
@@ -2035,102 +2054,167 @@
         inputs.forEach(function (inp) { total += parseFloat(inp.value) || 0; });
         total = Math.round(total * 100) / 100;
         assignedEl.textContent = fmt(total);
+        assignedEl.style.color = total > currentTxAmount + 0.001 ? 'var(--danger)' : 'var(--primary)';
         var remaining = Math.round((currentTxAmount - total) * 100) / 100;
-        remainEl.textContent  = fmt(remaining);
-        remainEl.style.color  = remaining < -0.001 ? 'var(--danger)' : (remaining < 0.001 ? 'var(--success)' : '');
-        assignedEl.style.color = remaining < -0.001 ? 'var(--danger)' : 'var(--primary)';
+        remainEl.textContent = fmt(remaining);
+        remainEl.style.color = remaining < -0.001 ? 'var(--danger)' : (Math.abs(remaining) < 0.001 ? 'var(--success)' : '');
+        // Activer le bouton uniquement si au moins un participant avec montant
+        var hasParticipant = listEl.querySelectorAll('.split-participant-row').length > 0;
+        submitBtn.disabled = !hasParticipant;
     }
 
-    window.openSplitModal = function (txId, comment, amount, cur) {
-        currentTxAmount = amount;
-        currency        = cur;
+    function addParticipant(userId, username) {
+        if (selectedUsers[userId]) return; // déjà ajouté
 
-        txLabel.textContent    = comment ? '« ' + comment + ' »' : 'Opération #' + txId;
+        var idx = participantIndex++;
+        selectedUsers[userId] = {username: username, index: idx};
+
+        var row = document.createElement('div');
+        row.className = 'split-participant-row';
+        row.dataset.userId = userId;
+        row.style.cssText = 'display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem;padding:0.45rem 0.6rem;background:var(--bg-secondary,#f3f4f6);border-radius:var(--border-radius-sm);';
+
+        // Avatar/icône
+        var icon = document.createElement('span');
+        icon.innerHTML = '<i class="bi bi-person-circle" style="font-size:1.15rem;color:var(--primary);flex-shrink:0;"></i>';
+
+        // Nom
+        var nameSpan = document.createElement('span');
+        nameSpan.style.cssText = 'font-weight:600;flex:1;font-size:0.9rem;';
+        nameSpan.textContent = username;
+
+        // Input montant
+        var amtInput = document.createElement('input');
+        amtInput.type        = 'number';
+        amtInput.name        = 'participants[' + idx + '][amount]';
+        amtInput.min         = '0.01';
+        amtInput.step        = '0.01';
+        amtInput.placeholder = '0,00';
+        amtInput.className   = 'form-control';
+        amtInput.style.cssText = 'width:110px;text-align:right;';
+        amtInput.addEventListener('input', updateTotals);
+
+        // Devise
+        var curSpan = document.createElement('span');
+        curSpan.style.cssText = 'color:var(--text-muted);font-size:0.83rem;flex-shrink:0;';
+        curSpan.textContent = currency;
+
+        // Champ caché user_id
+        var hiddenUid = document.createElement('input');
+        hiddenUid.type  = 'hidden';
+        hiddenUid.name  = 'participants[' + idx + '][user_id]';
+        hiddenUid.value = userId;
+
+        // Bouton supprimer
+        var removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn btn-outline btn-sm';
+        removeBtn.style.cssText = 'padding:0.15rem 0.4rem;flex-shrink:0;color:var(--danger);border-color:var(--danger);';
+        removeBtn.innerHTML = '<i class="bi bi-x-lg"></i>';
+        removeBtn.title = 'Retirer';
+        removeBtn.addEventListener('click', function () {
+            delete selectedUsers[userId];
+            row.remove();
+            emptyHint.style.display = listEl.querySelectorAll('.split-participant-row').length === 0 ? '' : 'none';
+            updateTotals();
+        });
+
+        row.appendChild(icon);
+        row.appendChild(nameSpan);
+        row.appendChild(amtInput);
+        row.appendChild(curSpan);
+        row.appendChild(hiddenUid);
+        row.appendChild(removeBtn);
+        listEl.appendChild(row);
+
+        emptyHint.style.display = 'none';
+        amtInput.focus();
+        updateTotals();
+    }
+
+    // ── Autocomplete ──────────────────────────────────────────────────────
+
+    var searchTimer = null;
+
+    searchInput.addEventListener('input', function () {
+        clearTimeout(searchTimer);
+        searchHint.style.display = 'none';
+        var q = searchInput.value.trim();
+        if (q.length < 2) { searchDropdown.style.display = 'none'; return; }
+
+        searchTimer = setTimeout(function () {
+            fetch('/friends/search-users?q=' + encodeURIComponent(q))
+                .then(function (r) { return r.json(); })
+                .then(function (users) {
+                    searchDropdown.innerHTML = '';
+                    var friends = users.filter(function (u) { return u.is_friend; });
+
+                    if (!users.length || !friends.length) {
+                        if (users.length && !friends.length) {
+                            // L'utilisateur existe mais n'est pas ami
+                            searchHint.style.display = '';
+                        }
+                        searchDropdown.style.display = 'none';
+                        return;
+                    }
+
+                    friends.forEach(function (u) {
+                        var item = document.createElement('div');
+                        var alreadyAdded = !!selectedUsers[u.id];
+                        item.style.cssText = 'padding:0.45rem 0.75rem;cursor:pointer;display:flex;align-items:center;gap:0.5rem;'
+                            + (alreadyAdded ? 'opacity:0.45;' : '');
+                        item.innerHTML = '<i class="bi bi-person-check" style="color:var(--success);"></i><span style="flex:1;">' + u.username + '</span>'
+                            + (alreadyAdded ? '<span style="font-size:0.75em;color:var(--text-muted);">Déjà ajouté</span>' : '');
+
+                        if (!alreadyAdded) {
+                            item.addEventListener('mouseenter', function () { item.style.background = 'var(--gray-lighter,#f3f4f6)'; });
+                            item.addEventListener('mouseleave', function () { item.style.background = ''; });
+                            item.addEventListener('mousedown', function (e) {
+                                e.preventDefault(); // évite le blur sur searchInput
+                                addParticipant(u.id, u.username);
+                                searchInput.value = '';
+                                searchDropdown.style.display = 'none';
+                                searchHint.style.display = 'none';
+                            });
+                        }
+                        searchDropdown.appendChild(item);
+                    });
+                    searchDropdown.style.display = 'block';
+                });
+        }, 220);
+    });
+
+    searchInput.addEventListener('blur', function () {
+        setTimeout(function () { searchDropdown.style.display = 'none'; }, 150);
+    });
+
+    // ── Ouverture / fermeture ─────────────────────────────────────────────
+
+    window.openSplitModal = function (txId, comment, amount, cur) {
+        currentTxAmount  = amount;
+        currency         = cur;
+        selectedUsers    = {};
+        participantIndex = 0;
+
+        txLabel.textContent    = comment ? '\u00ab\u00a0' + comment + '\u00a0\u00bb' : 'Op\u00e9ration #' + txId;
         totalAmtEl.textContent = fmt(amount);
         assignedEl.textContent = fmt(0);
+        assignedEl.style.color = 'var(--primary)';
         remainEl.textContent   = fmt(amount);
         remainEl.style.color   = '';
-        assignedEl.style.color = 'var(--primary)';
 
-        form.action = '/accounts/<?= (int) $account['id'] ?>/transactions/' + txId + '/split';
-        form.style.display = 'none';
-        loadingEl.style.display = '';
-        noFriends.style.display  = 'none';
-        errorEl.style.display    = 'none';
-        listEl.innerHTML         = '';
-        modal.style.display      = 'flex';
+        form.action           = '/accounts/<?= (int) $account['id'] ?>/transactions/' + txId + '/split';
+        listEl.innerHTML      = '';
+        emptyHint.style.display   = '';
+        errorEl.style.display     = 'none';
+        searchInput.value         = '';
+        searchDropdown.style.display = 'none';
+        searchHint.style.display  = 'none';
+        submitBtn.disabled        = true;
+        submitBtn.innerHTML       = '<i class="bi bi-send"></i> Envoyer les demandes';
 
-        fetch('/friends/list')
-            .then(function (r) { return r.json(); })
-            .then(function (friends) {
-                loadingEl.style.display = 'none';
-                if (!friends.length) {
-                    noFriends.style.display = '';
-                    return;
-                }
-                listEl.innerHTML = '';
-                friends.forEach(function (f, i) {
-                    var row = document.createElement('div');
-                    row.style.cssText = 'display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem;';
-
-                    var cb = document.createElement('input');
-                    cb.type = 'checkbox';
-                    cb.id   = 'split-cb-' + f.id;
-                    cb.style.marginTop = '0';
-
-                    var label = document.createElement('label');
-                    label.htmlFor    = 'split-cb-' + f.id;
-                    label.style.cssText = 'min-width:130px;cursor:pointer;font-weight:500;';
-                    label.innerHTML  = '<i class="bi bi-person"></i> ' + f.username;
-
-                    var amtWrapper = document.createElement('div');
-                    amtWrapper.style.cssText = 'display:flex;align-items:center;gap:0.3rem;flex:1;';
-
-                    var amtInput = document.createElement('input');
-                    amtInput.type        = 'number';
-                    amtInput.name        = 'participants[' + i + '][amount]';
-                    amtInput.min         = '0.01';
-                    amtInput.step        = '0.01';
-                    amtInput.placeholder = '0,00';
-                    amtInput.className   = 'form-control';
-                    amtInput.style.cssText = 'width:110px;';
-                    amtInput.disabled    = true;
-
-                    var hiddenUid = document.createElement('input');
-                    hiddenUid.type  = 'hidden';
-                    hiddenUid.name  = 'participants[' + i + '][user_id]';
-                    hiddenUid.value = f.id;
-
-                    var curLabel = document.createElement('span');
-                    curLabel.style.color    = 'var(--text-muted)';
-                    curLabel.style.fontSize = '0.85em';
-                    curLabel.textContent    = cur;
-
-                    cb.addEventListener('change', function () {
-                        amtInput.disabled = !cb.checked;
-                        hiddenUid.disabled = !cb.checked;
-                        if (!cb.checked) { amtInput.value = ''; }
-                        updateTotals();
-                    });
-
-                    amtInput.addEventListener('input', updateTotals);
-
-                    amtWrapper.appendChild(amtInput);
-                    amtWrapper.appendChild(curLabel);
-                    row.appendChild(cb);
-                    row.appendChild(label);
-                    row.appendChild(amtWrapper);
-                    row.appendChild(hiddenUid);
-                    listEl.appendChild(row);
-                });
-                form.style.display = '';
-                updateTotals();
-            })
-            .catch(function () {
-                loadingEl.style.display = 'none';
-                noFriends.style.display  = '';
-                noFriends.querySelector('p').innerHTML = 'Impossible de charger la liste des amis. <a href="/friends">Gérer les amis</a>.';
-            });
+        modal.style.display = 'flex';
+        setTimeout(function () { searchInput.focus(); }, 80);
     };
 
     window.closeSplitModal = function () {
@@ -2141,34 +2225,37 @@
         if (e.target === modal) closeSplitModal();
     });
 
+    // ── Validation à la soumission ────────────────────────────────────────
+
     form.addEventListener('submit', function (e) {
-        // Validation côté client
-        var checked = listEl.querySelectorAll('input[type="checkbox"]:checked');
-        if (!checked.length) {
+        var rows = listEl.querySelectorAll('.split-participant-row');
+        if (!rows.length) {
             e.preventDefault();
-            errorMsg.textContent  = 'Veuillez sélectionner au moins un participant.';
+            errorMsg.textContent  = 'Veuillez ajouter au moins un participant.';
             errorEl.style.display = '';
             return;
         }
         var total = 0;
-        checked.forEach(function (cb) {
-            var amtId = cb.id.replace('split-cb-', '');
-            var inp   = listEl.querySelector('input[name*="[' + listEl.querySelector('input[type="checkbox"]:checked').id.replace('split-cb-', '') + '"]');
-            // Retrouver l'input du même row
-            var row = cb.closest('div');
-            var amt = row ? parseFloat(row.querySelector('input[type="number"]').value) || 0 : 0;
-            total  += amt;
+        rows.forEach(function (row) {
+            var inp = row.querySelector('input[type="number"]');
+            total  += parseFloat(inp ? inp.value : 0) || 0;
         });
         total = Math.round(total * 100) / 100;
+        if (total <= 0) {
+            e.preventDefault();
+            errorMsg.textContent  = 'Veuillez saisir au moins un montant.';
+            errorEl.style.display = '';
+            return;
+        }
         if (total > Math.round((currentTxAmount + 0.001) * 100) / 100) {
             e.preventDefault();
-            errorMsg.textContent  = 'Le total (' + fmt(total) + ') dépasse le montant de la dépense (' + fmt(currentTxAmount) + ').';
+            errorMsg.textContent  = 'Le total (' + fmt(total) + ') d\u00e9passe le montant de la d\u00e9pense (' + fmt(currentTxAmount) + ').';
             errorEl.style.display = '';
             return;
         }
         errorEl.style.display = 'none';
         submitBtn.disabled    = true;
-        submitBtn.innerHTML   = '<i class="bi bi-hourglass-split"></i> Envoi…';
+        submitBtn.innerHTML   = '<i class="bi bi-hourglass-split"></i> Envoi\u2026';
     });
 })();
 </script>
