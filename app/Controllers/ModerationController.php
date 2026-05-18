@@ -276,6 +276,94 @@ class ModerationController extends Controller
     }
 
     /**
+     * Créer une opération de modération sur un compte (POST).
+     * Le montant est signé : positif = entrée, négatif = dépense.
+     * La catégorie doit appartenir à Transaction::MODERATION_CATEGORIES.
+     * L'opération ne sera ni modifiable ni supprimable par les utilisateurs.
+     */
+    public function createModerationTransaction(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $accountId = (int) $id;
+        $account   = $this->accountModel->find($accountId);
+
+        if (!$account) {
+            $this->setFlash('danger', 'Compte introuvable.');
+            $this->redirect('/moderation');
+            return;
+        }
+
+        $data     = $this->getPostData(['amount', 'category', 'comment']);
+        $rawAmount = (float) ($data['amount'] ?? 0);
+        $category  = trim($data['category'] ?? '');
+        $comment   = trim($data['comment'] ?? '');
+
+        if ($rawAmount == 0.0) {
+            $this->setFlash('danger', 'Le montant doit être non nul.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        if (!array_key_exists($category, Transaction::MODERATION_CATEGORIES)) {
+            $this->setFlash('danger', 'Catégorie de modération invalide.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $type   = $rawAmount > 0 ? 'income' : 'expense';
+        $amount = abs($rawAmount);
+        $moderatorId = $this->getCurrentUserId();
+
+        $this->transactionModel->addTransaction(
+            $accountId,
+            $type,
+            $amount,
+            $category,
+            $comment ?: $category . ' — opération de modération',
+            $moderatorId
+        );
+
+        AuditLog::log(
+            $moderatorId,
+            AuditLog::ACTION_ACCOUNT_MODERATION_TX,
+            [
+                'type'     => $type,
+                'amount'   => $amount,
+                'category' => $category,
+                'comment'  => $comment,
+            ],
+            targetUserId:    (int) $account['user_id'],
+            targetAccountId: $accountId
+        );
+
+        $this->notifyAccountOwner(
+            (int) $account['user_id'],
+            $accountId,
+            $type === 'income' ? 'info' : 'warning',
+            sprintf('%s sur « %s »', $category, $account['name']),
+            sprintf(
+                'Une opération de modération (%s) de %s %s a été enregistrée sur votre compte « %s ».',
+                $category,
+                number_format($amount, 2, ',', ' '),
+                $account['currency'],
+                $account['name']
+            )
+        );
+
+        $this->setFlash('success', sprintf(
+            'Opération %s de %s %s (%s) enregistrée sur « %s ».',
+            $type === 'income' ? 'créditrice' : 'débitrice',
+            number_format($amount, 2, ',', ' '),
+            $account['currency'],
+            $category,
+            $account['name']
+        ));
+        $this->redirect('/accounts/' . $accountId);
+    }
+
+    /**
      * Rapport d'analyse des épisodes de dépassement de découvert pour un compte (GET).
      * Affiche les périodes en dépassement, l'évolution du solde et les rejets associés.
      */

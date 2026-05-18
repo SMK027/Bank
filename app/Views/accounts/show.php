@@ -623,6 +623,94 @@
         </div>
     </div>
 
+    <!-- ── Opérations modération (modérateurs uniquement) ─────────────── -->
+    <?php if ($isModerator): ?>
+    <?php
+        $modCats = \App\Models\Transaction::MODERATION_CATEGORIES;
+    ?>
+    <div class="card mb-2" style="border-left:3px solid var(--warning,#f59e0b);">
+        <div class="card-header" style="display:flex;align-items:center;gap:0.5rem;">
+            <i class="bi bi-shield-lock-fill" style="color:var(--warning,#f59e0b);"></i>
+            <h3 style="margin:0;">Opérations modération</h3>
+        </div>
+        <div class="card-body">
+            <p style="font-size:0.83rem;color:var(--text-muted);margin-bottom:0.85rem;">
+                Opérations réservées à la modération. Elles ne peuvent pas être modifiées ou supprimées par les utilisateurs.
+                Un montant <strong>positif</strong> créditera le compte ; un montant <strong>négatif</strong> le débitera.
+            </p>
+            <form method="POST"
+                  action="/moderation/accounts/<?= (int) $account['id'] ?>/transactions"
+                  id="moderation-tx-form">
+                <?= csrf_field() ?>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="mod-category" class="form-label">Catégorie</label>
+                        <select id="mod-category" name="category" class="form-control" required>
+                            <option value="">-- Choisir --</option>
+                            <?php foreach ($modCats as $name => $emoji): ?>
+                                <option value="<?= e($name) ?>"><?= e($emoji . ' ' . $name) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="mod-amount" class="form-label">
+                            Montant <span style="font-weight:400;font-size:0.83em;color:var(--text-muted);">(+ crédit, − débit)</span>
+                        </label>
+                        <div style="display:flex;align-items:center;gap:0.5rem;">
+                            <input type="number" id="mod-amount" name="amount"
+                                   step="0.01" required
+                                   placeholder="ex. -25.00 ou 50.00"
+                                   style="flex:1;"
+                                   class="form-control"
+                                   oninput="modTxPreview()">
+                            <span style="font-size:0.85rem;color:var(--text-muted);white-space:nowrap;"><?= e($account['currency']) ?></span>
+                        </div>
+                        <div id="mod-amount-preview" style="margin-top:0.3rem;font-size:0.82rem;display:none;"></div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="flex:1;">
+                        <label for="mod-comment" class="form-label">Commentaire <span style="font-weight:400;color:var(--text-muted)">(facultatif)</span></label>
+                        <input type="text" id="mod-comment" name="comment"
+                               maxlength="255" class="form-control"
+                               placeholder="Motif de l'opération">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-warning btn-block"
+                        onclick="return modTxConfirm()">
+                    <i class="bi bi-shield-check"></i> Enregistrer l'opération de modération
+                </button>
+            </form>
+        </div>
+    </div>
+    <script>
+    function modTxPreview() {
+        var val = parseFloat(document.getElementById('mod-amount').value);
+        var previewEl = document.getElementById('mod-amount-preview');
+        var currency = '<?= e($account['currency']) ?>';
+        if (!isNaN(val) && val !== 0) {
+            var isCredit = val > 0;
+            previewEl.style.display = '';
+            previewEl.style.color = isCredit ? 'var(--success,#22c55e)' : 'var(--danger)';
+            previewEl.innerHTML = isCredit
+                ? '<i class="bi bi-arrow-up-circle-fill"></i> Crédit de <strong>' + Math.abs(val).toFixed(2).replace('.', ',') + '\u00a0' + currency + '</strong>'
+                : '<i class="bi bi-arrow-down-circle-fill"></i> Débit de <strong>' + Math.abs(val).toFixed(2).replace('.', ',') + '\u00a0' + currency + '</strong>';
+        } else {
+            previewEl.style.display = 'none';
+        }
+    }
+    function modTxConfirm() {
+        var val = parseFloat(document.getElementById('mod-amount').value);
+        var cat = document.getElementById('mod-category').value;
+        if (!cat) { alert('Veuillez choisir une catégorie.'); return false; }
+        if (isNaN(val) || val === 0) { alert('Le montant doit être non nul.'); return false; }
+        var currency = '<?= e($account['currency']) ?>';
+        var dir = val > 0 ? 'crédit' : 'débit';
+        return confirm('Enregistrer une opération de modération (' + cat + ') : ' + dir + ' de ' + Math.abs(val).toFixed(2).replace('.', ',') + '\u00a0' + currency + ' ?');
+    }
+    </script>
+    <?php endif; ?>
+
     <!-- Formulaire débit différé (si activé sur le compte) -->
     <?php if (!empty($deferredDebitEnabled)): ?>
     <div class="card mb-2" style="border-left:3px solid var(--info, #3b82f6);">

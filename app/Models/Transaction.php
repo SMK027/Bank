@@ -10,6 +10,17 @@ class Transaction extends Model
 {
     protected string $table = 'transactions';
 
+    /** Catégories réservées aux opérations de modération (non accessibles aux utilisateurs) */
+    public const MODERATION_CATEGORIES = [
+        'Régularisation'              => '🔧',
+        'Ajustement comptable'        => '⚖️',
+        "Correction d'erreur"         => '✏️',
+        'Pénalité bancaire'           => '⚠️',
+        'Compensation exceptionnelle' => '💚',
+        'Provision'                   => '📋',
+        'Frais de gestion'            => '💼',
+    ];
+
     /** Catégories spécifiques aux dépenses */
     public const EXPENSE_CATEGORIES = [
         'Alimentation'       => '🛒',
@@ -123,8 +134,9 @@ class Transaction extends Model
      */
     public static function isModerationOnly(array $transaction): bool
     {
-        // Les agios sont prélevés exclusivement par la modération
-        if (($transaction['category'] ?? '') === 'Agios') {
+        // Les agios et les catégories de modération sont réservés à la modération
+        $cat = $transaction['category'] ?? '';
+        if ($cat === 'Agios' || array_key_exists($cat, self::MODERATION_CATEGORIES)) {
             return true;
         }
 
