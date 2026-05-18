@@ -26,6 +26,7 @@ class Transaction extends Model
         'Animaux'            => '🐾',
         'Cadeaux'            => '🎁',
         'Impôts & taxes'     => '🏛️',
+        'Agios'              => '🏧',
         'Épargne'            => '🏦',
         'Autre'              => '📌',
     ];
@@ -64,6 +65,7 @@ class Transaction extends Model
         'Voyages',
         'Animaux',
         'Impôts & taxes',
+        'Agios',
         'Remboursement',
         'Allocations',
         'Vente',

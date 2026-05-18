@@ -192,6 +192,92 @@ class ModerationController extends Controller
     }
 
     /**
+     * Prélever des agios sur un compte en dépassement de découvert (POST).
+     *
+     * Condition : solde < 0 (si découvert non autorisé) OU solde < -découvert_autorisé.
+     */
+    public function chargeAgios(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $accountId = (int) $id;
+        $account   = $this->accountModel->find($accountId);
+
+        if (!$account) {
+            $this->setFlash('danger', 'Compte introuvable.');
+            $this->redirect('/moderation');
+            return;
+        }
+
+        $balance   = $this->accountModel->getBalance($accountId);
+        $overdraft = (float) ($account['overdraft'] ?? 0);
+        $typeAllowsOverdraft = Account::typeAllowsOverdraft($account['type'] ?? 'standard');
+        $overdraftLimit = $typeAllowsOverdraft ? -$overdraft : 0.0;
+
+        if ($balance >= $overdraftLimit) {
+            $this->setFlash('danger', 'Ce compte n\'est pas en situation de dépassement du découvert autorisé. Agios non applicables.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $data   = $this->getPostData(['amount', 'comment']);
+        $amount = abs((float) ($data['amount'] ?? 0));
+
+        if ($amount <= 0) {
+            $this->setFlash('danger', 'Le montant des agios doit être supérieur à zéro.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $comment     = trim($data['comment'] ?? '') ?: 'Agios — dépassement du découvert autorisé';
+        $moderatorId = $this->getCurrentUserId();
+
+        $this->transactionModel->addTransaction(
+            $accountId,
+            'expense',
+            $amount,
+            'Agios',
+            $comment,
+            $moderatorId
+        );
+
+        AuditLog::log(
+            $moderatorId,
+            AuditLog::ACTION_ACCOUNT_AGIOS,
+            [
+                'amount'       => $amount,
+                'balance'      => $balance,
+                'overdraft'    => $overdraft,
+                'comment'      => $comment,
+            ],
+            targetUserId: (int) $account['user_id'],
+            targetAccountId: $accountId
+        );
+
+        $this->notifyAccountOwner(
+            (int) $account['user_id'],
+            $accountId,
+            'warning',
+            'Agios prélevés sur « ' . $account['name'] . ' »',
+            sprintf(
+                'Des agios de %s %s ont été prélevés sur votre compte « %s » en raison d\'un dépassement du découvert autorisé.',
+                number_format($amount, 2, ',', ' '),
+                $account['currency'],
+                $account['name']
+            )
+        );
+
+        $this->setFlash('success', sprintf(
+            'Agios de %s %s prélevés sur le compte « %s ».',
+            number_format($amount, 2, ',', ' '),
+            $account['currency'],
+            $account['name']
+        ));
+        $this->redirect('/accounts/' . $accountId);
+    }
+
+    /**
      * Activer / désactiver le débit différé sur un compte (POST).
      */
     public function toggleDeferredDebit(string $id): void

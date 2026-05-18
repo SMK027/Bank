@@ -164,6 +164,17 @@
                     </button>
                 </form>
             <?php endif; ?>
+            <?php
+                $typeAllowsOd     = \App\Models\Account::typeAllowsOverdraft($account['type'] ?? 'standard');
+                $overdraftLimit   = $typeAllowsOd ? -(float)($account['overdraft'] ?? 0) : 0.0;
+                $isOverdraftExceed = $balance < $overdraftLimit;
+            ?>
+            <?php if ($isOverdraftExceed): ?>
+                <button type="button" class="btn btn-danger btn-sm"
+                        onclick="openAgiosModal()">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Prélever agios
+                </button>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>
@@ -2155,6 +2166,80 @@ function toggleExpires(select) {
     document.getElementById('expires_group').style.display = select.value === 'temporary' ? '' : 'none';
 }
 </script>
+
+<!-- ── Modal Agios ────────────────────────────────────────────── -->
+<?php if ($isModerator): ?>
+<div id="agiosModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:var(--card-bg,#fff);border-radius:var(--border-radius);box-shadow:0 8px 32px rgba(0,0,0,0.18);padding:1.5rem 1.75rem;width:100%;max-width:440px;margin:1rem;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0.75rem;gap:0.5rem;">
+            <h3 style="margin:0;font-size:1.05rem;display:flex;align-items:center;gap:0.45rem;">
+                <i class="bi bi-exclamation-triangle-fill" style="color:var(--danger);"></i>
+                Prélever des agios
+            </h3>
+            <button type="button" onclick="closeAgiosModal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.3rem;line-height:1;padding:0 0.2rem;">&times;</button>
+        </div>
+
+        <div class="alert alert-warning" style="font-size:0.84rem;margin-bottom:1rem;">
+            <i class="bi bi-info-circle"></i>
+            Solde actuel&nbsp;: <strong><?= number_format($balance, 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>.
+            <?php if ($typeAllowsOd && (float)($account['overdraft'] ?? 0) > 0): ?>
+                Découvert autorisé&nbsp;: <strong><?= number_format((float)$account['overdraft'], 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>.
+                Dépassement&nbsp;: <strong style="color:var(--danger);"><?= number_format(abs($balance + (float)$account['overdraft']), 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>.
+            <?php else: ?>
+                Aucun découvert autorisé. Dépassement&nbsp;: <strong style="color:var(--danger);"><?= number_format(abs($balance), 2, ',', ' ') ?> <?= e($account['currency']) ?></strong>.
+            <?php endif; ?>
+        </div>
+
+        <form method="POST" action="/moderation/accounts/<?= (int) $account['id'] ?>/charge-agios">
+            <?= csrf_field() ?>
+
+            <div style="margin-bottom:0.9rem;">
+                <label style="display:block;font-size:0.83rem;font-weight:600;margin-bottom:0.35rem;">
+                    Montant des agios <span style="color:var(--danger)">*</span>
+                </label>
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <input type="number" name="amount" id="agiosAmount"
+                           min="0.01" step="0.01" required
+                           style="flex:1;font-size:0.9rem;padding:0.4rem 0.6rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);"
+                           placeholder="0.00">
+                    <span style="font-size:0.85rem;color:var(--text-muted);white-space:nowrap;"><?= e($account['currency']) ?></span>
+                </div>
+            </div>
+
+            <div style="margin-bottom:1.2rem;">
+                <label style="display:block;font-size:0.83rem;font-weight:600;margin-bottom:0.35rem;">
+                    Commentaire <span style="font-weight:400;color:var(--text-muted)">(facultatif)</span>
+                </label>
+                <input type="text" name="comment"
+                       maxlength="255"
+                       placeholder="Agios — dépassement du découvert autorisé"
+                       style="width:100%;font-size:0.84rem;padding:0.4rem 0.6rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);box-sizing:border-box;">
+            </div>
+
+            <div style="display:flex;gap:0.6rem;justify-content:flex-end;">
+                <button type="button" onclick="closeAgiosModal()" class="btn btn-outline btn-sm">Annuler</button>
+                <button type="submit" class="btn btn-danger btn-sm">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Confirmer le prélèvement
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+function openAgiosModal() {
+    var overlay = document.getElementById('agiosModalOverlay');
+    overlay.style.display = 'flex';
+    var inp = document.getElementById('agiosAmount');
+    if (inp) { inp.value = ''; inp.focus(); }
+}
+function closeAgiosModal() {
+    document.getElementById('agiosModalOverlay').style.display = 'none';
+}
+document.getElementById('agiosModalOverlay').addEventListener('click', function (e) {
+    if (e.target === this) closeAgiosModal();
+});
+</script>
+<?php endif; ?>
 
 <!-- ── Modal Gel de compte ──────────────────────────────────────── -->
 <?php if ($isModerator && !$isFrozen): ?>
