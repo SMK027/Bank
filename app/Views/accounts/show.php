@@ -2260,14 +2260,14 @@ function toggleExpires(select) {
 
 <!-- ── Modal Agios ────────────────────────────────────────────── -->
 <?php if ($isModerator): ?>
-<div id="agiosModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center;">
-    <div style="background:var(--card-bg,#fff);border-radius:var(--border-radius);box-shadow:0 8px 32px rgba(0,0,0,0.18);padding:1.5rem 1.75rem;width:100%;max-width:440px;margin:1rem;">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0.75rem;gap:0.5rem;">
-            <h3 style="margin:0;font-size:1.05rem;display:flex;align-items:center;gap:0.45rem;">
-                <i class="bi bi-exclamation-triangle-fill" style="color:var(--danger);"></i>
+<div id="agiosModalOverlay" class="agios-modal-overlay">
+    <div class="agios-modal">
+        <div class="agios-modal__header">
+            <h3 class="agios-modal__title">
+                <i class="bi bi-bank2"></i>
                 Prélever des agios
             </h3>
-            <button type="button" onclick="closeAgiosModal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.3rem;line-height:1;padding:0 0.2rem;">&times;</button>
+            <button type="button" onclick="closeAgiosModal()" class="agios-modal__close" title="Fermer">&times;</button>
         </div>
 
         <?php if (!$isOverdraftExceed): ?>
@@ -2293,80 +2293,71 @@ function toggleExpires(select) {
         <?php $currentOverdraft = round(max(0.0, $overdraftLimit - $balance), 2); ?>
         <form method="POST" action="/moderation/accounts/<?= (int) $account['id'] ?>/charge-agios" id="agiosModalForm">
             <?= csrf_field() ?>
-            <!-- Paramètres TAEG transmis au contrôleur pour l'audit (remplis par JS) -->
             <input type="hidden" name="taeg_rate"    id="agiosHiddenRate"    value="">
             <input type="hidden" name="taeg_capital" id="agiosHiddenCapital" value="">
             <input type="hidden" name="taeg_days"    id="agiosHiddenDays"    value="">
 
-            <!-- ── Toggle mode ── -->
-            <div style="display:flex;border:1px solid var(--border-color);border-radius:4px;overflow:hidden;margin-bottom:0.9rem;font-size:0.82rem;">
+            <!-- Toggle Manuel / TAEG -->
+            <div class="agios-mode-toggle">
                 <button type="button" id="agiosBtnManuel" onclick="agiosSwitchMode('manuel')"
-                        style="flex:1;border:none;padding:0.4rem 0.6rem;cursor:pointer;font-weight:600;background:var(--danger);color:#fff;">
+                        class="agios-mode-toggle__btn active">
                     <i class="bi bi-pencil"></i> Manuel
                 </button>
                 <button type="button" id="agiosBtnTaeg" onclick="agiosSwitchMode('taeg')"
-                        style="flex:1;border:none;padding:0.4rem 0.6rem;cursor:pointer;font-weight:500;background:var(--card-bg,#fff);color:var(--text-color);">
+                        class="agios-mode-toggle__btn">
                     <i class="bi bi-calculator"></i> Par TAEG
                 </button>
             </div>
 
-            <!-- ── Panel Manuel ── -->
-            <div id="agiosPanelManuel" style="margin-bottom:0.9rem;">
+            <!-- Panel Manuel -->
+            <div id="agiosPanelManuel" class="agios-panel">
                 <label style="display:block;font-size:0.83rem;font-weight:600;margin-bottom:0.35rem;">
                     Montant des agios <span style="color:var(--danger)">*</span>
                 </label>
-                <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div class="agios-amount-row">
                     <input type="number" name="amount" id="agiosAmount"
-                           min="0.01" step="0.01" required
-                           style="flex:1;font-size:0.9rem;padding:0.4rem 0.6rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);"
-                           placeholder="0.00">
-                    <span style="font-size:0.85rem;color:var(--text-muted);white-space:nowrap;"><?= e($account['currency']) ?></span>
+                           min="0.01" step="0.01" required placeholder="0.00">
+                    <span class="agios-currency-tag"><?= e($account['currency']) ?></span>
                 </div>
             </div>
 
-            <!-- ── Panel TAEG ── -->
-            <div id="agiosPanelTaeg" style="display:none;margin-bottom:0.9rem;">
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-bottom:0.5rem;">
-                    <div>
-                        <label style="display:block;font-size:0.78rem;font-weight:600;margin-bottom:0.25rem;">TAEG&nbsp;(%)</label>
+            <!-- Panel TAEG -->
+            <div id="agiosPanelTaeg" class="agios-panel" style="display:none;">
+                <div class="agios-taeg-grid">
+                    <div class="agios-field">
+                        <label>TAEG&nbsp;(%)</label>
                         <input type="number" id="agiosTaegRate" min="0.01" step="0.01"
-                               placeholder="ex.&nbsp;15.00" oninput="agiosCalcTaeg()"
-                               style="width:100%;font-size:0.84rem;padding:0.35rem 0.5rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);box-sizing:border-box;">
+                               placeholder="ex.&nbsp;15.00" oninput="agiosCalcTaeg()">
                     </div>
-                    <div>
-                        <label style="display:block;font-size:0.78rem;font-weight:600;margin-bottom:0.25rem;">Capital&nbsp;(<?= e($account['currency']) ?>)</label>
+                    <div class="agios-field">
+                        <label>Capital&nbsp;(<?= e($account['currency']) ?>)</label>
                         <input type="number" id="agiosTaegCapital" min="0.01" step="0.01"
                                value="<?= $currentOverdraft > 0 ? $currentOverdraft : '' ?>"
-                               placeholder="0.00" oninput="agiosCalcTaeg()"
-                               style="width:100%;font-size:0.84rem;padding:0.35rem 0.5rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);box-sizing:border-box;">
+                               placeholder="0.00" oninput="agiosCalcTaeg()">
                     </div>
-                    <div>
-                        <label style="display:block;font-size:0.78rem;font-weight:600;margin-bottom:0.25rem;">Durée&nbsp;(jours)</label>
+                    <div class="agios-field">
+                        <label>Durée&nbsp;(jours)</label>
                         <input type="number" id="agiosTaegDays" min="1" step="1"
-                               placeholder="ex.&nbsp;30" oninput="agiosCalcTaeg()"
-                               style="width:100%;font-size:0.84rem;padding:0.35rem 0.5rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);box-sizing:border-box;">
+                               placeholder="ex.&nbsp;30" oninput="agiosCalcTaeg()">
                     </div>
                 </div>
-                <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.4rem;">
+                <div class="agios-formula-hint">
                     Formule&nbsp;: Capital &times; TAEG&nbsp;% &divide; 100 &times; Jours &divide; 365
                 </div>
-                <div style="font-size:0.88rem;padding:0.4rem 0.65rem;background:var(--bg-subtle,#f8f9fa);border:1px solid var(--border-color);border-radius:4px;">
-                    Agios calculés&nbsp;:&nbsp;<strong id="agiosTaegResult" style="color:var(--danger);">—</strong>
+                <div class="agios-result-box">
+                    <span>Agios calculés</span>
+                    <span class="agios-result-box__value" id="agiosTaegResult">—</span>
                 </div>
             </div>
 
-            <!-- ── Commentaire (commun) ── -->
-            <div style="margin-bottom:1.2rem;">
-                <label style="display:block;font-size:0.83rem;font-weight:600;margin-bottom:0.35rem;">
-                    Commentaire <span style="font-weight:400;color:var(--text-muted)">(facultatif)</span>
-                </label>
-                <input type="text" name="comment"
-                       maxlength="255"
-                       placeholder="Agios — dépassement du découvert autorisé"
-                       style="width:100%;font-size:0.84rem;padding:0.4rem 0.6rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);box-sizing:border-box;">
+            <!-- Commentaire (commun aux deux modes) -->
+            <div class="agios-comment-field" style="margin-top:1rem;">
+                <label>Commentaire <span style="font-weight:400;color:var(--text-muted)">(facultatif)</span></label>
+                <input type="text" name="comment" maxlength="255"
+                       placeholder="Agios — dépassement du découvert autorisé">
             </div>
 
-            <div style="display:flex;gap:0.6rem;justify-content:flex-end;">
+            <div class="agios-form-footer">
                 <button type="button" onclick="closeAgiosModal()" class="btn btn-outline btn-sm">Annuler</button>
                 <button type="submit" class="btn btn-danger btn-sm">
                     <i class="bi bi-exclamation-triangle-fill"></i> Confirmer le prélèvement
@@ -2380,12 +2371,8 @@ function agiosSwitchMode(mode) {
     var isManuel = mode === 'manuel';
     document.getElementById('agiosPanelManuel').style.display = isManuel ? '' : 'none';
     document.getElementById('agiosPanelTaeg').style.display   = isManuel ? 'none' : '';
-    var btnM = document.getElementById('agiosBtnManuel');
-    var btnT = document.getElementById('agiosBtnTaeg');
-    btnM.style.background = isManuel ? 'var(--danger)' : 'var(--card-bg,#fff)';
-    btnM.style.color      = isManuel ? '#fff' : 'var(--text-color)';
-    btnT.style.background = isManuel ? 'var(--card-bg,#fff)' : 'var(--danger)';
-    btnT.style.color      = isManuel ? 'var(--text-color)' : '#fff';
+    document.getElementById('agiosBtnManuel').classList.toggle('active', isManuel);
+    document.getElementById('agiosBtnTaeg').classList.toggle('active', !isManuel);
     var amt = document.getElementById('agiosAmount');
     amt.required = isManuel;
     if (isManuel) {
@@ -2404,13 +2391,15 @@ function agiosCalcTaeg() {
     var amt      = document.getElementById('agiosAmount');
     if (rate > 0 && capital > 0 && days > 0) {
         var amount = Math.round(capital * (rate / 100) * (days / 365) * 100) / 100;
-        resultEl.textContent = amount.toFixed(2).replace('.', ',') + ' <?= e($account['currency']) ?>';
+        resultEl.textContent = amount.toFixed(2).replace('.', ',') + '\u00a0<?= e($account['currency']) ?>';
+        resultEl.classList.add('ready');
         amt.value = amount;
         document.getElementById('agiosHiddenRate').value    = rate;
         document.getElementById('agiosHiddenCapital').value = capital;
         document.getElementById('agiosHiddenDays').value    = days;
     } else {
         resultEl.textContent = '—';
+        resultEl.classList.remove('ready');
         amt.value = '';
         document.getElementById('agiosHiddenRate').value    = '';
         document.getElementById('agiosHiddenCapital').value = '';
@@ -2426,13 +2415,13 @@ document.getElementById('agiosModalForm').addEventListener('submit', function (e
 });
 function openAgiosModal() {
     var overlay = document.getElementById('agiosModalOverlay');
-    overlay.style.display = 'flex';
+    overlay.classList.add('open');
     agiosSwitchMode('manuel');
     var inp = document.getElementById('agiosAmount');
     if (inp) { inp.value = ''; inp.focus(); }
 }
 function closeAgiosModal() {
-    document.getElementById('agiosModalOverlay').style.display = 'none';
+    document.getElementById('agiosModalOverlay').classList.remove('open');
 }
 document.getElementById('agiosModalOverlay').addEventListener('click', function (e) {
     if (e.target === this) closeAgiosModal();

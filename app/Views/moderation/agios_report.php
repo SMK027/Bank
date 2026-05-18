@@ -368,7 +368,7 @@ function balClass(float $v, float $limit): string {
 
         <!-- Formulaire prélever agios (disponible sur tout épisode, actif ou compensé) -->
         <?php /* toujours visible pour permettre le prélèvement rétroactif */ ?>
-        <div style="margin-top:1rem;padding-top:0.75rem;border-top:1px solid var(--border-color);">
+        <div class="agios-ep-form">
             <?php if (!$isOngoing): ?>
             <div class="alert alert-warning" style="font-size:0.82rem;margin-bottom:0.7rem;padding:0.5rem 0.75rem;">
                 <i class="bi bi-clock-history"></i>
@@ -377,14 +377,14 @@ function balClass(float $v, float $limit): string {
             </div>
             <?php endif; ?>
 
-            <!-- Toggle mode Manuel / Par TAEG -->
-            <div style="display:flex;border:1px solid var(--border-color);border-radius:4px;overflow:hidden;margin-bottom:0.6rem;font-size:0.78rem;width:fit-content;">
+            <!-- Toggle Manuel / Par TAEG -->
+            <div class="agios-ep-toggle">
                 <button type="button" id="ep<?= $i ?>BtnManuel" onclick="agiosEpMode(<?= $i ?>,'manuel')"
-                        style="border:none;padding:0.3rem 0.75rem;cursor:pointer;font-weight:600;background:var(--danger);color:#fff;">
+                        class="agios-ep-toggle__btn active">
                     <i class="bi bi-pencil"></i> Manuel
                 </button>
                 <button type="button" id="ep<?= $i ?>BtnTaeg" onclick="agiosEpMode(<?= $i ?>,'taeg')"
-                        style="border:none;padding:0.3rem 0.75rem;cursor:pointer;font-weight:500;background:var(--card-bg,#fff);color:var(--text-color);">
+                        class="agios-ep-toggle__btn">
                     <i class="bi bi-calculator"></i> Par TAEG
                 </button>
             </div>
@@ -397,15 +397,13 @@ function balClass(float $v, float $limit): string {
 
                 <!-- Panel Manuel -->
                 <div id="ep<?= $i ?>PanelManuel">
-                    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+                    <div class="agios-ep-row">
                         <input type="number" name="amount" id="ep<?= $i ?>Amount"
-                               min="0.01" step="0.01" required
-                               placeholder="Montant agios"
-                               style="width:130px;font-size:0.84rem;padding:0.35rem 0.55rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);">
+                               min="0.01" step="0.01" required placeholder="Montant agios"
+                               style="width:130px;">
                         <span style="font-size:0.82rem;color:var(--text-muted);"><?= e($currency) ?></span>
                         <input type="text" name="comment" id="ep<?= $i ?>Comment" maxlength="255"
-                               value="Agios — période du <?= fmtDateShort($ep['started_at']) ?><?= $ep['ended_at'] ? ' au ' . fmtDateShort($ep['ended_at']) : ' (en cours)' ?>"
-                               style="flex:1;min-width:180px;font-size:0.84rem;padding:0.35rem 0.55rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);">
+                               value="Agios — période du <?= fmtDateShort($ep['started_at']) ?><?= $ep['ended_at'] ? ' au ' . fmtDateShort($ep['ended_at']) : ' (en cours)' ?>">
                         <button type="submit" class="btn btn-danger btn-sm"
                                 onclick="return agiosEpSubmit(<?= $i ?>)">
                             <i class="bi bi-exclamation-triangle-fill"></i> Prélever agios
@@ -415,38 +413,37 @@ function balClass(float $v, float $limit): string {
 
                 <!-- Panel TAEG -->
                 <div id="ep<?= $i ?>PanelTaeg" style="display:none;">
-                    <div style="display:flex;align-items:flex-end;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.4rem;">
-                        <div>
-                            <label style="display:block;font-size:0.76rem;font-weight:600;margin-bottom:0.2rem;">TAEG&nbsp;(%)</label>
+                    <div class="agios-ep-taeg-row">
+                        <div class="agios-ep-taeg-field">
+                            <label>TAEG&nbsp;(%)</label>
                             <input type="number" id="ep<?= $i ?>TaegRate" min="0.01" step="0.01"
                                    placeholder="ex.&nbsp;15.00" oninput="agiosEpCalc(<?= $i ?>)"
-                                   style="width:90px;font-size:0.84rem;padding:0.32rem 0.5rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);">
+                                   style="width:90px;">
                         </div>
-                        <div>
-                            <label style="display:block;font-size:0.76rem;font-weight:600;margin-bottom:0.2rem;">Capital&nbsp;(<?= e($currency) ?>)</label>
+                        <div class="agios-ep-taeg-field">
+                            <label>Capital&nbsp;(<?= e($currency) ?>)</label>
                             <input type="number" id="ep<?= $i ?>TaegCapital" min="0.01" step="0.01"
                                    value="<?= round((float)$ep['max_depth'], 2) ?>"
                                    oninput="agiosEpCalc(<?= $i ?>)"
-                                   style="width:110px;font-size:0.84rem;padding:0.32rem 0.5rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);">
+                                   style="width:110px;">
                         </div>
-                        <div>
-                            <label style="display:block;font-size:0.76rem;font-weight:600;margin-bottom:0.2rem;">Jours</label>
+                        <div class="agios-ep-taeg-field">
+                            <label>Jours</label>
                             <input type="number" id="ep<?= $i ?>TaegDays" min="1" step="1"
                                    value="<?= (int)$ep['duration_days'] ?>"
                                    oninput="agiosEpCalc(<?= $i ?>)"
-                                   style="width:70px;font-size:0.84rem;padding:0.32rem 0.5rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);">
+                                   style="width:70px;">
                         </div>
-                        <div style="font-size:0.84rem;padding-bottom:0.25rem;">
-                            = <strong id="ep<?= $i ?>TaegResult" style="color:var(--danger);">—</strong>
+                        <div class="agios-ep-taeg-result">
+                            = <strong id="ep<?= $i ?>TaegResult">—</strong>
                         </div>
                     </div>
-                    <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:0.45rem;">
+                    <div class="agios-formula-hint">
                         Capital &times; TAEG&nbsp;% &divide; 100 &times; Jours &divide; 365
                     </div>
-                    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                    <div class="agios-ep-row" style="margin-top:0.4rem;">
                         <input type="text" name="comment" maxlength="255"
-                               value="Agios — période du <?= fmtDateShort($ep['started_at']) ?><?= $ep['ended_at'] ? ' au ' . fmtDateShort($ep['ended_at']) : ' (en cours)' ?>"
-                               style="flex:1;min-width:180px;font-size:0.84rem;padding:0.32rem 0.55rem;border:1px solid var(--border-color);border-radius:4px;background:var(--input-bg,#fff);color:var(--text-color);">
+                               value="Agios — période du <?= fmtDateShort($ep['started_at']) ?><?= $ep['ended_at'] ? ' au ' . fmtDateShort($ep['ended_at']) : ' (en cours)' ?>">
                         <button type="submit" class="btn btn-danger btn-sm"
                                 onclick="return agiosEpSubmit(<?= $i ?>)">
                             <i class="bi bi-exclamation-triangle-fill"></i> Prélever agios
@@ -530,8 +527,8 @@ function agiosEpMode(i, mode) {
     var btnT   = document.getElementById('ep' + i + 'BtnTaeg');
     if (panelM) panelM.style.display = isManuel ? '' : 'none';
     if (panelT) panelT.style.display = isManuel ? 'none' : '';
-    if (btnM) { btnM.style.background = isManuel ? 'var(--danger)' : 'var(--card-bg,#fff)'; btnM.style.color = isManuel ? '#fff' : 'var(--text-color)'; }
-    if (btnT) { btnT.style.background = isManuel ? 'var(--card-bg,#fff)' : 'var(--danger)'; btnT.style.color = isManuel ? 'var(--text-color)' : '#fff'; }
+    if (btnM) btnM.classList.toggle('active', isManuel);
+    if (btnT) btnT.classList.toggle('active', !isManuel);
     var amt = document.getElementById('ep' + i + 'Amount');
     if (amt) amt.required = isManuel;
     if (isManuel) {
