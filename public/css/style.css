@@ -4127,4 +4127,117 @@ input[type="date"].form-control {
     font-size: 0.95rem;
 }
 
+/* ── Rapport Agios – en-tête de page ─────────────────────────────── */
+.agios-report-header__actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* ── Rapport Agios – carte d'épisode ─────────────────────────────── */
+.agios-ep-card {
+    border-left: 4px solid var(--border-color, #dee2e6);
+}
+.agios-ep-card--active {
+    border-left-color: var(--danger);
+}
+.agios-ep-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+.agios-ep-title {
+    margin: 0;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.agios-ep-meta {
+    margin-top: 0.35rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+.agios-ep-ongoing-label {
+    color: var(--danger);
+    font-weight: 600;
+}
+.agios-ep-stats {
+    text-align: right;
+}
+.agios-ep-stats__label {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+.agios-ep-stats__value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--danger);
+}
+.agios-ep-stats__hint {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+.agios-ep-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.9rem;
+}
+.agios-ep-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 0.75rem;
+}
+
+/* ── Rapport Agios – tables onglets ──────────────────────────────── */
+.agios-ep-table {
+    font-size: 0.82rem;
+}
+.agios-ep-tx-row--agios {
+    background: rgba(239, 68, 68, 0.07);
+}
+.agios-ep-tx-date {
+    white-space: nowrap;
+}
+.agios-ep-tx-comment {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.agios-ep-tx-amount {
+    text-align: right;
+    white-space: nowrap;
+    font-weight: 600;
+}
+.agios-ep-tx-amount--income { color: var(--success-dark, #16a34a); }
+.agios-ep-tx-amount--expense { color: var(--danger); }
+.agios-ep-tx-balance {
+    text-align: right;
+    white-space: nowrap;
+    font-weight: 700;
+}
+
+/* ── Rapport Agios – section globale ─────────────────────────────── */
+.agios-report-global__title {
+    margin: 0 0 0.85rem;
+    font-size: 0.95rem;
+}
+.agios-report-global__total td {
+    background: var(--gray-lighter, #f3f4f6);
+    font-weight: 700;
+}
+.agios-report-global__amount {
+    text-align: right;
+    font-weight: 700;
+    color: var(--danger);
+}
+
 

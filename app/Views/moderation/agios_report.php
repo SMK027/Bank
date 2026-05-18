@@ -28,7 +28,7 @@ function balClass(float $v, float $limit): string {
             (<a href="/accounts/<?= (int) $account['id'] ?>">voir le compte</a>)
         </p>
     </div>
-    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+    <div class="agios-report-header__actions">
         <a href="/accounts/<?= (int) $account['id'] ?>" class="btn btn-outline btn-sm">
             <i class="bi bi-arrow-left"></i> Retour au compte
         </a>
@@ -81,45 +81,44 @@ function balClass(float $v, float $limit): string {
 <?php
     $isOngoing = $ep['ended_at'] === null;
     $nbRejects = count($ep['rejected_dd']) + count($ep['failed_transfers']) + count($ep['failed_installments']);
-    $cardBorder = $isOngoing ? 'var(--danger)' : 'var(--border-color)';
 ?>
-<div class="card mt-2" style="border-left:4px solid <?= $cardBorder ?>;">
+<div class="card mt-2 agios-ep-card<?= $isOngoing ? ' agios-ep-card--active' : '' ?>">
     <div class="card-body">
         <!-- En-tête de l'épisode -->
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:1rem;">
+        <div class="agios-ep-header">
             <div>
-                <h3 style="margin:0;font-size:1rem;display:flex;align-items:center;gap:0.5rem;">
+                <h3 class="agios-ep-title">
                     <?php if ($isOngoing): ?>
-                        <span class="badge badge-danger" style="font-size:0.75rem;">En cours</span>
+                        <span class="badge badge-danger">En cours</span>
                     <?php else: ?>
-                        <span class="badge badge-secondary" style="font-size:0.75rem;">Clôturé</span>
+                        <span class="badge badge-secondary">Clôturé</span>
                     <?php endif; ?>
                     Épisode #<?= count($episodes) - $i ?>
                 </h3>
-                <div style="margin-top:0.35rem;font-size:0.85rem;color:var(--text-muted);">
+                <div class="agios-ep-meta">
                     <i class="bi bi-calendar-event"></i>
                     Début&nbsp;: <strong><?= fmtDate($ep['started_at']) ?></strong>
                     <?php if (!$isOngoing): ?>
                         &nbsp;→&nbsp;Fin&nbsp;: <strong><?= fmtDate($ep['ended_at']) ?></strong>
                         &nbsp;·&nbsp;<strong><?= $ep['duration_days'] ?></strong> jour(s)
                     <?php else: ?>
-                        &nbsp;·&nbsp;<span style="color:var(--danger);font-weight:600;">Toujours en dépassement</span>
+                        &nbsp;·&nbsp;<span class="agios-ep-ongoing-label">Toujours en dépassement</span>
                         &nbsp;·&nbsp;<strong><?= $ep['duration_days'] ?></strong> jour(s) depuis le début
                     <?php endif; ?>
                 </div>
             </div>
-            <div style="text-align:right;">
-                <div style="font-size:0.82rem;color:var(--text-muted);">Dépassement max</div>
-                <div style="font-size:1.1rem;font-weight:700;color:var(--danger);">
+            <div class="agios-ep-stats">
+                <div class="agios-ep-stats__label">Dépassement max</div>
+                <div class="agios-ep-stats__value">
                     <?= fmtBal($ep['max_depth'], $currency) ?>
                 </div>
                 <?php if (!$isOngoing): ?>
-                <div style="font-size:0.78rem;color:var(--text-muted);">
+                <div class="agios-ep-stats__hint">
                     Tx de déclenchement&nbsp;:
                     <strong><?= e($ep['start_tx']['category'] ?? '—') ?></strong>
                     (<?= fmtBal(-(float)$ep['start_tx']['amount'], $currency) ?>)
                 </div>
-                <div style="font-size:0.78rem;color:var(--text-muted);">
+                <div class="agios-ep-stats__hint">
                     Tx de clôture&nbsp;:
                     <strong><?= e($ep['end_tx']['category'] ?? '—') ?></strong>
                     (+<?= fmtBal((float)$ep['end_tx']['amount'], $currency) ?>)
@@ -130,7 +129,7 @@ function balClass(float $v, float $limit): string {
 
         <!-- Rejets associés -->
         <?php if ($nbRejects > 0 || !empty($ep['agios_charged'])): ?>
-        <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.9rem;">
+        <div class="agios-ep-badges">
             <?php if ($nbRejects > 0): ?>
                 <span class="badge badge-danger" style="font-size:0.78rem;">
                     <i class="bi bi-x-circle"></i>
@@ -139,7 +138,7 @@ function balClass(float $v, float $limit): string {
             <?php endif; ?>
             <?php if (!empty($ep['agios_charged'])): ?>
                 <?php $sumAgios = array_sum(array_column($ep['agios_charged'], 'amount')); ?>
-                <span class="badge" style="background:var(--danger);color:#fff;font-size:0.78rem;">
+                <span class="badge badge-danger">
                     <i class="bi bi-bank"></i>
                     <?= count($ep['agios_charged']) ?> agios&nbsp;·&nbsp;<?= fmtBal($sumAgios, $currency) ?>
                 </span>
@@ -150,7 +149,7 @@ function balClass(float $v, float $limit): string {
         <!-- Onglets internes à l'épisode -->
         <?php $epId = 'ep-' . $i; ?>
         <div>
-            <ul style="display:flex;flex-wrap:wrap;gap:0.3rem;list-style:none;padding:0;margin:0 0 0.75rem;">
+            <ul class="agios-ep-tabs">
                 <li>
                     <button type="button" class="btn btn-sm btn-outline ep-tab active"
                             data-ep="<?= $epId ?>" data-tab="timeline"
@@ -199,7 +198,7 @@ function balClass(float $v, float $limit): string {
             <!-- Onglet : timeline solde -->
             <div id="<?= $epId ?>-timeline" class="ep-panel">
                 <div style="overflow-x:auto;">
-                    <table class="table table-sm" style="font-size:0.82rem;">
+                    <table class="table table-sm agios-ep-table">
                         <thead>
                             <tr>
                                 <th>Date</th>
@@ -212,27 +211,25 @@ function balClass(float $v, float $limit): string {
                         </thead>
                         <tbody>
                         <?php foreach ($ep['snapshot'] as $tx): ?>
-                            <tr style="<?= ($tx['category'] ?? '') === 'Agios' ? 'background:rgba(239,68,68,0.07);' : '' ?>">
-                                <td style="white-space:nowrap;"><?= fmtDate($tx['created_at']) ?></td>
+                            <tr class="<?= ($tx['category'] ?? '') === 'Agios' ? 'agios-ep-tx-row--agios' : '' ?>">
+                                <td class="agios-ep-tx-date"><?= fmtDate($tx['created_at']) ?></td>
                                 <td>
                                     <?php if ($tx['type'] === 'income'): ?>
-                                        <span class="badge badge-success" style="font-size:0.7rem;">+ Entrée</span>
+                                        <span class="badge badge-success">+ Entrée</span>
                                     <?php else: ?>
-                                        <span class="badge badge-danger"  style="font-size:0.7rem;">− Dépense</span>
+                                        <span class="badge badge-danger">− Dépense</span>
                                     <?php endif; ?>
                                 </td>
                                 <td><?= e($tx['category'] ?? '—') ?></td>
-                                <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                                <td class="agios-ep-tx-comment"
                                     title="<?= e($tx['comment'] ?? '') ?>">
                                     <?= e($tx['comment'] ?? '—') ?>
                                 </td>
-                                <td style="text-align:right;white-space:nowrap;font-weight:600;
-                                           color:<?= $tx['type'] === 'income' ? 'var(--success-dark,#16a34a)' : 'var(--danger)' ?>">
+                                <td class="agios-ep-tx-amount agios-ep-tx-amount--<?= $tx['type'] === 'income' ? 'income' : 'expense' ?>">
                                     <?= $tx['type'] === 'income' ? '+' : '−' ?>
                                     <?= fmtBal((float)$tx['amount'], $currency) ?>
                                 </td>
-                                <td style="text-align:right;white-space:nowrap;font-weight:700;"
-                                    class="<?= balClass((float)$tx['running_balance'], $overdraftLimit) ?>">
+                                <td class="agios-ep-tx-balance <?= balClass((float)$tx['running_balance'], $overdraftLimit) ?>">
                                     <?= fmtBal((float)$tx['running_balance'], $currency) ?>
                                 </td>
                             </tr>
@@ -246,7 +243,7 @@ function balClass(float $v, float $limit): string {
             <?php if (!empty($ep['rejected_dd'])): ?>
             <div id="<?= $epId ?>-dd" class="ep-panel" style="display:none;">
                 <div style="overflow-x:auto;">
-                    <table class="table table-sm" style="font-size:0.82rem;">
+                    <table class="table table-sm agios-ep-table">
                         <thead>
                             <tr>
                                 <th>Date prévue</th>
@@ -258,9 +255,9 @@ function balClass(float $v, float $limit): string {
                         <tbody>
                         <?php foreach ($ep['rejected_dd'] as $dd): ?>
                             <tr>
-                                <td><?= fmtDate($dd['scheduled_at']) ?></td>
+                                <td class="agios-ep-tx-date"><?= fmtDate($dd['scheduled_at']) ?></td>
                                 <td>
-                                    <span class="badge badge-danger" style="font-size:0.7rem;">
+                                    <span class="badge badge-danger">
                                         <?= htmlspecialchars(DirectDebit::STATUS_LABELS[$dd['status']] ?? $dd['status'], ENT_QUOTES) ?>
                                     </span>
                                 </td>
@@ -278,7 +275,7 @@ function balClass(float $v, float $limit): string {
             <?php if (!empty($ep['failed_transfers'])): ?>
             <div id="<?= $epId ?>-tr" class="ep-panel" style="display:none;">
                 <div style="overflow-x:auto;">
-                    <table class="table table-sm" style="font-size:0.82rem;">
+                    <table class="table table-sm agios-ep-table">
                         <thead>
                             <tr>
                                 <th>Date</th>
@@ -290,9 +287,9 @@ function balClass(float $v, float $limit): string {
                         <tbody>
                         <?php foreach ($ep['failed_transfers'] as $tr): ?>
                             <tr>
-                                <td><?= fmtDate($tr['created_at']) ?></td>
+                                <td class="agios-ep-tx-date"><?= fmtDate($tr['created_at']) ?></td>
                                 <td>
-                                    <span class="badge badge-danger" style="font-size:0.7rem;">
+                                    <span class="badge badge-danger">
                                         <?= htmlspecialchars(Transfer::STATUS_LABELS[$tr['status']] ?? $tr['status'], ENT_QUOTES) ?>
                                     </span>
                                 </td>
@@ -310,7 +307,7 @@ function balClass(float $v, float $limit): string {
             <?php if (!empty($ep['failed_installments'])): ?>
             <div id="<?= $epId ?>-inst" class="ep-panel" style="display:none;">
                 <div style="overflow-x:auto;">
-                    <table class="table table-sm" style="font-size:0.82rem;">
+                    <table class="table table-sm agios-ep-table">
                         <thead>
                             <tr>
                                 <th>Échéance</th>
@@ -324,7 +321,7 @@ function balClass(float $v, float $limit): string {
                             <tr>
                                 <td><?= fmtDateShort($inst['due_date']) ?></td>
                                 <td>
-                                    <span class="badge badge-danger" style="font-size:0.7rem;">Échouée</span>
+                                    <span class="badge badge-danger">Échouée</span>
                                 </td>
                                 <td><?= fmtBal((float)$inst['amount'], $currency) ?></td>
                                 <td><?= e($inst['loan_type'] ?? '—') ?></td>
@@ -340,7 +337,7 @@ function balClass(float $v, float $limit): string {
             <?php if (!empty($ep['agios_charged'])): ?>
             <div id="<?= $epId ?>-agios" class="ep-panel" style="display:none;">
                 <div style="overflow-x:auto;">
-                    <table class="table table-sm" style="font-size:0.82rem;">
+                    <table class="table table-sm agios-ep-table">
                         <thead>
                             <tr>
                                 <th>Date</th>
@@ -351,8 +348,8 @@ function balClass(float $v, float $limit): string {
                         <tbody>
                         <?php foreach ($ep['agios_charged'] as $ag): ?>
                             <tr>
-                                <td><?= fmtDate($ag['created_at']) ?></td>
-                                <td style="font-weight:600;color:var(--danger);">
+                                <td class="agios-ep-tx-date"><?= fmtDate($ag['created_at']) ?></td>
+                                <td class="agios-ep-tx-amount agios-ep-tx-amount--expense">
                                     −<?= fmtBal((float)$ag['amount'], $currency) ?>
                                 </td>
                                 <td><?= e($ag['comment'] ?? '—') ?></td>
@@ -462,12 +459,12 @@ function balClass(float $v, float $limit): string {
 <?php if (!empty($agiosTx)): ?>
 <div class="card mt-2">
     <div class="card-body">
-        <h3 style="margin:0 0 0.85rem;font-size:0.95rem;">
+        <h3 class="agios-report-global__title">
             <i class="bi bi-bank" style="color:var(--danger);"></i>
             Tous les agios prélevés sur ce compte
         </h3>
         <div style="overflow-x:auto;">
-            <table class="table table-sm" style="font-size:0.82rem;">
+            <table class="table table-sm agios-ep-table">
                 <thead>
                     <tr>
                         <th>Date</th>
@@ -478,16 +475,16 @@ function balClass(float $v, float $limit): string {
                 <tbody>
                 <?php foreach (array_reverse($agiosTx) as $ag): ?>
                     <tr>
-                        <td><?= fmtDate($ag['created_at']) ?></td>
-                        <td style="text-align:right;font-weight:700;color:var(--danger);">
+                        <td class="agios-ep-tx-date"><?= fmtDate($ag['created_at']) ?></td>
+                        <td class="agios-ep-tx-amount agios-ep-tx-amount--expense">
                             −<?= fmtBal((float)$ag['amount'], $currency) ?>
                         </td>
                         <td><?= e($ag['comment'] ?? '—') ?></td>
                     </tr>
                 <?php endforeach; ?>
-                <tr style="background:var(--light);font-weight:700;">
+                <tr class="agios-report-global__total">
                     <td>Total</td>
-                    <td style="text-align:right;color:var(--danger);">
+                    <td class="agios-report-global__amount">
                         −<?= fmtBal(array_sum(array_column($agiosTx, 'amount')), $currency) ?>
                     </td>
                     <td></td>
