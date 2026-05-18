@@ -213,6 +213,38 @@ class Transaction extends Model
     }
 
     /**
+     * Retourne le total des dépenses exécutées par catégorie pour une liste de comptes
+     * et un mois donné (format 'YYYY-MM').
+     * Résultat : [category => total_amount], trié par montant décroissant.
+     *
+     * @param  int[]  $accountIds
+     */
+    public function getMonthlyExpensesByCategory(array $accountIds, string $yearMonth): array
+    {
+        if (empty($accountIds)) {
+            return [];
+        }
+        $ids = array_values(array_map('intval', $accountIds));
+        $ph  = implode(',', array_fill(0, count($ids), '?'));
+        $sql = "SELECT category, SUM(amount) AS total
+                FROM `{$this->table}`
+                WHERE account_id IN ($ph)
+                  AND type = 'expense'
+                  AND (scheduled_at IS NULL OR scheduled_at <= CURRENT_TIMESTAMP)
+                  AND DATE_FORMAT(created_at, '%Y-%m') = ?
+                GROUP BY category
+                ORDER BY total DESC";
+        $params = array_merge($ids, [$yearMonth]);
+        $stmt   = $this->getPdo()->prepare($sql);
+        $stmt->execute($params);
+        $result = [];
+        foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+            $result[$row['category']] = (float) $row['total'];
+        }
+        return $result;
+    }
+
+    /**
      * Retourne le sous-ensemble des IDs donnés qui sont référencés comme debit_tx_id
      * ou credit_tx_id dans les tables transfers ou direct_debits.
      * Ces transactions ne doivent pas être supprimables individuellement.
