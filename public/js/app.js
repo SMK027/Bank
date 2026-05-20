@@ -38,29 +38,44 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    /* ----- Dropdown modération (navbar) ----- */
-    const modToggle = document.getElementById('modToggle');
-    const modDropdown = document.getElementById('modDropdown');
-    if (modToggle && modDropdown) {
-        modToggle.addEventListener('click', function (e) {
+    /* ----- Dropdowns de navigation (générique) ----- */
+    const navDropdowns = document.querySelectorAll('.navbar-dropdown');
+    navDropdowns.forEach(function (dropdown) {
+        const toggle = dropdown.querySelector('.navbar-dropdown-toggle');
+        if (!toggle) return;
+        toggle.addEventListener('click', function (e) {
             e.stopPropagation();
-            const isOpen = modDropdown.classList.toggle('open');
-            modToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            const willOpen = !dropdown.classList.contains('open');
+            // Fermer tous les autres dropdowns ouverts
+            navDropdowns.forEach(function (other) {
+                if (other !== dropdown) {
+                    other.classList.remove('open');
+                    const t = other.querySelector('.navbar-dropdown-toggle');
+                    if (t) t.setAttribute('aria-expanded', 'false');
+                }
+            });
+            dropdown.classList.toggle('open', willOpen);
+            toggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
         });
-        document.addEventListener('click', function (e) {
-            if (!modDropdown.contains(e.target)) {
-                modDropdown.classList.remove('open');
-                modToggle.setAttribute('aria-expanded', 'false');
+    });
+    document.addEventListener('click', function (e) {
+        navDropdowns.forEach(function (dropdown) {
+            if (!dropdown.contains(e.target)) {
+                dropdown.classList.remove('open');
+                const t = dropdown.querySelector('.navbar-dropdown-toggle');
+                if (t) t.setAttribute('aria-expanded', 'false');
             }
         });
-        // Fermer sur Échap
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') {
-                modDropdown.classList.remove('open');
-                modToggle.setAttribute('aria-expanded', 'false');
-            }
-        });
-    }
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            navDropdowns.forEach(function (dropdown) {
+                dropdown.classList.remove('open');
+                const t = dropdown.querySelector('.navbar-dropdown-toggle');
+                if (t) t.setAttribute('aria-expanded', 'false');
+            });
+        }
+    });
 
     /* ----- Sidebar toggle (tablette) ----- */
     const sidebarToggle = document.querySelector('.sidebar-toggle');
