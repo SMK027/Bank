@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers\Api;
 
+use App\Core\Database;
 use App\Core\JWT;
 use App\Models\Account;
 use App\Models\AuditLog;
@@ -307,6 +308,35 @@ class MobileApiController extends ApiController
             $this->error('Erreur interne lors de l\'enregistrement de la transaction.', 500);
         }
 
+        // Journal api_payments (visible dans /moderation/pos-payments)
+        try {
+            $apiClientId = $this->getSystemApiClientId();
+            $merchantName = trim((string) ($user['company_name'] ?? ''));
+            if ($merchantName === '') {
+                $merchantName = trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''));
+            }
+            if ($merchantName === '') {
+                $merchantName = $user['email'] ?? 'TPE mobile';
+            }
+            $commentLog = mb_substr($merchantName . ' (mobile) • ' . $label, 0, 255);
+            $this->logApiPayment([
+                'api_client_id'         => $apiClientId,
+                'card_id'               => (int) $card['id'],
+                'account_id'            => (int) $customerAccount['id'],
+                'transaction_id'        => $type === 'debit' ? $customerTxId : $merchantTxId,
+                'credit_transaction_id' => $type === 'debit' ? $merchantTxId : $customerTxId,
+                'deferred_debit_id'     => null,
+                'operation'             => $type,
+                'amount'                => $merchantAmount,
+                'currency'              => $merchantAccount['currency'] ?? ($customerAccount['currency'] ?? 'EUR'),
+                'status'                => 'success',
+                'reason'                => 'mobile',
+                'comment'               => $commentLog,
+            ]);
+        } catch (\Throwable $e) {
+            // best-effort : ne bloque pas la réponse mobile
+        }
+
         AuditLog::log(
             (int) $user['id'],
             $type === 'debit' ? AuditLog::ACTION_POS_CHARGE : AuditLog::ACTION_POS_REFUND,
@@ -365,7 +395,53 @@ class MobileApiController extends ApiController
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
+    /**
+     * Identifiant du client API système partagé avec le TPE web,
+     * pour que les paiements mobiles apparaissent dans la même liste
+     * de modération (/moderation/pos-payments).
+     */
+    private function getSystemApiClientId(): int
+    {
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare('SELECT id FROM api_clients WHERE api_key = ? LIMIT 1');
+        $stmt->execute(['pos_internal']);
+        $row = $stmt->fetch();
+        if ($row) {
+            return (int) $row['id'];
+        }
+        $secret = bin2hex(random_bytes(24));
+        $hash   = password_hash($secret, PASSWORD_BCRYPT);
+        $ins = $pdo->prepare(
+            'INSERT INTO api_clients (name, api_key, api_secret_hash, status, created_by)
+             VALUES (?, ?, ?, ?, NULL)'
+        );
+        $ins->execute(['TPE Interne', 'pos_internal', $hash, 'active']);
+        return (int) $pdo->lastInsertId();
+    }
 
+    private function logApiPayment(array $data): void
+    {
+        $pdo = Database::getInstance();
+        $stmt = $pdo->prepare(
+            'INSERT INTO api_payments
+                (api_client_id, card_id, account_id, transaction_id, credit_transaction_id, deferred_debit_id, operation, amount, currency, status, reason, comment)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([
+            $data['api_client_id'],
+            $data['card_id']               ?? null,
+            $data['account_id']            ?? null,
+            $data['transaction_id']        ?? null,
+            $data['credit_transaction_id'] ?? null,
+            $data['deferred_debit_id']     ?? null,
+            $data['operation'],
+            $data['amount'],
+            $data['currency'],
+            $data['status'],
+            $data['reason']  ?? '',
+            $data['comment'] ?? '',
+        ]);
+    }
     private function publicUser(array $user, bool $isModerator): array
     {
         return [
