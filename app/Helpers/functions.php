@@ -116,7 +116,9 @@ function feature_enabled(string $key, bool $default = true): bool
 }
 
 /**
- * Vérifie si l'utilisateur connecté possède un profil professionnel validé.
+ * Vérifie si l'utilisateur connecté a accès au TPE :
+ * - soit il possède un profil professionnel validé (flag is_professional),
+ * - soit il possède au moins un compte de type 'pro' actif.
  */
 function is_professional(): bool
 {
@@ -127,7 +129,15 @@ function is_professional(): bool
     static $cache = [];
     if (!array_key_exists($userId, $cache)) {
         $user = (new \App\Models\User())->find($userId);
-        $cache[$userId] = \App\Models\User::isProfessional($user);
+        if (\App\Models\User::isProfessional($user)) {
+            $cache[$userId] = true;
+        } else {
+            $accounts = (new \App\Models\Account())->getByUser($userId);
+            $cache[$userId] = !empty(array_filter(
+                $accounts,
+                fn(array $a) => ($a['type'] ?? '') === 'pro' && empty($a['disabled_at'])
+            ));
+        }
     }
     return $cache[$userId];
 }

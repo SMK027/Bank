@@ -59,6 +59,16 @@ class PosController extends Controller
         }
 
         $isPro = User::isProfessional($user);
+
+        // Accès élargi : un compte de type 'pro' actif suffit, même sans flag is_professional.
+        if (!$isPro) {
+            $accounts = $this->accountModel->getByUser((int) $userId);
+            $isPro = !empty(array_filter(
+                $accounts,
+                fn(array $a) => ($a['type'] ?? '') === 'pro' && empty($a['disabled_at'])
+            ));
+        }
+
         $isMod = $this->isModerator();
 
         if (!$isPro && !$isMod) {
