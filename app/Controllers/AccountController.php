@@ -21,6 +21,8 @@ use App\Models\SavingsInterest;
 use App\Models\SavingsRate;
 use App\Models\Loan;
 use App\Models\LoanInstallment;
+use App\Models\Check;
+use App\Models\Checkbook;
 use App\Models\OverdraftAuthorization;
 use App\Models\User;
 
@@ -36,11 +38,15 @@ class AccountController extends Controller
     private SavingsRate $rateModel;
     private Loan $loanModel;
     private PaymentCard $cardModel;
+    private Checkbook $checkbookModel;
+    private Check $checkModel;
 
     public function __construct()
     {
         $this->accountModel           = new Account();
         $this->rateModel              = new SavingsRate();
+        $this->checkbookModel         = new Checkbook();
+        $this->checkModel             = new Check();
         $this->transactionModel       = new Transaction();
         $this->accessModel            = new AccountAccess();
         $this->directDebitModel       = new DirectDebit();
@@ -212,7 +218,11 @@ class AccountController extends Controller
         }
 
         // Transactions à venir (programmées futures) — enrichies depuis le chargement complet
-        $pendingTransactions = array_values(array_filter($transactions, fn($t) => $t['is_pending']));
+        // On exclut les transactions liées à un chèque (affichées dans la section chèques).
+        $pendingTransactions = array_values(array_filter(
+            $transactions,
+            fn($t) => $t['is_pending'] && empty($t['check_id'])
+        ));
 
         // Pagination des transactions exécutées (serveur)
         $txPerPage    = max(5, min(100, (int) ($_GET['per_page'] ?? 25)));
@@ -450,6 +460,12 @@ class AccountController extends Controller
             'cardRequiredSince'      => \App\Controllers\TransactionController::CARD_REQUIRED_SINCE,
             // Autorisation de dépassement de découvert active (null si aucune)
             'overdraftAuthorization' => (new OverdraftAuthorization())->getActiveForAccount($accountId),
+            // Chéquiers actifs du compte (pour le formulaire de dépense par chèque)
+            'activeCheckbooks'       => Checkbook::typeAllowsCheckbook($account['type'] ?? '')
+                ? $this->checkbookModel->getActiveByAccount($accountId)
+                : [],
+            // Chèques en attente d'encaissement sur ce compte
+            'pendingChecks'          => $this->checkModel->getEmittedByAccount($accountId),
         ]);
     }
 

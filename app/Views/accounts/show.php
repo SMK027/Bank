@@ -39,6 +39,8 @@
  * @var array       $executedDeferredDebits
  * @var int|null    $deferredDebitDay
  * @var array       $posPayments
+ * @var array       $activeCheckbooks
+ * @var array       $pendingChecks
  */
 ?>
 <div class="account-show-page">
@@ -446,7 +448,38 @@
                                placeholder="jj/mm/aaaa hh:mm">
                     </div>
                 </div>
-                <?php if (!empty($txCards)): ?>
+                <?php
+                    $hasCheckbooks = !empty($activeCheckbooks) && \App\Models\Checkbook::typeAllowsCheckbook($account['type'] ?? '');
+                    $hasCards      = !empty($txCards);
+                    $showPaymentMethod = $hasCheckbooks || $hasCards;
+                ?>
+                <?php if ($showPaymentMethod): ?>
+                <div class="form-group tx-expense-only" id="tx-payment-method-group" style="display:none;">
+                    <label class="form-label"><i class="bi bi-wallet2"></i> Moyen de paiement</label>
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                        <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;padding:0.4rem 0.8rem;border:1px solid var(--gray-light);border-radius:6px;font-size:0.9rem;">
+                            <input type="radio" name="payment_method" value="direct" checked
+                                   onchange="updatePaymentMethod()"> Aucun (débit direct)
+                        </label>
+                        <?php if ($hasCards): ?>
+                        <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;padding:0.4rem 0.8rem;border:1px solid var(--gray-light);border-radius:6px;font-size:0.9rem;">
+                            <input type="radio" name="payment_method" value="card"
+                                   onchange="updatePaymentMethod()">
+                            <i class="bi bi-credit-card"></i> Carte bancaire
+                        </label>
+                        <?php endif; ?>
+                        <?php if ($hasCheckbooks): ?>
+                        <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;padding:0.4rem 0.8rem;border:1px solid var(--gray-light);border-radius:6px;font-size:0.9rem;">
+                            <input type="radio" name="payment_method" value="check"
+                                   onchange="updatePaymentMethod()">
+                            <i class="bi bi-journal-check"></i> Chèque
+                        </label>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <?php if ($hasCards): ?>
                 <div class="form-group tx-expense-only" id="tx-card-group" style="display:none;">
                     <label for="tx-card" class="form-label">
                         <i class="bi bi-credit-card"></i> Carte bancaire
@@ -459,6 +492,32 @@
                         <?php endforeach; ?>
                     </select>
                     <span class="form-hint" id="tx-card-limit-hint" style="display:none;"></span>
+                </div>
+                <?php endif; ?>
+
+                <?php if ($hasCheckbooks): ?>
+                <div class="form-group tx-expense-only" id="tx-check-group" style="display:none;">
+                    <label for="tx-checkbook" class="form-label">
+                        <i class="bi bi-journal-check"></i> Chéquier
+                        <span class="text-muted" style="font-weight:400;font-size:0.85em;">(la dépense sera enregistrée « à venir » jusqu'à confirmation)</span>
+                    </label>
+                    <select id="tx-checkbook" name="checkbook_id" class="form-control">
+                        <option value="">-- Sélectionner un chéquier --</option>
+                        <?php foreach ($activeCheckbooks as $cb): ?>
+                            <option value="<?= (int) $cb['id'] ?>"><?= e($cb['label']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <div style="margin-top:0.5rem;">
+                        <label for="tx-check-payee" class="form-label" style="font-size:0.85em;margin-bottom:0.25rem;">
+                            Bénéficiaire du chèque <span class="text-muted" style="font-weight:400;">(optionnel)</span>
+                        </label>
+                        <input type="text" id="tx-check-payee" name="check_payee" class="form-control"
+                               placeholder="Ex : EDF, Mairie de Paris…" maxlength="150">
+                    </div>
+                    <div class="alert alert-info" style="margin-top:0.6rem;padding:0.5rem 0.75rem;font-size:0.85rem;">
+                        <i class="bi bi-info-circle"></i>
+                        Le montant sera débité uniquement lorsque vous confirmerez l'encaissement du chèque.
+                    </div>
                 </div>
                 <?php endif; ?>
 
@@ -597,16 +656,49 @@
                     expenseOnlyEls.forEach(function (el) {
                         el.style.display = isExpense ? '' : 'none';
                     });
-                    // Vider la carte si on bascule vers une entrée
+                    // Vider la carte et le chéquier si on bascule vers une entrée
                     if (!isExpense) {
                         var cardSel = document.getElementById('tx-card');
                         if (cardSel) cardSel.value = '';
                         var txHint = document.getElementById('tx-card-limit-hint');
                         if (txHint) { txHint.style.display = 'none'; txHint.innerHTML = ''; }
+                        var cbSel = document.getElementById('tx-checkbook');
+                        if (cbSel) cbSel.value = '';
+                        // Réinitialiser les radios
+                        var pmRadios = form.querySelectorAll('[name="payment_method"]');
+                        pmRadios.forEach(function(r) { if (r.value === 'direct') r.checked = true; });
+                        updatePaymentMethod();
                     }
                 }
                 typeEl.addEventListener('change', updateExpenseFields);
                 updateExpenseFields();
+
+                // Gestion du moyen de paiement (carte / chèque / direct)
+                function updatePaymentMethod() {
+                    var selectedMethod = 'direct';
+                    var pmRadios = form.querySelectorAll('[name="payment_method"]');
+                    pmRadios.forEach(function(r) { if (r.checked) selectedMethod = r.value; });
+
+                    var cardGroup  = document.getElementById('tx-card-group');
+                    var checkGroup = document.getElementById('tx-check-group');
+                    var cbSel      = document.getElementById('tx-checkbook');
+                    var cardSel    = document.getElementById('tx-card');
+                    var txHint     = document.getElementById('tx-card-limit-hint');
+
+                    if (cardGroup)  cardGroup.style.display  = (selectedMethod === 'card')  ? '' : 'none';
+                    if (checkGroup) checkGroup.style.display = (selectedMethod === 'check') ? '' : 'none';
+
+                    // Vider les champs non actifs
+                    if (selectedMethod !== 'card') {
+                        if (cardSel) cardSel.value = '';
+                        if (txHint) { txHint.style.display = 'none'; txHint.innerHTML = ''; }
+                    }
+                    if (selectedMethod !== 'check') {
+                        if (cbSel) cbSel.value = '';
+                    }
+                }
+                // Appel initial
+                updatePaymentMethod();
 
                 <?php if (!empty($txCards)): ?>
                 // Hint plafond en temps réel pour le sélecteur carte
@@ -1169,22 +1261,89 @@
 <!-- Section : Opérations à venir                          -->
 <!-- ======================================================= -->
 <?php $hasUpcoming = !empty($pendingTransactions) || !empty($upcomingDebits) || !empty($pendingDeferredDebits) || !empty($upcomingLoanInstallments); ?>
+<?php $hasPendingChecks = !empty($pendingChecks); ?>
+<?php $totalUpcomingCount = count($pendingTransactions) + count($upcomingDebits) + count($pendingDeferredDebits ?? []) + count($upcomingLoanInstallments ?? []) + count($pendingChecks ?? []); ?>
 <div class="card mt-2" style="border-left: 3px solid var(--warning, #f59e0b);">
     <div class="card-header" style="display:flex;align-items:center;gap:0.6rem;">
         <h3 style="margin:0;"><i class="bi bi-clock" style="color:var(--warning,#f59e0b);"></i> Opérations à venir</h3>
-        <?php if ($hasUpcoming): ?>
+        <?php if ($hasUpcoming || $hasPendingChecks): ?>
             <span class="badge" style="background:var(--warning,#f59e0b);color:#fff;">
-                <?= count($pendingTransactions) + count($upcomingDebits) + count($pendingDeferredDebits ?? []) + count($upcomingLoanInstallments ?? []) ?>
+                <?= $totalUpcomingCount ?>
             </span>
         <?php endif; ?>
     </div>
     <div class="card-body">
-        <?php if (!$hasUpcoming): ?>
+        <?php if (!$hasUpcoming && !$hasPendingChecks): ?>
             <div class="empty-state">
                 <div class="empty-icon">🕐</div>
                 <p>Aucune opération à venir.</p>
             </div>
         <?php else: ?>
+
+            <?php if ($hasPendingChecks): ?>
+            <!-- Chèques émis en attente d'encaissement -->
+            <h4 style="margin-bottom:0.6rem;font-size:0.95rem;display:flex;align-items:center;gap:0.4rem;">
+                <i class="bi bi-journal-check" style="color:var(--warning,#f59e0b);"></i>
+                Chèques en attente d'encaissement
+                <span class="badge" style="background:var(--warning,#f59e0b);color:#fff;font-size:0.75em;"><?= count($pendingChecks) ?></span>
+                <a href="/checkbooks" class="text-small text-muted" style="margin-left:auto;font-weight:400;text-decoration:none;">
+                    <i class="bi bi-journal-check"></i> Gérer les chéquiers
+                </a>
+            </h4>
+            <div class="table-responsive" style="margin-bottom:1.25rem;">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Chéquier</th>
+                            <th>N° chèque</th>
+                            <th>Bénéficiaire</th>
+                            <th>Montant</th>
+                            <th>Émis le</th>
+                            <?php if ($isOwner || $isGuardian || $isModerator): ?>
+                            <th style="text-align:right;">Actions</th>
+                            <?php endif; ?>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($pendingChecks as $pchk): ?>
+                    <tr>
+                        <td class="text-small"><?= e($pchk['checkbook_label'] ?? '—') ?></td>
+                        <td><strong>#<?= (int) $pchk['check_number'] ?></strong></td>
+                        <td><?= e($pchk['payee'] ?: '—') ?></td>
+                        <td style="font-weight:600;color:var(--warning,#f59e0b);">
+                            <?= number_format((float) $pchk['amount'], 2, ',', ' ') ?>&nbsp;<?= e($account['currency']) ?>
+                        </td>
+                        <td class="text-muted text-small"><?= date('d/m/Y', strtotime($pchk['created_at'])) ?></td>
+                        <?php if ($isOwner || $isGuardian || $isModerator): ?>
+                        <td style="text-align:right;">
+                            <div class="btn-group btn-group-sm">
+                                <form method="POST"
+                                      action="/accounts/<?= (int) $account['id'] ?>/checks/<?= (int) $pchk['id'] ?>/confirm">
+                                    <?= csrf_field() ?>
+                                    <button type="submit" class="btn btn-outline btn-sm"
+                                            style="color:var(--success,#22c55e);border-color:var(--success,#22c55e);"
+                                            onclick="return confirm('Confirmer l\'encaissement du chèque #<?= (int) $pchk['check_number'] ?> (<?= number_format((float) $pchk['amount'], 2, ',', ' ') ?>&nbsp;<?= e($account['currency']) ?>) ? Le débit sera effectué immédiatement.')">
+                                        <i class="bi bi-check2-circle"></i> Encaissé
+                                    </button>
+                                </form>
+                                <form method="POST"
+                                      action="/accounts/<?= (int) $account['id'] ?>/checks/<?= (int) $pchk['id'] ?>/oppose">
+                                    <?= csrf_field() ?>
+                                    <button type="submit" class="btn btn-outline btn-sm"
+                                            style="color:var(--danger);border-color:var(--danger);"
+                                            onclick="return confirm('Mettre en opposition le chèque #<?= (int) $pchk['check_number'] ?> ? Le débit en attente sera annulé.')">
+                                        <i class="bi bi-slash-circle"></i> Opposition
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                        <?php endif; ?>
+                    </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
 
             <?php if (!empty($pendingTransactions)): ?>
             <!-- Transactions programmées (income / expense programmés) -->

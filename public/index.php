@@ -39,6 +39,7 @@ use App\Controllers\BudgetController;
 use App\Controllers\PaymentRequestController;
 use App\Controllers\FriendController;
 use App\Controllers\ExpenseSplitController;
+use App\Controllers\CheckbookController;
 use App\Controllers\ModerationOverdraftController;
 
 // Démarrer la session
@@ -344,6 +345,18 @@ $router->post('/moderation/pos-payments/{id}/refund',           PosController::c
 $router->get('/moderation/overdraft-authorizations',                       ModerationOverdraftController::class, 'index');
 $router->post('/moderation/overdraft-authorizations/create',               ModerationOverdraftController::class, 'create');
 $router->post('/moderation/overdraft-authorizations/{id}/revoke',          ModerationOverdraftController::class, 'revoke');
+
+// --- Chéquiers ---
+$router->get('/checkbooks',                                                CheckbookController::class, 'index');
+$router->get('/checkbooks/create',                                         CheckbookController::class, 'createForm');
+$router->post('/checkbooks/create',                                        CheckbookController::class, 'create');
+$router->get('/checkbooks/{id}',                                           CheckbookController::class, 'show');
+$router->post('/checkbooks/{id}/oppose',                                   CheckbookController::class, 'oppose');
+$router->post('/checkbooks/{checkbookId}/checks/{checkId}/confirm',        CheckbookController::class, 'confirmCheck');
+$router->post('/checkbooks/{checkbookId}/checks/{checkId}/oppose',         CheckbookController::class, 'opposeCheck');
+// Actions rapides depuis la page d'un compte
+$router->post('/accounts/{accountId}/checks/{checkId}/confirm',            CheckbookController::class, 'confirmCheckFromAccount');
+$router->post('/accounts/{accountId}/checks/{checkId}/oppose',             CheckbookController::class, 'opposeCheckFromAccount');
 
 // Dispatcher la requête
 $router->dispatch();

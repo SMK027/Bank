@@ -87,8 +87,22 @@
 
                             <span class="navbar-sep" aria-hidden="true"></span>
 
-                            <!-- Cartes -->
-                            <a href="/cards" class="navbar-link"><i class="bi bi-credit-card-2-front"></i> <span class="nav-label">Cartes</span></a>
+                            <!-- Dropdown : Paiements -->
+                            <div class="navbar-dropdown" id="payDropdown">
+                                <button class="navbar-dropdown-toggle" aria-expanded="false" aria-haspopup="true" aria-controls="payMenu">
+                                    <i class="bi bi-wallet2"></i>
+                                    <span class="nav-label">Paiements</span>
+                                    <i class="bi bi-chevron-down navbar-dropdown-chevron"></i>
+                                </button>
+                                <div class="navbar-dropdown-menu" id="payMenu" role="menu">
+                                    <a href="/cards" class="navbar-dropdown-item" role="menuitem">
+                                        <i class="bi bi-credit-card-2-front"></i> Cartes
+                                    </a>
+                                    <a href="/checkbooks" class="navbar-dropdown-item" role="menuitem">
+                                        <i class="bi bi-journal-check"></i> Chéquiers
+                                    </a>
+                                </div>
+                            </div>
                         </div>
                     </div>
 

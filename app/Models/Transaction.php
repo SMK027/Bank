@@ -101,7 +101,7 @@ class Transaction extends Model
         return array_key_exists($category, self::getCategoriesForType($type));
     }
 
-    public function addTransaction(int $accountId, string $type, float $amount, string $category, string $comment = '', int $userId = 0, ?string $scheduledAt = null, ?int $cardId = null): int
+    public function addTransaction(int $accountId, string $type, float $amount, string $category, string $comment = '', int $userId = 0, ?string $scheduledAt = null, ?int $cardId = null, ?int $checkId = null): int
     {
         $row = [
             'account_id'   => $accountId,
@@ -114,6 +114,9 @@ class Transaction extends Model
         ];
         if ($cardId !== null) {
             $row['card_id'] = $cardId;
+        }
+        if ($checkId !== null) {
+            $row['check_id'] = $checkId;
         }
         return $this->create($row);
     }

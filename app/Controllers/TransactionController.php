@@ -6,6 +6,8 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Models\Account;
+use App\Models\Check;
+use App\Models\Checkbook;
 use App\Models\DeferredDebit;
 use App\Models\Guardianship;
 use App\Models\Notification;
@@ -30,6 +32,8 @@ class TransactionController extends Controller
     private Guardianship $guardianshipModel;
     private DeferredDebit $deferredDebitModel;
     private PaymentCard $cardModel;
+    private Checkbook $checkbookModel;
+    private Check $checkModel;
 
     public function __construct()
     {
@@ -40,6 +44,8 @@ class TransactionController extends Controller
         $this->guardianshipModel  = new Guardianship();
         $this->deferredDebitModel = new DeferredDebit();
         $this->cardModel          = new PaymentCard();
+        $this->checkbookModel     = new Checkbook();
+        $this->checkModel         = new Check();
     }
 
     public function create(string $accountId): void
@@ -57,7 +63,7 @@ class TransactionController extends Controller
             return;
         }
 
-        $data = $this->getPostData(['type', 'amount', 'category', 'comment', 'scheduled_at', 'card_id']);
+        $data = $this->getPostData(['type', 'amount', 'category', 'comment', 'scheduled_at', 'card_id', 'checkbook_id', 'check_payee']);
 
         if (empty($data['type']) || empty($data['amount']) || empty($data['category'])) {
             $this->setFlash('danger', 'Le type, le montant et la catégorie sont requis.');
@@ -207,6 +213,59 @@ class TransactionController extends Controller
         $balanceBefore = ($data['type'] === 'expense' && $scheduledAt === null)
             ? $this->accountModel->getBalance($accId)
             : 0.0;
+
+        // ── Paiement par chèque ──────────────────────────────────────────────
+        $checkbookId = ($data['type'] === 'expense' && !empty($data['checkbook_id']))
+            ? (int) $data['checkbook_id']
+            : null;
+
+        if ($checkbookId !== null) {
+            // Valider le chéquier (actif, lié au compte)
+            $checkbook = $this->checkbookModel->find($checkbookId);
+            if (!$checkbook
+                || (int) $checkbook['account_id'] !== $accId
+                || $checkbook['status'] !== 'active'
+            ) {
+                $this->setFlash('danger', 'Chéquier invalide ou en opposition.');
+                $this->redirect('/accounts/' . $accountId);
+                return;
+            }
+
+            // Carte et chèque sont mutuellement exclusifs
+            $cardId = null;
+
+            // La transaction est enregistrée en attente (scheduled_at sentinel)
+            $scheduledAt = Check::PENDING_SCHEDULED_AT;
+
+            $payee = mb_substr(trim($data['check_payee'] ?? ''), 0, 150);
+
+            // 1. Créer la transaction en attente (check_id = null pour l'instant — mis à jour après)
+            $txId = $this->transactionModel->addTransaction(
+                $accId,
+                'expense',
+                $amount,
+                $data['category'],
+                $data['comment'],
+                $userId,
+                $scheduledAt,
+                null // card_id
+            );
+
+            // 2. Créer le chèque lié à cette transaction
+            $checkId = $this->checkModel->emit($checkbookId, $amount, $payee, $txId);
+
+            // 3. Lier le chèque à la transaction
+            $this->transactionModel->update($txId, ['check_id' => $checkId]);
+
+            $nextNum = $this->checkModel->find($checkId)['check_number'] ?? '?';
+            $this->setFlash('success', sprintf(
+                'Dépense enregistrée par chèque n°%s — en attente de confirmation d\'encaissement.',
+                $nextNum
+            ));
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+        // ────────────────────────────────────────────────────────────────────
 
         $this->transactionModel->addTransaction(
             $accId,

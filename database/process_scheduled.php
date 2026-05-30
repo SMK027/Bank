@@ -770,6 +770,10 @@ foreach ($transactionModel->findAll('scheduled_at', 'ASC') as $t) {
     $txId = (int) $t['id'];
     if (isset($processedTxIds[$txId])) continue; // déjà géré via le virement
 
+    // Ne jamais auto-exécuter les transactions liées à un chèque :
+    // elles doivent être confirmées manuellement par l'utilisateur.
+    if (!empty($t['check_id'])) continue;
+
     if ($transactionModel->update($txId, ['scheduled_at' => null])) {
         $executed++;
         echo sprintf(
