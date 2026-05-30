@@ -34,14 +34,27 @@ export default function TransactionScreen({ token, user, pos, onResult, onLogout
   const [card, setCard] = useState('');
   const [label, setLabel] = useState('');
   const [amount, setAmount] = useState('');
-  const [accountId, setAccountId] = useState<number | undefined>(pos.accounts[0]?.id);
+  // 0 = aucun crédit (autorisé uniquement pour un débit).
+  const [accountId, setAccountId] = useState<number>(0);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  function changeType(next: TxType) {
+    setType(next);
+    if (next === 'credit' && accountId === 0) {
+      const first = pos.accounts[0]?.id;
+      if (first) setAccountId(first);
+    }
+  }
+
   const canSubmit = useMemo(
-    () => card.replace(/\D/g, '').length >= 13 && label.trim() !== '' && parseFloat(amount.replace(',', '.')) > 0,
-    [card, label, amount]
+    () =>
+      card.replace(/\D/g, '').length >= 13 &&
+      label.trim() !== '' &&
+      parseFloat(amount.replace(',', '.')) > 0 &&
+      (type === 'debit' || accountId > 0),
+    [card, label, amount, type, accountId]
   );
 
   if (!pos.active) {
@@ -65,8 +78,8 @@ export default function TransactionScreen({ token, user, pos, onResult, onLogout
   if (!pos.can_operate) {
     return (
       <BlockedView
-        title="Aucun compte d'encaissement"
-        message="Aucun compte professionnel actif n'est rattaché à votre profil."
+        title="TPE indisponible"
+        message="Le TPE n'est pas disponible pour le moment."
         onLogout={onLogout}
       />
     );
@@ -112,8 +125,13 @@ export default function TransactionScreen({ token, user, pos, onResult, onLogout
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Type d'opération</Text>
           <View style={styles.segment}>
-            <SegmentButton label="Débit" active={type === 'debit'} onPress={() => setType('debit')} />
-            <SegmentButton label="Crédit" active={type === 'credit'} onPress={() => setType('credit')} />
+            <SegmentButton label="Débit" active={type === 'debit'} onPress={() => changeType('debit')} />
+            <SegmentButton
+              label="Crédit"
+              active={type === 'credit'}
+              onPress={() => changeType('credit')}
+              disabled={pos.accounts.length === 0}
+            />
           </View>
 
           <Text style={styles.label}>Numéro de carte</Text>
@@ -152,10 +170,23 @@ export default function TransactionScreen({ token, user, pos, onResult, onLogout
             placeholderTextColor="#94a3b8"
           />
 
-          {pos.accounts.length > 1 && (
+          {pos.accounts.length > 0 && (
             <>
-              <Text style={styles.label}>Compte d'encaissement</Text>
+              <Text style={styles.label}>
+                {type === 'debit' ? 'Compte à créditer (facultatif)' : 'Compte d\'encaissement'}
+              </Text>
               <View style={styles.accountList}>
+                {type === 'debit' && (
+                  <TouchableOpacity
+                    key="none"
+                    style={[styles.accountChip, accountId === 0 && styles.accountChipActive]}
+                    onPress={() => setAccountId(0)}
+                  >
+                    <Text style={[styles.accountText, accountId === 0 && styles.accountTextActive]}>
+                      Aucun crédit
+                    </Text>
+                  </TouchableOpacity>
+                )}
                 {pos.accounts.map((a) => (
                   <TouchableOpacity
                     key={a.id}
@@ -201,13 +232,14 @@ export default function TransactionScreen({ token, user, pos, onResult, onLogout
   );
 }
 
-function SegmentButton({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+function SegmentButton({ label, active, onPress, disabled }: { label: string; active: boolean; onPress: () => void; disabled?: boolean }) {
   return (
     <TouchableOpacity
-      style={[styles.segmentBtn, active && styles.segmentBtnActive]}
+      style={[styles.segmentBtn, active && styles.segmentBtnActive, disabled && styles.segmentBtnDisabled]}
       onPress={onPress}
+      disabled={disabled}
     >
-      <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{label}</Text>
+      <Text style={[styles.segmentText, active && styles.segmentTextActive, disabled && styles.segmentTextDisabled]}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -241,8 +273,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a', borderWidth: 1, borderColor: '#334155',
   },
   segmentBtnActive: { backgroundColor: '#6366f1', borderColor: '#6366f1' },
+  segmentBtnDisabled: { opacity: 0.4 },
   segmentText: { color: '#cbd5e1', fontWeight: '500' },
   segmentTextActive: { color: '#fff' },
+  segmentTextDisabled: { color: '#64748b' },
   label: { color: '#cbd5e1', marginTop: 14, marginBottom: 6, fontSize: 13 },
   input: {
     backgroundColor: '#0f172a', color: '#fff',
