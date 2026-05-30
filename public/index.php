@@ -54,8 +54,9 @@ header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 // Limite les informations envoyées dans le header Referer.
 header('Referrer-Policy: strict-origin-when-cross-origin');
-// Restreint les permissions navigateur sensibles non utilisées.
-header('Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()');
+// Restreint les permissions navigateur sensibles.
+// camera=(self) : autorise la caméra depuis cette origine uniquement (nécessaire pour le scanner QR du TPE).
+header('Permissions-Policy: geolocation=(), microphone=(), camera=(self), payment=()');
 // Politique de contenu : autorise self + CDN jsDelivr utilisé pour les icônes.
 header(
     "Content-Security-Policy: default-src 'self'; "
