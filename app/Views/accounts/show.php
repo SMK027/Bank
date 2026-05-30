@@ -667,8 +667,9 @@
                         // Réinitialiser les radios
                         var pmRadios = form.querySelectorAll('[name="payment_method"]');
                         pmRadios.forEach(function(r) { if (r.value === 'direct') r.checked = true; });
-                        updatePaymentMethod();
                     }
+                    // Toujours synchroniser l'affichage carte/chèque avec le radio sélectionné
+                    updatePaymentMethod();
                 }
                 typeEl.addEventListener('change', updateExpenseFields);
                 updateExpenseFields();
