@@ -179,11 +179,9 @@ class MobileApiController extends ApiController
             $this->error($msg . '.', 403);
         }
 
-        if (!$isModerator && empty($merchantAccounts)) {
-            $this->error('Aucun compte professionnel actif rattaché.', 403);
-        }
-
         // Sélection du compte marchand
+        //  - DEBIT  : facultatif (0 ou absent => pas de crédit du commerçant)
+        //  - CREDIT : obligatoire (par défaut le premier compte pro éligible)
         $merchantAccount = null;
         if ($accountId > 0) {
             foreach ($merchantAccounts as $a) {
@@ -195,8 +193,12 @@ class MobileApiController extends ApiController
             if (!$merchantAccount) {
                 $this->error('Compte d\'encaissement invalide.', 400);
             }
-        } elseif (!empty($merchantAccounts)) {
+        } elseif ($type === 'credit' && !empty($merchantAccounts)) {
             $merchantAccount = $merchantAccounts[0];
+        }
+
+        if ($type === 'credit' && !$merchantAccount) {
+            $this->error('Aucun compte professionnel actif rattaché pour effectuer un crédit.', 403);
         }
 
         // Résolution de la carte
@@ -484,7 +486,10 @@ class MobileApiController extends ApiController
             'reason'      => $posStatus['reason'] ?? '',
             'banned'      => $banned,
             'ban_reason'  => $banReason,
-            'can_operate' => !$posStatus['is_disabled'] && !$banned && ($isModerator || !empty($merchantAccounts)),
+            // Un utilisateur authentifié peut effectuer un débit même sans
+            // compte d'encaissement (le crédit du commerçant est facultatif).
+            // Seul un crédit (remboursement) nécessite un compte pro éligible.
+            'can_operate' => !$posStatus['is_disabled'] && !$banned,
             'accounts'    => array_map(fn(array $a) => [
                 'id'       => (int) $a['id'],
                 'label'    => $a['label'] ?? ('Compte #' . $a['id']),
