@@ -64,7 +64,7 @@ class MobileApiController extends ApiController
             $this->error('Identifiants invalides.', 401);
         }
 
-        $isModerator = !empty($user['role']) && $user['role'] === 'moderator';
+        $isModerator = !empty($user['global_role']) && $user['global_role'] === 'moderator';
         $isPro       = User::isProfessional($user);
 
         if (!$isPro) {
@@ -84,7 +84,7 @@ class MobileApiController extends ApiController
         $token = JWT::encode([
             'user_id'     => (int) $user['id'],
             'email'       => $user['email'],
-            'global_role' => $user['role'] ?? 'user',
+            'global_role' => $user['global_role'] ?? 'user',
             'scope'       => 'mobile_pos',
         ], 86400 * 7);
 
@@ -103,7 +103,7 @@ class MobileApiController extends ApiController
         if (!$user) {
             $this->error('Utilisateur introuvable.', 404);
         }
-        $isModerator = ($user['role'] ?? '') === 'moderator';
+        $isModerator = ($user['global_role'] ?? '') === 'moderator';
         $this->json([
             'success' => true,
             'user'    => $this->publicUser($user, $isModerator),
@@ -120,7 +120,7 @@ class MobileApiController extends ApiController
         if (!$user) {
             $this->error('Utilisateur introuvable.', 404);
         }
-        $isModerator = ($user['role'] ?? '') === 'moderator';
+        $isModerator = ($user['global_role'] ?? '') === 'moderator';
 
         $posStatus = PosStatus::current();
         if ($posStatus['is_disabled']) {
@@ -374,7 +374,7 @@ class MobileApiController extends ApiController
             'first_name' => $user['first_name'] ?? '',
             'last_name'  => $user['last_name'] ?? '',
             'company'    => $user['company_name'] ?? null,
-            'role'       => $user['role'] ?? 'user',
+            'role'       => $user['global_role'] ?? 'user',
             'is_moderator'    => $isModerator,
             'is_professional' => User::isProfessional($user),
         ];
