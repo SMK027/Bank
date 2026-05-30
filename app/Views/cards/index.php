@@ -339,7 +339,7 @@ unset($_SESSION['card_just_created']);
 
         <!-- Affichage du QR généré -->
         <div id="qrDisplaySection" style="display:none;text-align:center;">
-            <canvas id="qrCanvas" style="display:block;margin:0 auto;border-radius:8px;"></canvas>
+            <div id="qrSvgContainer" style="display:inline-block;background:#fff;padding:12px;border-radius:8px;line-height:0;"></div>
             <p class="text-muted" style="font-size:0.78rem;margin-top:0.75rem;margin-bottom:0;">
                 Présentez ce QR code au TPE pour remplir automatiquement le numéro de carte.
                 Ce code n'est visible qu'une fois par session.
@@ -727,8 +727,7 @@ unset($_SESSION['card_just_created']);
 }());
 </script>
 
-<!-- ── QR Code : génération côté client ─────────────────────────────── -->
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+<!-- ── QR Code : génération côté serveur ────────────────────────────── -->
 <script>
 (function () {
     'use strict';
@@ -742,7 +741,7 @@ unset($_SESSION['card_just_created']);
     var qrPassBtn     = document.getElementById('qrPassBtn');
     var qrCardIdEl    = document.getElementById('qrPassCardId');
     var qrCsrfEl      = document.getElementById('qrPassCsrf');
-    var qrCanvas      = document.getElementById('qrCanvas');
+    var qrSvgEl       = document.getElementById('qrSvgContainer');
     var qrTitle       = document.getElementById('qrModalTitle');
     var qrSub         = document.getElementById('qrModalSub');
     var csrfToken     = <?= json_encode(\App\Core\CSRF::generate()) ?>;
@@ -759,6 +758,7 @@ unset($_SESSION['card_just_created']);
         qrCsrfEl.value              = csrfToken;
         qrTitle.textContent         = 'QR Code — ' + masked;
         qrSub.textContent           = '';
+        if (qrSvgEl) qrSvgEl.innerHTML = '';
         qrOverlay.style.display     = 'flex';
         requestAnimationFrame(function () { qrOverlay.classList.add('active'); });
         setTimeout(function () { qrPassInput.focus(); }, 100);
@@ -771,9 +771,7 @@ unset($_SESSION['card_just_created']);
             qrPassSection.style.display = 'block';
             qrDisplay.style.display     = 'none';
             qrPassInput.value           = '';
-            // Effacer le canvas pour ne pas laisser le PAN en mémoire visuelle
-            var ctx = qrCanvas ? qrCanvas.getContext('2d') : null;
-            if (ctx) ctx.clearRect(0, 0, qrCanvas.width, qrCanvas.height);
+            if (qrSvgEl) qrSvgEl.innerHTML = '';
         }, 200);
     }
 
@@ -815,20 +813,13 @@ unset($_SESSION['card_just_created']);
                 qrPassInput.focus();
                 return;
             }
-            var pan = res.body.pan;
             qrPassSection.style.display = 'none';
             qrDisplay.style.display     = 'block';
-            QRCode.toCanvas(qrCanvas, pan, { width: 240, margin: 2,
-                color: { dark: '#0f172a', light: '#ffffff' } },
-                function (err) {
-                    if (err) {
-                        qrPassSection.style.display = 'block';
-                        qrDisplay.style.display     = 'none';
-                        qrPassError.textContent     = 'Erreur de génération du QR.';
-                        qrPassError.style.display   = 'block';
-                    }
-                }
-            );
+            if (qrSvgEl) {
+                qrSvgEl.innerHTML = res.body.svg || '';
+                var svg = qrSvgEl.querySelector('svg');
+                if (svg) { svg.setAttribute('width', '220'); svg.setAttribute('height', '220'); }
+            }
         })
         .catch(function () {
             qrPassError.textContent   = 'Erreur réseau, réessayez.';

@@ -581,7 +581,7 @@ $posStatus = $posStatus ?? null;
 }
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="/js/jsqr.min.js"></script>
 <script>
 (function () {
     'use strict';
@@ -594,12 +594,6 @@ $posStatus = $posStatus ?? null;
     var cardInput  = document.getElementById('card_number');
 
     if (!scanBtn || !overlay || !video || !cardInput) return;
-    if (typeof jsQR === 'undefined') { scanBtn.style.display = 'none'; return; }
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        scanBtn.title = 'Caméra non disponible sur ce navigateur';
-        scanBtn.disabled = true;
-        return;
-    }
 
     var stream     = null;
     var rafId      = null;
@@ -656,6 +650,21 @@ $posStatus = $posStatus ?? null;
 
     function startScan() {
         lastResult = '';
+
+        // Vérifications au moment du clic (pas à l'initialisation)
+        if (typeof jsQR === 'undefined') {
+            setMsg('Bibliothèque de scan non disponible. Rechargez la page.', true);
+            overlay.style.display = 'flex';
+            requestAnimationFrame(function () { overlay.classList.add('active'); });
+            return;
+        }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            setMsg('L\'accès à la caméra n\'est pas disponible sur cette page. Assurez-vous d\'utiliser Chrome ou Firefox sur localhost.', true);
+            overlay.style.display = 'flex';
+            requestAnimationFrame(function () { overlay.classList.add('active'); });
+            return;
+        }
+
         setMsg('Positionnez le QR code dans la caméra…');
         overlay.style.display = 'flex';
         requestAnimationFrame(function () { overlay.classList.add('active'); });

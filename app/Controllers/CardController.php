@@ -11,6 +11,8 @@ use App\Models\AuditLog;
 use App\Models\Guardianship;
 use App\Models\PaymentCard;
 use App\Models\User;
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
 
 /**
  * Gestion des cartes bancaires de l'utilisateur (côté UI).
@@ -477,7 +479,10 @@ class CardController extends Controller
             'via'     => 'qr',
         ]);
 
-        $this->jsonResponse(['pan' => $card['card_number']]);
+        $opts = new QROptions(['outputBase64' => false]);
+        $svg  = (new QRCode($opts))->render($card['card_number']);
+
+        $this->jsonResponse(['svg' => $svg]);
     }
 
     /**
