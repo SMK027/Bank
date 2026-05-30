@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { api } from '../api';
-import type { PosStatus, TransactionResponse, User } from '../api';
+import type { PosStatus, StatusResponse, TransactionResponse, User } from '../api';
 import ScannerModal from '../components/ScannerModal';
 
 type Props = {
@@ -20,6 +20,7 @@ type Props = {
   pos: PosStatus;
   onResult: (result: { kind: 'ok'; data: TransactionResponse } | { kind: 'error'; message: string }) => void;
   onLogout: () => void;
+  onSessionRefresh?: (status: StatusResponse) => void;
 };
 
 type TxType = 'debit' | 'credit';
@@ -29,7 +30,7 @@ function formatCard(raw: string): string {
   return digits.replace(/(.{4})/g, '$1 ').trim();
 }
 
-export default function TransactionScreen({ token, user, pos, onResult, onLogout }: Props) {
+export default function TransactionScreen({ token, user, pos, onResult, onLogout, onSessionRefresh }: Props) {
   const [type, setType] = useState<TxType>('debit');
   const [card, setCard] = useState('');
   const [label, setLabel] = useState('');
@@ -47,6 +48,24 @@ export default function TransactionScreen({ token, user, pos, onResult, onLogout
       if (first) setAccountId(first);
     }
   }
+
+  // Rafraîchit périodiquement le statut TPE pour détecter un ban / une
+  // désactivation appliquée par la modération pendant que l'écran est
+  // ouvert. Le composant parent passe au BlockedView si can_operate=false.
+  useEffect(() => {
+    if (!onSessionRefresh) return;
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const s = await api.status(token);
+        if (!cancelled) onSessionRefresh(s);
+      } catch {
+        /* silencieux */
+      }
+    };
+    const id = setInterval(refresh, 20000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [token, onSessionRefresh]);
 
   const canSubmit = useMemo(
     () =>
@@ -89,6 +108,25 @@ export default function TransactionScreen({ token, user, pos, onResult, onLogout
     setSubmitting(true);
     setError(null);
     try {
+      // Vérifie en temps réel que le TPE n'a pas été désactivé / l'utilisateur banni
+      // depuis l'ouverture de l'écran, sinon la modération pourrait être
+      // contournée par une session mise en cache.
+      try {
+        const fresh = await api.status(token);
+        if (onSessionRefresh) onSessionRefresh(fresh);
+        if (!fresh.pos.active || fresh.pos.banned || !fresh.pos.can_operate) {
+          setSubmitting(false);
+          return; // le parent affichera BlockedView au prochain rendu
+        }
+        if (accountId > 0 && !fresh.pos.accounts.some((a) => a.id === accountId)) {
+          setAccountId(0);
+          setError("Le compte d'encaissement sélectionné n'est plus disponible.");
+          setSubmitting(false);
+          return;
+        }
+      } catch {
+        /* on tente quand même la transaction si le ping échoue */
+      }
       const result = await api.transaction(token, {
         type,
         card_number: card.replace(/\s/g, ''),

@@ -94,6 +94,7 @@ export default function App() {
         pos={session.pos}
         onResult={setResult}
         onLogout={handleLogout}
+        onSessionRefresh={(next) => setSession({ ...session, user: next.user, pos: next.pos })}
       />
     </>
   );
