@@ -1,0 +1,17 @@
+# EAS scanne depuis la racine git ; on exclut tout ce qui n'est pas mobile/
+/data/
+/vendor/
+/public/uploads/
+/database/
+/docker/
+/tests/
+/app/
+/public/
+/composer.json
+/composer.lock
+/Dockerfile
+/docker-compose*.yml
+/docker-entrypoint.sh
+/phpunit.xml
+/IMPROVEMENTS.md
+/prompt.md

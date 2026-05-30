@@ -15,7 +15,10 @@
     },
     "android": {
       "package": "fr.leofranz.bankapp.tpe",
-      "permissions": ["android.permission.CAMERA"]
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       [
@@ -26,7 +29,11 @@
       ]
     ],
     "extra": {
-      "apiBaseUrl": "https://bank.leofranz.fr"
-    }
+      "apiBaseUrl": "https://bank.leofranz.fr",
+      "eas": {
+        "projectId": "e25527c7-cc8d-4520-9424-3243c7c04282"
+      }
+    },
+    "owner": "smk_9119"
   }
 }
