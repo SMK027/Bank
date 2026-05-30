@@ -77,6 +77,6 @@ class Checkbook extends Model
      */
     public static function typeAllowsCheckbook(string $accountType): bool
     {
-        return in_array($accountType, ['standard', 'pro', 'joint'], true);
+        return in_array($accountType, ['standard', 'pro', 'joint', 'online'], true);
     }
 }
