@@ -35,6 +35,7 @@ use App\Controllers\CardController;
 use App\Controllers\PosController;
 use App\Controllers\ApiClientController;
 use App\Controllers\Api\PaymentApiController;
+use App\Controllers\Api\MobileApiController;
 use App\Controllers\BudgetController;
 use App\Controllers\PaymentRequestController;
 use App\Controllers\FriendController;
@@ -330,6 +331,11 @@ $router->post('/moderation/api-clients/{id}/revoke', ApiClientController::class,
 $router->post('/api/v1/payments/debit',  PaymentApiController::class, 'debit');
 $router->post('/api/v1/payments/credit', PaymentApiController::class, 'credit');
 $router->post('/api/v1/cards/verify',    PaymentApiController::class, 'verify');
+
+// --- API mobile (app Expo TPE) ---
+$router->post('/api/v1/mobile/login',       MobileApiController::class, 'login');
+$router->get( '/api/v1/mobile/status',      MobileApiController::class, 'status');
+$router->post('/api/v1/mobile/transaction', MobileApiController::class, 'transaction');
 
 // --- Terminal de paiement électronique (TPE) ---
 $router->get('/pos',             PosController::class, 'index');

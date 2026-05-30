@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "BankApp TPE",
+    "slug": "bankapp-tpe",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "scheme": "bankapptpe",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "fr.leofranz.bankapp.tpe",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Permet de scanner le QR code d'une carte bancaire pour saisir le numéro automatiquement."
+      }
+    },
+    "android": {
+      "package": "fr.leofranz.bankapp.tpe",
+      "permissions": ["android.permission.CAMERA"]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Autoriser l'accès à la caméra pour scanner les QR codes de carte."
+        }
+      ]
+    ],
+    "extra": {
+      "apiBaseUrl": "http://10.0.2.2:8083"
+    }
+  }
+}
