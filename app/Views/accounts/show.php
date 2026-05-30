@@ -1396,9 +1396,16 @@
                                 </td>
                                 <td>
                                     <?php if ($tIsTpe): ?>
+                                    <?php $tIsTpeOp = str_starts_with((string) ($t['comment'] ?? ''), '[TPE'); ?>
+                                    <?php if ($tIsTpeOp): ?>
+                                    <span class="badge badge-secondary" style="font-size:0.7rem;" title="Opération TPE — gérée par la modération">
+                                        <i class="bi bi-shop"></i> TPE
+                                    </span>
+                                    <?php else: ?>
                                     <span class="badge badge-secondary" style="font-size:0.7rem;" title="Opération de modération — non modifiable">
                                         <i class="bi bi-shield-lock"></i> Modération
                                     </span>
+                                    <?php endif; ?>
                                     <?php elseif ($isModerator && !in_array((int) $t['id'], $linkedTxIds ?? [])): ?>
                                     <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/transactions/<?= (int) $t['id'] ?>/delete"
                                           style="display:inline">
@@ -1979,9 +1986,16 @@
                                     </form>
                                     <?php endif; ?>
                                     <?php if ($txIsTpe): ?>
+                                    <?php $txIsTpeOp = str_starts_with((string) ($t['comment'] ?? ''), '[TPE'); ?>
+                                    <?php if ($txIsTpeOp): ?>
+                                    <span class="badge badge-secondary" style="font-size:0.7rem;" title="Opération TPE — gérée par la modération">
+                                        <i class="bi bi-shop"></i> TPE
+                                    </span>
+                                    <?php else: ?>
                                     <span class="badge badge-secondary" style="font-size:0.7rem;" title="Opération de modération — non modifiable">
                                         <i class="bi bi-shield-lock"></i> Modération
                                     </span>
+                                    <?php endif; ?>
                                     <?php else: ?>
                                     <?php if ($txEditable): ?>
                                     <button type="button" class="btn btn-outline btn-sm tx-date-edit" data-tx-id="<?= (int) $t['id'] ?>"
