@@ -444,6 +444,43 @@ class CardController extends Controller
     }
 
     /**
+     * Vérifie le mot de passe et retourne le PAN en JSON pour la génération du QR code
+     * côté client. Le numéro complet n'est transmis qu'après authentification.
+     */
+    public function revealQr(string $id): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+        $userId = $this->getCurrentUserId();
+
+        $id   = (int) $id;
+        $card = $this->cardModel->find($id);
+        if (!$card || (int) $card['user_id'] !== $userId) {
+            $this->jsonResponse(['error' => 'Carte introuvable.'], 403);
+            return;
+        }
+
+        $password = (string) ($_POST['password'] ?? '');
+        $user     = $this->userModel->find($userId);
+        if (!$user || !password_verify($password, $user['password'])) {
+            AuditLog::log($userId, AuditLog::ACTION_CARD_REVEAL_FAIL, [
+                'card_id' => $id,
+                'last4'   => $card['last4'] ?? '',
+            ]);
+            $this->jsonResponse(['error' => 'Mot de passe incorrect.'], 422);
+            return;
+        }
+
+        AuditLog::log($userId, AuditLog::ACTION_CARD_REVEAL, [
+            'card_id' => $id,
+            'last4'   => $card['last4'] ?? '',
+            'via'     => 'qr',
+        ]);
+
+        $this->jsonResponse(['pan' => $card['card_number']]);
+    }
+
+    /**
      * Active ou bloque une carte.
      * Autorisé pour le titulaire de la carte, les mandataires avec procuration valide
      * sur le compte associé, et les responsables légaux actifs du titulaire.

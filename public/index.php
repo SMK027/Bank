@@ -318,6 +318,7 @@ $router->post('/cards/{id}/override-spent',   CardController::class, 'overrideMo
 $router->post('/cards/{id}/reset-spent',      CardController::class, 'resetMonthlySpent');
 $router->get('/cards/{id}/reveal', CardController::class, 'revealForm');
 $router->post('/cards/{id}/reveal', CardController::class, 'reveal');
+$router->post('/cards/{id}/reveal-qr', CardController::class, 'revealQr');
 
 // --- Clients API (modération) ---
 $router->get('/moderation/api-clients', ApiClientController::class, 'index');

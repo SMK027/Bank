@@ -168,15 +168,21 @@ $posStatus = $posStatus ?? null;
                     <label for="card_number" class="form-label">
                         <i class="bi bi-credit-card-2-front"></i> Numéro de carte
                     </label>
-                    <div style="position:relative;">
-                        <input type="text" id="card_number" name="card_number" class="form-control"
-                               value="<?= e((string) ($form['card_number'] ?? '')) ?>"
-                               inputmode="numeric" autocomplete="cc-number" autofocus
-                               placeholder="4242 4242 4242 4242" required maxlength="23"
-                               style="padding-right:2.4rem;">
-                        <span id="card-status-icon"
-                              style="position:absolute;right:0.7rem;top:50%;transform:translateY(-50%);font-size:1.1rem;display:none;"
-                              aria-hidden="true"></span>
+                    <div style="display:flex;gap:0.5rem;align-items:flex-start;">
+                        <div style="position:relative;flex:1;">
+                            <input type="text" id="card_number" name="card_number" class="form-control"
+                                   value="<?= e((string) ($form['card_number'] ?? '')) ?>"
+                                   inputmode="numeric" autocomplete="cc-number" autofocus
+                                   placeholder="4242 4242 4242 4242" required maxlength="23"
+                                   style="padding-right:2.4rem;">
+                            <span id="card-status-icon"
+                                  style="position:absolute;right:0.7rem;top:50%;transform:translateY(-50%);font-size:1.1rem;display:none;"
+                                  aria-hidden="true"></span>
+                        </div>
+                        <button type="button" id="qr-scan-btn" class="btn btn-outline"
+                                title="Scanner un QR code" style="flex-shrink:0;padding:0.45rem 0.75rem;">
+                            <i class="bi bi-qr-code-scan"></i>
+                        </button>
                     </div>
                     <small id="card-status-msg" class="text-muted">
                         16 chiffres. Espaces et tirets autorisés.
@@ -537,4 +543,140 @@ $posStatus = $posStatus ?? null;
         });
     });
 })();
+</script>
+
+<!-- ── Scanner QR code (TPE) ─────────────────────────────────── -->
+
+<!-- Modale scanner -->
+<div class="modal-overlay" id="qrScanOverlay" role="dialog" aria-modal="true" aria-labelledby="qrScanTitle"
+     style="display:none;align-items:center;justify-content:center;">
+    <div class="modal" style="max-width:420px;width:95%;padding:1.5rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+            <h3 id="qrScanTitle" style="margin:0;font-size:1rem;">
+                <i class="bi bi-qr-code-scan"></i> Scanner le QR code
+            </h3>
+            <button type="button" id="qrScanClose" class="btn btn-sm btn-outline"
+                    style="padding:0.2rem 0.6rem;font-size:1rem;line-height:1;" aria-label="Fermer">&times;</button>
+        </div>
+        <div style="position:relative;background:#000;border-radius:8px;overflow:hidden;aspect-ratio:1/1;">
+            <video id="qrScanVideo" playsinline muted
+                   style="width:100%;height:100%;object-fit:cover;display:block;"></video>
+            <!-- Ligne de scan animée -->
+            <div style="position:absolute;inset:0;pointer-events:none;">
+                <div id="qrScanLine" style="position:absolute;left:10%;right:10%;height:2px;
+                     background:rgba(99,102,241,0.85);top:50%;
+                     animation:qr-scan-line 2s ease-in-out infinite;"></div>
+                <div style="position:absolute;inset:0;border:2px solid rgba(255,255,255,0.15);border-radius:8px;"></div>
+            </div>
+        </div>
+        <div id="qrScanMsg" class="text-muted" style="font-size:0.85rem;margin-top:0.75rem;text-align:center;"></div>
+    </div>
+</div>
+
+<style>
+@keyframes qr-scan-line {
+    0%   { top: 15%; opacity: 1; }
+    50%  { top: 85%; opacity: 1; }
+    100% { top: 15%; opacity: 1; }
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script>
+(function () {
+    'use strict';
+
+    var scanBtn    = document.getElementById('qr-scan-btn');
+    var overlay    = document.getElementById('qrScanOverlay');
+    var video      = document.getElementById('qrScanVideo');
+    var closeBtn   = document.getElementById('qrScanClose');
+    var msgEl      = document.getElementById('qrScanMsg');
+    var cardInput  = document.getElementById('card_number');
+
+    if (!scanBtn || !overlay || !video || !cardInput) return;
+    if (typeof jsQR === 'undefined') { scanBtn.style.display = 'none'; return; }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        scanBtn.title = 'Caméra non disponible sur ce navigateur';
+        scanBtn.disabled = true;
+        return;
+    }
+
+    var stream     = null;
+    var rafId      = null;
+    var canvas     = document.createElement('canvas');
+    var ctx        = canvas.getContext('2d');
+    var lastResult = '';
+    var debounce   = 0;
+
+    function setMsg(text, isError) {
+        if (!msgEl) return;
+        msgEl.style.color = isError ? 'var(--danger,#dc3545)' : '';
+        msgEl.textContent = text;
+    }
+
+    function stopScan() {
+        if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+        if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+        video.srcObject = null;
+    }
+
+    function closeScanner() {
+        stopScan();
+        overlay.classList.remove('active');
+        setTimeout(function () { overlay.style.display = 'none'; }, 200);
+    }
+
+    function onScanResult(data) {
+        // Accepter uniquement des séquences de 13–19 chiffres (numéro de carte)
+        var clean = data.replace(/[\s-]/g, '');
+        if (!/^\d{13,19}$/.test(clean)) return;
+        if (clean === lastResult && Date.now() - debounce < 2000) return;
+        lastResult = clean;
+        debounce   = Date.now();
+
+        // Formater avec espaces tous les 4 chiffres
+        var formatted = clean.match(/.{1,4}/g).join(' ');
+        cardInput.value = formatted;
+        cardInput.dispatchEvent(new Event('input', { bubbles: true }));
+        closeScanner();
+        cardInput.focus();
+    }
+
+    function scanFrame() {
+        if (!video.videoWidth) { rafId = requestAnimationFrame(scanFrame); return; }
+        canvas.width  = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        var result    = jsQR(imageData.data, imageData.width, imageData.height,
+                            { inversionAttempts: 'dontInvert' });
+        if (result && result.data) onScanResult(result.data);
+        rafId = requestAnimationFrame(scanFrame);
+    }
+
+    function startScan() {
+        lastResult = '';
+        setMsg('Positionnez le QR code dans la caméra…');
+        overlay.style.display = 'flex';
+        requestAnimationFrame(function () { overlay.classList.add('active'); });
+
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } })
+        .then(function (s) {
+            stream = s;
+            video.srcObject = stream;
+            video.play();
+            rafId = requestAnimationFrame(scanFrame);
+        })
+        .catch(function (err) {
+            setMsg('Accès caméra refusé : ' + (err.message || err), true);
+        });
+    }
+
+    scanBtn.addEventListener('click', startScan);
+    closeBtn.addEventListener('click', closeScanner);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) closeScanner(); });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && overlay.classList.contains('active')) closeScanner();
+    });
+}());
 </script>

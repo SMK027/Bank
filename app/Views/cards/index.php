@@ -154,7 +154,13 @@ unset($_SESSION['card_just_created']);
                                 <?php endif; ?>
                             </td>
                             <td><?= date('d/m/Y', strtotime($card['created_at'])) ?></td>
-                            <td style="text-align:right;">
+                            <td style="text-align:right;white-space:nowrap;">
+                                <button type="button" class="btn btn-sm btn-outline js-open-qr-modal"
+                                        data-card-id="<?= (int) $card['id'] ?>"
+                                        data-masked="<?= e(\App\Models\PaymentCard::mask($card['card_number'])) ?>"
+                                        title="Afficher le QR code" style="margin-right:0.3rem;">
+                                    <i class="bi bi-qr-code"></i>
+                                </button>
                                 <button type="button" class="btn btn-sm btn-outline js-open-card-modal"
                                         data-card="<?= htmlspecialchars(json_encode($cardData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES) ?>">
                                     <i class="bi bi-gear"></i> Gérer
@@ -294,6 +300,53 @@ unset($_SESSION['card_just_created']);
     </div>
 </div>
 <?php endif; ?>
+
+<!-- ========================================================
+     Modale QR Code carte
+     ======================================================== -->
+<div class="modal-overlay" id="qrModalOverlay" role="dialog" aria-modal="true" aria-labelledby="qrModalTitle"
+     style="display:none;align-items:center;justify-content:center;">
+    <div class="modal" style="max-width:360px;width:95%;padding:1.5rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;">
+            <div>
+                <h3 id="qrModalTitle" style="margin:0 0 0.2rem;font-size:1rem;">QR Code</h3>
+                <span class="text-muted text-small" id="qrModalSub" style="font-size:0.82rem;"></span>
+            </div>
+            <button type="button" id="qrModalClose" class="btn btn-sm btn-outline"
+                    style="margin-left:1rem;padding:0.2rem 0.6rem;font-size:1rem;line-height:1;"
+                    aria-label="Fermer">&times;</button>
+        </div>
+
+        <!-- Saisie du mot de passe -->
+        <div id="qrPassSection">
+            <p class="text-muted" style="font-size:0.88rem;margin-top:0;">
+                Confirmez votre mot de passe pour générer le QR code de cette carte.
+            </p>
+            <form id="qrPassForm" autocomplete="off">
+                <input type="hidden" id="qrPassCardId" value="">
+                <input type="hidden" id="qrPassCsrf" name="csrf_token" value="">
+                <div class="form-group">
+                    <label for="qrPassInput" class="form-label">Mot de passe</label>
+                    <input type="password" id="qrPassInput" class="form-control"
+                           required autocomplete="current-password">
+                </div>
+                <div id="qrPassError" style="display:none;color:var(--danger,#dc3545);font-size:0.85rem;margin-bottom:0.6rem;"></div>
+                <button type="submit" id="qrPassBtn" class="btn btn-primary" style="width:100%;">
+                    <i class="bi bi-qr-code"></i> Générer le QR code
+                </button>
+            </form>
+        </div>
+
+        <!-- Affichage du QR généré -->
+        <div id="qrDisplaySection" style="display:none;text-align:center;">
+            <canvas id="qrCanvas" style="display:block;margin:0 auto;border-radius:8px;"></canvas>
+            <p class="text-muted" style="font-size:0.78rem;margin-top:0.75rem;margin-bottom:0;">
+                Présentez ce QR code au TPE pour remplir automatiquement le numéro de carte.
+                Ce code n'est visible qu'une fois par session.
+            </p>
+        </div>
+    </div>
+</div>
 
 <!-- ========================================================
      Modale de gestion d'une carte
@@ -670,6 +723,121 @@ unset($_SESSION['card_just_created']);
         if (!btn) return;
         const card = JSON.parse(btn.dataset.card);
         openCardModal(card);
+    });
+}());
+</script>
+
+<!-- ── QR Code : génération côté client ─────────────────────────────── -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+<script>
+(function () {
+    'use strict';
+
+    var qrOverlay     = document.getElementById('qrModalOverlay');
+    var qrPassSection = document.getElementById('qrPassSection');
+    var qrDisplay     = document.getElementById('qrDisplaySection');
+    var qrPassForm    = document.getElementById('qrPassForm');
+    var qrPassInput   = document.getElementById('qrPassInput');
+    var qrPassError   = document.getElementById('qrPassError');
+    var qrPassBtn     = document.getElementById('qrPassBtn');
+    var qrCardIdEl    = document.getElementById('qrPassCardId');
+    var qrCsrfEl      = document.getElementById('qrPassCsrf');
+    var qrCanvas      = document.getElementById('qrCanvas');
+    var qrTitle       = document.getElementById('qrModalTitle');
+    var qrSub         = document.getElementById('qrModalSub');
+    var csrfToken     = <?= json_encode(\App\Core\CSRF::generate()) ?>;
+
+    if (!qrOverlay) return;
+
+    function openQrModal(cardId, masked) {
+        qrPassSection.style.display = 'block';
+        qrDisplay.style.display     = 'none';
+        qrPassInput.value           = '';
+        qrPassError.style.display   = 'none';
+        qrPassError.textContent     = '';
+        qrCardIdEl.value            = cardId;
+        qrCsrfEl.value              = csrfToken;
+        qrTitle.textContent         = 'QR Code — ' + masked;
+        qrSub.textContent           = '';
+        qrOverlay.style.display     = 'flex';
+        requestAnimationFrame(function () { qrOverlay.classList.add('active'); });
+        setTimeout(function () { qrPassInput.focus(); }, 100);
+    }
+
+    function closeQrModal() {
+        qrOverlay.classList.remove('active');
+        setTimeout(function () {
+            qrOverlay.style.display     = 'none';
+            qrPassSection.style.display = 'block';
+            qrDisplay.style.display     = 'none';
+            qrPassInput.value           = '';
+            // Effacer le canvas pour ne pas laisser le PAN en mémoire visuelle
+            var ctx = qrCanvas ? qrCanvas.getContext('2d') : null;
+            if (ctx) ctx.clearRect(0, 0, qrCanvas.width, qrCanvas.height);
+        }, 200);
+    }
+
+    document.getElementById('qrModalClose').addEventListener('click', closeQrModal);
+    qrOverlay.addEventListener('click', function (e) { if (e.target === qrOverlay) closeQrModal(); });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && qrOverlay.classList.contains('active')) closeQrModal();
+    });
+
+    // Délégation sur les boutons QR
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.js-open-qr-modal');
+        if (!btn) return;
+        openQrModal(btn.dataset.cardId, btn.dataset.masked);
+    });
+
+    qrPassForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        qrPassError.style.display = 'none';
+        qrPassBtn.disabled        = true;
+        qrPassBtn.innerHTML       = '<i class="bi bi-hourglass-split"></i> Vérification…';
+
+        var fd = new FormData();
+        fd.append('csrf_token', csrfToken);
+        fd.append('password',   qrPassInput.value);
+
+        fetch('/cards/' + encodeURIComponent(qrCardIdEl.value) + '/reveal-qr', {
+            method:      'POST',
+            credentials: 'same-origin',
+            headers:     { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            body:        fd
+        })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
+        .then(function (res) {
+            if (res.body.error) {
+                qrPassError.textContent   = res.body.error;
+                qrPassError.style.display = 'block';
+                qrPassInput.value         = '';
+                qrPassInput.focus();
+                return;
+            }
+            var pan = res.body.pan;
+            qrPassSection.style.display = 'none';
+            qrDisplay.style.display     = 'block';
+            QRCode.toCanvas(qrCanvas, pan, { width: 240, margin: 2,
+                color: { dark: '#0f172a', light: '#ffffff' } },
+                function (err) {
+                    if (err) {
+                        qrPassSection.style.display = 'block';
+                        qrDisplay.style.display     = 'none';
+                        qrPassError.textContent     = 'Erreur de génération du QR.';
+                        qrPassError.style.display   = 'block';
+                    }
+                }
+            );
+        })
+        .catch(function () {
+            qrPassError.textContent   = 'Erreur réseau, réessayez.';
+            qrPassError.style.display = 'block';
+        })
+        .finally(function () {
+            qrPassBtn.disabled  = false;
+            qrPassBtn.innerHTML = '<i class="bi bi-qr-code"></i> Générer le QR code';
+        });
     });
 }());
 </script>
