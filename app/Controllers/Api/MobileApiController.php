@@ -10,6 +10,7 @@ use App\Models\Account;
 use App\Models\AuditLog;
 use App\Models\LoginRateLimit;
 use App\Models\Notification;
+use App\Models\OverdraftAuthorization;
 use App\Models\PaymentCard;
 use App\Models\PosStatus;
 use App\Models\Transaction;
@@ -258,8 +259,14 @@ class MobileApiController extends ApiController
                 $this->error('Un compte d\'encaissement est requis pour un crédit.', 400);
             }
             $mBalance   = $this->accountModel->getFutureBalance((int) $merchantAccount['id']);
-            $mOverdraft = Account::typeAllowsOverdraft($merchantAccount['type'] ?? 'standard')
+            $mType      = $merchantAccount['type'] ?? 'standard';
+            $mOverdraft = Account::typeAllowsOverdraft($mType)
                 ? (float) ($merchantAccount['overdraft'] ?? 0) : 0.0;
+            // Autorisation de dépassement émise par la modération : s'ajoute
+            // au découvert contractuel (et l'autorise même si le type ne le
+            // permet pas par défaut).
+            $authExtra = (new OverdraftAuthorization())->getExtraLimitForAccount((int) $merchantAccount['id']);
+            $mOverdraft += $authExtra;
             if (($mBalance - $merchantAmount) < -$mOverdraft) {
                 $this->error('Solde insuffisant sur le compte d\'encaissement.', 402);
             }
