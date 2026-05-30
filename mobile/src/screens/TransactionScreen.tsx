@@ -194,7 +194,7 @@ export default function TransactionScreen({ token, user, pos, onResult, onLogout
                     onPress={() => setAccountId(a.id)}
                   >
                     <Text style={[styles.accountText, accountId === a.id && styles.accountTextActive]}>
-                      {a.label} ({a.currency})
+                      {a.label} ({a.currency}){a.shared ? ' • partagé' : ''}
                     </Text>
                   </TouchableOpacity>
                 ))}

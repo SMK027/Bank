@@ -154,15 +154,8 @@ class MobileApiController extends ApiController
             $this->error('Intitulé trop long (120 caractères max).', 400);
         }
 
-        // Comptes pro éligibles
-        $allProAccounts = array_values(array_filter(
-            $this->accountModel->getByUser((int) $user['id']),
-            fn(array $a) => ($a['type'] ?? '') === 'pro' && empty($a['disabled_at'])
-        ));
-        $merchantAccounts = array_values(array_filter(
-            $allProAccounts,
-            fn(array $a) => !Account::isPosSuspended($a)
-        ));
+        // Comptes pro éligibles (propres + partagés)
+        ['all' => $allProAccounts, 'merchant' => $merchantAccounts] = $this->collectMerchantAccounts((int) $user['id']);
 
         // Ban TPE : aucun compte non suspendu alors qu'il en avait
         if (!$isModerator && empty($merchantAccounts) && !empty($allProAccounts)) {
@@ -468,14 +461,7 @@ class MobileApiController extends ApiController
     private function buildPosStatus(array $user, bool $isModerator): array
     {
         $posStatus = PosStatus::current();
-        $allProAccounts = array_values(array_filter(
-            $this->accountModel->getByUser((int) $user['id']),
-            fn(array $a) => ($a['type'] ?? '') === 'pro' && empty($a['disabled_at'])
-        ));
-        $merchantAccounts = array_values(array_filter(
-            $allProAccounts,
-            fn(array $a) => !Account::isPosSuspended($a)
-        ));
+        ['all' => $allProAccounts, 'merchant' => $merchantAccounts] = $this->collectMerchantAccounts((int) $user['id']);
 
         $banned = !$isModerator && empty($merchantAccounts) && !empty($allProAccounts);
         $banReason = '';
@@ -499,9 +485,38 @@ class MobileApiController extends ApiController
             'can_operate' => !$posStatus['is_disabled'] && !$banned,
             'accounts'    => array_map(fn(array $a) => [
                 'id'       => (int) $a['id'],
-                'label'    => $a['label'] ?? ('Compte #' . $a['id']),
+                'label'    => $a['name'] ?? ('Compte #' . $a['id']),
                 'currency' => $a['currency'] ?? 'EUR',
+                'shared'   => !empty($a['_shared']),
             ], $merchantAccounts),
         ];
+    }
+
+    /**
+     * Retourne les comptes pro accessibles à l'utilisateur (en propre ou
+     * via partage / tutelle), groupes « tous » et « éligibles TPE » (non
+     * suspendus). Les comptes partagés portent la clé `_shared` à true.
+     */
+    private function collectMerchantAccounts(int $userId): array
+    {
+        $accessible = $this->accountModel->getAccessibleAccounts($userId);
+        $merged = [];
+        foreach (($accessible['own'] ?? []) as $a) {
+            $merged[(int) $a['id']] = $a;
+        }
+        foreach (($accessible['shared'] ?? []) as $a) {
+            if (!isset($merged[(int) $a['id']])) {
+                $merged[(int) $a['id']] = $a;
+            }
+        }
+        $allPro = array_values(array_filter(
+            $merged,
+            fn(array $a) => ($a['type'] ?? '') === 'pro' && empty($a['disabled_at'])
+        ));
+        $eligible = array_values(array_filter(
+            $allPro,
+            fn(array $a) => !Account::isPosSuspended($a)
+        ));
+        return ['all' => $allPro, 'merchant' => $eligible];
     }
 }

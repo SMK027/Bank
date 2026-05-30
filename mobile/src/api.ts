@@ -15,6 +15,7 @@ export type MerchantAccount = {
   id: number;
   label: string;
   currency: string;
+  shared?: boolean;
 };
 
 export type PosStatus = {
