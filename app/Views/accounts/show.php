@@ -458,20 +458,17 @@
                     <label class="form-label"><i class="bi bi-wallet2"></i> Moyen de paiement</label>
                     <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
                         <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;padding:0.4rem 0.8rem;border:1px solid var(--gray-light);border-radius:6px;font-size:0.9rem;">
-                            <input type="radio" name="payment_method" value="direct" checked
-                                   onchange="updatePaymentMethod()"> Aucun (débit direct)
+                            <input type="radio" name="payment_method" value="direct" checked> Aucun (débit direct)
                         </label>
                         <?php if ($hasCards): ?>
                         <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;padding:0.4rem 0.8rem;border:1px solid var(--gray-light);border-radius:6px;font-size:0.9rem;">
-                            <input type="radio" name="payment_method" value="card"
-                                   onchange="updatePaymentMethod()">
+                            <input type="radio" name="payment_method" value="card">
                             <i class="bi bi-credit-card"></i> Carte bancaire
                         </label>
                         <?php endif; ?>
                         <?php if ($hasCheckbooks): ?>
                         <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;padding:0.4rem 0.8rem;border:1px solid var(--gray-light);border-radius:6px;font-size:0.9rem;">
-                            <input type="radio" name="payment_method" value="check"
-                                   onchange="updatePaymentMethod()">
+                            <input type="radio" name="payment_method" value="check">
                             <i class="bi bi-journal-check"></i> Chèque
                         </label>
                         <?php endif; ?>
@@ -698,6 +695,12 @@
                         if (cbSel) cbSel.value = '';
                     }
                 }
+                // Délégation d'événement sur les radios du moyen de paiement
+                form.addEventListener('change', function (e) {
+                    if (e.target && e.target.name === 'payment_method') {
+                        updatePaymentMethod();
+                    }
+                });
                 // Appel initial
                 updatePaymentMethod();
 
