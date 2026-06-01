@@ -650,7 +650,13 @@ class Account extends Model
         $params = [$term, $term, $term, $term, $term];
 
         if ($type !== null) {
-            $sql .= ' AND a.type = ?';
+            if ($type === 'pro') {
+                // Inclut les comptes de type pro ET tous les comptes
+                // appartenant à un utilisateur professionnel vérifié.
+                $sql .= ' AND (a.type = ? OR u.is_professional = 1)';
+            } else {
+                $sql .= ' AND a.type = ?';
+            }
             $params[] = $type;
         }
 

@@ -147,21 +147,38 @@ class PosController extends Controller
         // Commerçant banni du TPE : tous ses comptes pro sont suspendus.
         // On bloque tout débit, y compris ceux sans compte de crédit associé.
         if (!$this->isModerator() && empty($merchantAccounts)) {
-            $allProAccounts = array_values(array_filter(
-                $this->accountModel->getByUser((int) $user['id']),
+            $allUserAccounts = $this->accountModel->getByUser((int) $user['id']);
+            $allProAccounts  = array_values(array_filter(
+                $allUserAccounts,
                 fn(array $a) => ($a['type'] ?? '') === 'pro' && empty($a['disabled_at'])
             ));
+
+            // Pour les professionnels vérifiés sans compte de type pro,
+            // vérifier la suspension explicite sur l'ensemble de leurs comptes actifs.
+            $banReason = null;
             if (!empty($allProAccounts)) {
-                $reason = '';
+                // Il y a des comptes pro actifs → ils sont tous suspendus (getMerchantAccounts les a exclus).
+                $banReason = '';
                 foreach ($allProAccounts as $a) {
                     if (Account::isPosSuspended($a) && !empty($a['pos_suspend_reason'])) {
-                        $reason = $a['pos_suspend_reason'];
+                        $banReason = $a['pos_suspend_reason'];
                         break;
                     }
                 }
+            } elseif (User::isProfessional($user)) {
+                // Professionnel vérifié sans compte pro : suspension explicite sur un autre compte.
+                foreach (array_filter($allUserAccounts, fn(array $a) => empty($a['disabled_at'])) as $a) {
+                    if (Account::isPosSuspended($a)) {
+                        $banReason = $a['pos_suspend_reason'] ?? '';
+                        break;
+                    }
+                }
+            }
+
+            if ($banReason !== null) {
                 $banMsg = 'Votre accès au TPE est suspendu par la modération';
-                if ($reason !== '') {
-                    $banMsg .= ' (motif : ' . $reason . ')';
+                if ($banReason !== '') {
+                    $banMsg .= ' (motif : ' . $banReason . ')';
                 }
                 $this->renderForm($user, $merchantAccounts, [
                     'card_number' => (string) ($_POST['card_number'] ?? ''),
@@ -975,7 +992,16 @@ class PosController extends Controller
         $accountId = (int) $id;
         $account   = $this->accountModel->find($accountId);
 
-        if (!$account || ($account['type'] ?? '') !== 'pro') {
+        if (!$account) {
+            $this->setFlash('danger', 'Compte professionnel introuvable.');
+            $this->redirect('/moderation/pos-payments');
+            return;
+        }
+
+        // Accepter les comptes de type 'pro' ET les comptes d'utilisateurs
+        // professionnels vérifiés (is_professional = 1) sans compte pro.
+        $accountOwner = $this->userModel->find((int) $account['user_id']);
+        if (($account['type'] ?? '') !== 'pro' && !User::isProfessional($accountOwner)) {
             $this->setFlash('danger', 'Compte professionnel introuvable.');
             $this->redirect('/moderation/pos-payments');
             return;
