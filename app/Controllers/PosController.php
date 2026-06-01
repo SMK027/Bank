@@ -144,6 +144,22 @@ class PosController extends Controller
             return;
         }
 
+        // Commerçant banni du TPE au niveau utilisateur (suspension sans compte bancaire possible).
+        if (!$this->isModerator() && User::isPosSuspended($user)) {
+            $banMsg = 'Votre accès au TPE est suspendu par la modération';
+            if (!empty($user['pos_suspend_reason'])) {
+                $banMsg .= ' (motif : ' . $user['pos_suspend_reason'] . ')';
+            }
+            $this->renderForm($user, $merchantAccounts, [
+                'card_number' => (string) ($_POST['card_number'] ?? ''),
+                'amount'      => (string) ($_POST['amount']      ?? ''),
+                'label'       => trim((string) ($_POST['label']    ?? '')),
+                'merchant'    => trim((string) ($_POST['merchant'] ?? '')),
+                'account_id'  => (int)   ($_POST['account_id']     ?? 0),
+            ], [$banMsg . '.']);
+            return;
+        }
+
         // Commerçant banni du TPE : tous ses comptes pro sont suspendus.
         // On bloque tout débit, y compris ceux sans compte de crédit associé.
         if (!$this->isModerator() && empty($merchantAccounts)) {
@@ -907,7 +923,7 @@ class PosController extends Controller
             'filters'           => $filters,
             'hasFilters'        => $hasFilters,
             'posStatus'         => PosStatus::current(),
-            'suspendedAccounts' => $this->accountModel->getPosSuspendedAccounts(),
+            'suspendedUsers'   => $this->userModel->getPosSuspendedMerchants(),
             'refundsMap'        => $refundsMap,
         ]);
     }
@@ -989,20 +1005,11 @@ class PosController extends Controller
         $this->requireModerator();
         $this->validateCSRF();
 
-        $accountId = (int) $id;
-        $account   = $this->accountModel->find($accountId);
+        $userId = (int) $id;
+        $user   = $this->userModel->find($userId);
 
-        if (!$account) {
-            $this->setFlash('danger', 'Compte professionnel introuvable.');
-            $this->redirect('/moderation/pos-payments');
-            return;
-        }
-
-        // Accepter les comptes de type 'pro' ET les comptes d'utilisateurs
-        // professionnels vérifiés (is_professional = 1) sans compte pro.
-        $accountOwner = $this->userModel->find((int) $account['user_id']);
-        if (($account['type'] ?? '') !== 'pro' && !User::isProfessional($accountOwner)) {
-            $this->setFlash('danger', 'Compte professionnel introuvable.');
+        if (!$user || !User::isProfessional($user)) {
+            $this->setFlash('danger', 'Commerçant professionnel introuvable.');
             $this->redirect('/moderation/pos-payments');
             return;
         }
@@ -1033,15 +1040,16 @@ class PosController extends Controller
         }
 
         $modId = (int) $this->getCurrentUserId();
-        $this->accountModel->suspendPos($accountId, $modId, $reason, $untilSql);
+        $this->userModel->suspendPos($userId, $modId, $reason, $untilSql);
 
         AuditLog::log($modId, AuditLog::ACTION_POS_MERCHANT_SUSPEND, [
-            'account_id'       => $accountId,
+            'user_id'          => $userId,
             'reason'           => $reason,
             'suspended_until'  => $untilSql,
-        ], targetAccountId: $accountId);
+        ], targetUserId: $userId);
 
-        $msg = 'Compte #' . $accountId . ' suspendu du TPE';
+        $name = $user['company_name'] ?: $user['username'];
+        $msg  = 'Commerçant "' . $name . '" suspendu du TPE';
         if ($untilSql) {
             $msg .= ' jusqu\'au ' . date('d/m/Y H:i', strtotime($untilSql));
         }
@@ -1049,30 +1057,58 @@ class PosController extends Controller
         $this->redirect('/moderation/pos-payments');
     }
 
-    /** Réactive l'accès au TPE pour un compte professionnel. Modération uniquement. */
+    /** Réactive l'accès au TPE pour un commerçant professionnel. Modération uniquement. */
     public function moderationMerchantResume(string $id): void
     {
         $this->requireModerator();
         $this->validateCSRF();
 
-        $accountId = (int) $id;
-        $account   = $this->accountModel->find($accountId);
+        $userId = (int) $id;
+        $user   = $this->userModel->find($userId);
 
-        if (!$account || ($account['type'] ?? '') !== 'pro') {
-            $this->setFlash('danger', 'Compte professionnel introuvable.');
+        if (!$user || !User::isProfessional($user)) {
+            $this->setFlash('danger', 'Commerçant professionnel introuvable.');
             $this->redirect('/moderation/pos-payments');
             return;
         }
 
         $modId = (int) $this->getCurrentUserId();
-        $this->accountModel->resumePos($accountId, $modId);
+        $this->userModel->resumePos($userId, $modId);
 
         AuditLog::log($modId, AuditLog::ACTION_POS_MERCHANT_RESUME, [
-            'account_id' => $accountId,
-        ], targetAccountId: $accountId);
+            'user_id' => $userId,
+        ], targetUserId: $userId);
 
-        $this->setFlash('success', 'Accès TPE du compte #' . $accountId . ' réactivé.');
+        $name = $user['company_name'] ?: $user['username'];
+        $this->setFlash('success', 'Accès TPE de "' . $name . '" réactivé.');
         $this->redirect('/moderation/pos-payments');
+    }
+
+    /** Recherche de commerçants professionnels pour l'autocomplétion TPE (modération). */
+    public function moderationMerchantSearch(): void
+    {
+        $this->requireModerator();
+
+        $q = trim($_GET['q'] ?? '');
+        if (strlen($q) < 2) {
+            $this->json([]);
+            return;
+        }
+
+        $rows    = $this->userModel->searchProfessionalUsers($q, 15);
+        $results = [];
+        foreach ($rows as $row) {
+            $results[] = [
+                'id'           => (int) $row['id'],
+                'name'         => $row['display_name'],
+                'currency'     => null,
+                'owner'        => $row['username'],
+                'email'        => $row['email']        ?? '',
+                'company_name' => $row['company_name'] ?? '',
+                'siret'        => $row['siret']        ?? '',
+            ];
+        }
+        $this->json($results);
     }
 
     /**

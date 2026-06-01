@@ -265,4 +265,96 @@ class User extends Model
         $stmt->execute([$term, $term]);
         return $stmt->fetchAll();
     }
+
+    // ── Suspension TPE au niveau utilisateur ─────────────────────────────────
+
+    /**
+     * Vérifie si le commerçant est suspendu du TPE.
+     * Tient compte de la réactivation automatique par `pos_suspended_until`.
+     */
+    public static function isPosSuspended(?array $user): bool
+    {
+        if ($user === null || empty($user['pos_suspended_at'])) {
+            return false;
+        }
+        if (!empty($user['pos_suspended_until'])
+            && strtotime((string) $user['pos_suspended_until']) <= time()
+        ) {
+            return false;
+        }
+        return true;
+    }
+
+    /** Suspend l'accès TPE pour cet utilisateur professionnel. */
+    public function suspendPos(int $userId, int $moderatorId, string $reason, ?string $until = null): bool
+    {
+        $stmt = $this->getPdo()->prepare(
+            'UPDATE users
+                SET pos_suspended_at    = ?,
+                    pos_suspended_until = ?,
+                    pos_suspended_by    = ?,
+                    pos_suspend_reason  = ?
+              WHERE id = ?'
+        );
+        return (bool) $stmt->execute([
+            date('Y-m-d H:i:s'),
+            $until,
+            $moderatorId,
+            mb_substr($reason, 0, 500),
+            $userId,
+        ]);
+    }
+
+    /** Réactive l'accès TPE pour cet utilisateur professionnel. */
+    public function resumePos(int $userId, int $moderatorId): bool
+    {
+        $stmt = $this->getPdo()->prepare(
+            "UPDATE users
+                SET pos_suspended_at    = NULL,
+                    pos_suspended_until = NULL,
+                    pos_suspended_by    = ?,
+                    pos_suspend_reason  = ''
+              WHERE id = ?"
+        );
+        return (bool) $stmt->execute([$moderatorId, $userId]);
+    }
+
+    /**
+     * Retourne les commerçants professionnels dont le TPE est actuellement
+     * suspendu (hors expirations dépassées).
+     */
+    public function getPosSuspendedMerchants(): array
+    {
+        $stmt = $this->getPdo()->query(
+            "SELECT id, username, email, company_name, siret,
+                    pos_suspended_at, pos_suspended_until,
+                    pos_suspended_by, pos_suspend_reason
+               FROM users
+              WHERE is_professional = 1
+                AND pos_suspended_at IS NOT NULL
+                AND (pos_suspended_until IS NULL OR pos_suspended_until > NOW())
+              ORDER BY pos_suspended_at DESC"
+        );
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Recherche des utilisateurs professionnels par nom/email/société/SIRET.
+     * Utilisé par l'autocomplétion de suspension TPE.
+     */
+    public function searchProfessionalUsers(string $q, int $limit = 15): array
+    {
+        $term = '%' . $q . '%';
+        $stmt = $this->getPdo()->prepare(
+            'SELECT id, username, email, company_name, siret,
+                    COALESCE(company_name, username) AS display_name
+               FROM users
+              WHERE is_professional = 1
+                AND (username LIKE ? OR email LIKE ? OR company_name LIKE ? OR siret LIKE ?)
+              ORDER BY COALESCE(company_name, username) ASC
+              LIMIT ' . (int) $limit
+        );
+        $stmt->execute([$term, $term, $term, $term]);
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
 }

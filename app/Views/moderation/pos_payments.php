@@ -4,11 +4,11 @@
 /** @var array $filters */
 /** @var bool  $hasFilters */
 /** @var array $posStatus */
-/** @var array $suspendedAccounts */
+/** @var array $suspendedUsers */
 $filters            = $filters            ?? [];
 $hasFilters         = $hasFilters         ?? false;
 $posStatus          = $posStatus          ?? ['is_disabled' => false, 'reason' => '', 'disabled_at' => null, 'disabled_until' => null];
-$suspendedAccounts  = $suspendedAccounts  ?? [];
+$suspendedUsers     = $suspendedUsers     ?? [];
 $f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? ''), ENT_QUOTES, 'UTF-8');
 ?>
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.75rem;">
@@ -95,22 +95,21 @@ $f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? 
         <h4 style="margin:0;font-size:0.95rem;">
             <i class="bi bi-shop-window"></i> Suspension d'un commerçant
         </h4>
-        <?php if (!empty($suspendedAccounts)): ?>
-            <span class="badge badge-danger"><?= count($suspendedAccounts) ?> compte(s) suspendu(s)</span>
+        <?php if (!empty($suspendedUsers)): ?>
+            <span class="badge badge-danger"><?= count($suspendedUsers) ?> commerçant(s) suspendu(s)</span>
         <?php else: ?>
             <span class="badge badge-success">Aucune suspension active</span>
         <?php endif; ?>
     </div>
     <div class="card-body" style="display:flex;flex-direction:column;gap:1rem;">
 
-        <?php if (!empty($suspendedAccounts)): ?>
-        <!-- Liste des comptes actuellement suspendus -->
+        <?php if (!empty($suspendedUsers)): ?>
+        <!-- Liste des commerçants actuellement suspendus -->
         <div class="table-responsive">
             <table class="table" style="font-size:0.88rem;">
                 <thead>
                     <tr>
-                        <th>Compte</th>
-                        <th>Titulaire</th>
+                        <th>Commerçant</th>
                         <th>Suspendu depuis</th>
                         <th>Jusqu'au</th>
                         <th>Motif</th>
@@ -118,30 +117,29 @@ $f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? 
                     </tr>
                 </thead>
                 <tbody>
-                <?php foreach ($suspendedAccounts as $sa): ?>
+                <?php foreach ($suspendedUsers as $su): ?>
                     <tr>
                         <td>
-                            <a href="/accounts/<?= (int) $sa['id'] ?>">#<?= (int) $sa['id'] ?></a>
-                            <span class="text-muted text-small"> — <?= e($sa['name']) ?></span>
+                            <?= e($su['company_name'] ?? $su['username']) ?>
+                            <br><small class="text-muted"><?= e($su['email']) ?></small>
+                            <?php if (!empty($su['siret'])): ?>
+                                <br><small class="text-muted">SIRET <?= e($su['siret']) ?></small>
+                            <?php endif; ?>
                         </td>
-                        <td>
-                            <?= e($sa['username']) ?>
-                            <br><small class="text-muted"><?= e($sa['email']) ?></small>
-                        </td>
-                        <td class="text-small"><?= e(date('d/m/Y H:i', strtotime($sa['pos_suspended_at']))) ?></td>
+                        <td class="text-small"><?= e(date('d/m/Y H:i', strtotime($su['pos_suspended_at']))) ?></td>
                         <td class="text-small">
-                            <?php if (!empty($sa['pos_suspended_until'])): ?>
-                                <?= e(date('d/m/Y H:i', strtotime($sa['pos_suspended_until']))) ?>
+                            <?php if (!empty($su['pos_suspended_until'])): ?>
+                                <?= e(date('d/m/Y H:i', strtotime($su['pos_suspended_until']))) ?>
                             <?php else: ?>
                                 <span class="text-muted">Indéterminée</span>
                             <?php endif; ?>
                         </td>
-                        <td class="text-small"><?= e($sa['pos_suspend_reason'] ?? '') ?: '<span class="text-muted">—</span>' ?></td>
+                        <td class="text-small"><?= e($su['pos_suspend_reason'] ?? '') ?: '<span class="text-muted">—</span>' ?></td>
                         <td style="text-align:right;">
                             <form method="POST"
-                                  action="/moderation/pos-payments/merchant/<?= (int) $sa['id'] ?>/resume"
+                                  action="/moderation/pos-payments/user/<?= (int) $su['id'] ?>/resume"
                                   style="display:inline;"
-                                  onsubmit="return confirm('Réactiver l\'accès TPE du compte #<?= (int) $sa['id'] ?> ?');">
+                                  onsubmit="return confirm('Réactiver l\'accès TPE de ce commerçant ?');">
                                 <?= csrf_field() ?>
                                 <button type="submit" class="btn btn-success btn-sm">
                                     <i class="bi bi-play-fill"></i> Réactiver
@@ -166,7 +164,7 @@ $f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? 
                   onsubmit="
                     var id = document.getElementById('pos-suspend-account-id').value;
                     if (!id) { alert('Sélectionnez un compte professionnel dans la liste.'); return false; }
-                    this.action = '/moderation/pos-payments/merchant/' + id + '/suspend';
+                    this.action = '/moderation/pos-payments/user/' + id + '/suspend';
                     return confirm('Suspendre ce compte du TPE ?');
                   ">
                 <?= csrf_field() ?>
@@ -492,7 +490,7 @@ $f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? 
         if (q.length < 2) { suggestions.style.display = 'none'; return; }
 
         timer = setTimeout(function () {
-            fetch('/moderation/direct-debits/accounts/search?q=' + encodeURIComponent(q) + '&type=pro', {
+            fetch('/moderation/pos-payments/merchants/search?q=' + encodeURIComponent(q), {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             })
                 .then(function (r) {
@@ -511,7 +509,7 @@ $f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? 
 
                         var mainLine = document.createElement('div');
                         mainLine.style.cssText = 'font-size:0.92rem;font-weight:600;';
-                        mainLine.textContent = acc.name + ' (' + (acc.currency || '').toUpperCase() + ')';
+                        mainLine.textContent = acc.name + (acc.currency ? ' (' + acc.currency.toUpperCase() + ')' : '');
 
                         var subLine = document.createElement('div');
                         subLine.style.cssText = 'font-size:0.78rem;color:var(--text-muted,#6c757d);margin-top:0.1rem;';
