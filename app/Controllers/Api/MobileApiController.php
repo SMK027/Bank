@@ -154,10 +154,20 @@ class MobileApiController extends ApiController
             $this->error('Intitulé trop long (120 caractères max).', 400);
         }
 
+        // Suspension TPE au niveau utilisateur (prioritaire — fonctionne même
+        // si le commerçant ne possède aucun compte bancaire).
+        if (!$isModerator && User::isPosSuspended($user)) {
+            $msg = 'Votre accès au TPE est suspendu par la modération';
+            if (!empty($user['pos_suspend_reason'])) {
+                $msg .= ' (motif : ' . $user['pos_suspend_reason'] . ')';
+            }
+            $this->error($msg . '.', 403);
+        }
+
         // Comptes pro éligibles (propres + partagés)
         ['all' => $allProAccounts, 'merchant' => $merchantAccounts] = $this->collectMerchantAccounts((int) $user['id']);
 
-        // Ban TPE : aucun compte non suspendu alors qu'il en avait
+        // Fallback : tous les comptes pro sont suspendus individuellement.
         if (!$isModerator && empty($merchantAccounts) && !empty($allProAccounts)) {
             $reason = '';
             foreach ($allProAccounts as $a) {
@@ -463,9 +473,13 @@ class MobileApiController extends ApiController
         $posStatus = PosStatus::current();
         ['all' => $allProAccounts, 'merchant' => $merchantAccounts] = $this->collectMerchantAccounts((int) $user['id']);
 
-        $banned = !$isModerator && empty($merchantAccounts) && !empty($allProAccounts);
-        $banReason = '';
-        if ($banned) {
+        // Suspension au niveau utilisateur (prioritaire).
+        $banned    = !$isModerator && User::isPosSuspended($user);
+        $banReason = $banned ? (string) ($user['pos_suspend_reason'] ?? '') : '';
+
+        // Fallback : tous les comptes pro suspendus individuellement.
+        if (!$banned && !$isModerator && empty($merchantAccounts) && !empty($allProAccounts)) {
+            $banned = true;
             foreach ($allProAccounts as $a) {
                 if (!empty($a['pos_suspend_reason'])) {
                     $banReason = (string) $a['pos_suspend_reason'];
