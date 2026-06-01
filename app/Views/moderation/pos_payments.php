@@ -495,9 +495,15 @@ $f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? 
             fetch('/moderation/direct-debits/accounts/search?q=' + encodeURIComponent(q) + '&type=pro', {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             })
-                .then(function (r) { return r.json(); })
+                .then(function (r) {
+                    if (!r.ok) {
+                        console.error('[TPE autocomplétion] Réponse HTTP', r.status, r.statusText);
+                        return [];
+                    }
+                    return r.json();
+                })
                 .then(function (data) {
-                    if (!data.length) { suggestions.style.display = 'none'; return; }
+                    if (!Array.isArray(data) || !data.length) { suggestions.style.display = 'none'; return; }
                     suggestions.innerHTML = '';
                     data.forEach(function (acc) {
                         var item = document.createElement('div');
@@ -527,7 +533,10 @@ $f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? 
                     });
                     suggestions.style.display = 'block';
                 })
-                .catch(function () { suggestions.style.display = 'none'; });
+                .catch(function (err) {
+                    console.error('[TPE autocomplétion] Erreur fetch :', err);
+                    suggestions.style.display = 'none';
+                });
         }, 250);
     });
 
