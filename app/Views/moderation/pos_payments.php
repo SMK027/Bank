@@ -492,7 +492,9 @@ $f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? 
         if (q.length < 2) { suggestions.style.display = 'none'; return; }
 
         timer = setTimeout(function () {
-            fetch('/moderation/direct-debits/accounts/search?q=' + encodeURIComponent(q) + '&type=pro')
+            fetch('/moderation/direct-debits/accounts/search?q=' + encodeURIComponent(q) + '&type=pro', {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                     if (!data.length) { suggestions.style.display = 'none'; return; }
@@ -503,7 +505,7 @@ $f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? 
 
                         var mainLine = document.createElement('div');
                         mainLine.style.cssText = 'font-size:0.92rem;font-weight:600;';
-                        mainLine.textContent = acc.name + ' (' + acc.currency.toUpperCase() + ')';
+                        mainLine.textContent = acc.name + ' (' + (acc.currency || '').toUpperCase() + ')';
 
                         var subLine = document.createElement('div');
                         subLine.style.cssText = 'font-size:0.78rem;color:var(--text-muted,#6c757d);margin-top:0.1rem;';
@@ -524,7 +526,8 @@ $f = static fn(string $k): string => htmlspecialchars((string) ($filters[$k] ?? 
                         suggestions.appendChild(item);
                     });
                     suggestions.style.display = 'block';
-                });
+                })
+                .catch(function () { suggestions.style.display = 'none'; });
         }, 250);
     });
 
