@@ -197,8 +197,10 @@ abstract class Controller
             return;
         }
 
-        // Bypass superviseur actif en session pour cette fonctionnalité
+        // Bypass superviseur actif en session pour cette fonctionnalité.
+        // Consommé immédiatement : un seul contournement par authentification.
         if (\App\Models\Supervisor::hasBypass($key)) {
+            \App\Models\Supervisor::consumeBypass($key);
             return;
         }
 

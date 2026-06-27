@@ -141,6 +141,18 @@ class Supervisor extends Model
     }
 
     /**
+     * Consomme (révoque) le bypass d'une fonctionnalité donnée.
+     * Doit être appelé immédiatement après que le bypass a été utilisé,
+     * afin qu'il ne permette qu'un seul contournement par authentification.
+     */
+    public static function consumeBypass(string $featureKey): void
+    {
+        $bypasses = \App\Core\Session::get(self::SESSION_KEY, []);
+        unset($bypasses[$featureKey]);
+        \App\Core\Session::set(self::SESSION_KEY, $bypasses);
+    }
+
+    /**
      * Révoque tous les bypasses de la session courante.
      */
     public static function revokeAllBypasses(): void
