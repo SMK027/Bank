@@ -258,6 +258,61 @@ class PaymentCard extends Model
     }
 
     /**
+     * Restitue un montant sur le plafond mensuel dépensé de la carte, suite à
+     * une annulation ou un remboursement (partiel ou total).
+     *
+     * Comportement selon le mode actif :
+     * - Override actif pour le mois courant → décrémente l'override du montant
+     *   (plancher à 0). Couvre annulations ET remboursements partiels.
+     * - Mode dynamique + annulation complète → aucune action nécessaire :
+     *   `getMonthlySpent()` exclut déjà les paiements dont `cancelled_at IS NOT NULL`.
+     * - Mode dynamique + remboursement partiel → le paiement n'est pas annulé,
+     *   donc `getMonthlySpent()` le compterait toujours. On crée un override = total
+     *   actuel - montant remboursé pour que la restitution soit visible.
+     *
+     * @param int   $cardId        ID de la carte
+     * @param float $amount        Montant à restituer (positif)
+     * @param bool  $isCancellation true si le paiement sera marqué cancelled_at
+     *                              (mode dynamique suffisant, pas d'override à créer)
+     */
+    public function restoreMonthlySpent(int $cardId, float $amount, bool $isCancellation = false): void
+    {
+        if ($amount <= 0) {
+            return;
+        }
+
+        $stmt = $this->getPdo()->prepare(
+            'SELECT monthly_spent_override, monthly_spent_override_month
+               FROM payment_cards WHERE id = ? LIMIT 1'
+        );
+        $stmt->execute([$cardId]);
+        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        $overrideActive = $row
+            && $row['monthly_spent_override'] !== null
+            && $row['monthly_spent_override_month'] === date('Y-m');
+
+        if ($overrideActive) {
+            // Override présent : décrémenter directement.
+            $this->setMonthlySpentOverride(
+                $cardId,
+                max(0.0, round((float) $row['monthly_spent_override'] - $amount, 2))
+            );
+        } elseif (!$isCancellation) {
+            // Remboursement partiel en mode dynamique : le paiement reste dans
+            // api_payments avec cancelled_at = NULL, donc getMonthlySpent() le
+            // compterait toujours. Créer un override reflétant la restitution.
+            $currentTotal = $this->getMonthlyTotal($cardId);
+            $this->setMonthlySpentOverride(
+                $cardId,
+                max(0.0, round($currentTotal - $amount, 2))
+            );
+        }
+        // Annulation en mode dynamique : cancelled_at est posé juste après cet appel,
+        // getMonthlySpent() exclura automatiquement ce paiement. Rien à faire.
+    }
+
+    /**
      * Remet le plafond mensuel dépensé à zéro en posant la date courante
      * comme nouvelle borne inférieure de comptage.
      * Efface également l'override modérateur le cas échéant.

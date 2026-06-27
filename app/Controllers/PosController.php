@@ -1207,6 +1207,13 @@ class PosController extends Controller
             }
         }
 
+        // Restituer le montant annulé sur le plafond mensuel de la carte
+        // (si un override est actif ; en mode dynamique, cancelled_at suffit).
+        $cardId = (int) ($payment['card_id'] ?? 0);
+        if ($cardId > 0 && $remainingAmount > 0.001) {
+            $this->cardModel->restoreMonthlySpent($cardId, $remainingAmount, isCancellation: true);
+        }
+
         // 3) Marquer le paiement comme annulé
         $this->paymentModel->markCancelled($paymentId, $moderatorId, $reason);
 
@@ -1384,6 +1391,12 @@ class PosController extends Controller
             $customerTxId,
             $merchantTxId
         );
+
+        // Restituer le montant remboursé sur le plafond mensuel de la carte.
+        $cardId = (int) ($payment['card_id'] ?? 0);
+        if ($cardId > 0) {
+            $this->cardModel->restoreMonthlySpent($cardId, $refundAmount, isCancellation: false);
+        }
 
         // 4) Audit
         AuditLog::log(
