@@ -217,8 +217,17 @@ abstract class Controller
             ], 503);
         }
 
-        // Construire l'URL de retour (page courante) pour le formulaire de bypass
-        $currentUrl = $_SERVER['REQUEST_URI'] ?? '/';
+        // URL de retour après authentification superviseur.
+        // Pour les requêtes POST, l'URL cible n'est accessible qu'en POST :
+        // on redirige vers le Referer (page du formulaire) plutôt que vers
+        // l'URL de l'action, afin d'éviter un GET sur une route POST-only.
+        $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+        if ($requestMethod === 'POST' && !empty($_SERVER['HTTP_REFERER'])) {
+            $referer = parse_url($_SERVER['HTTP_REFERER'], PHP_URL_PATH) ?? '/';
+            $returnUrl = $referer ?: '/';
+        } else {
+            $returnUrl = $_SERVER['REQUEST_URI'] ?? '/';
+        }
 
         http_response_code(503);
         $this->render('errors/feature_disabled', [
@@ -226,7 +235,7 @@ abstract class Controller
             'featureKey'   => $key,
             'label'        => $label,
             'description'  => $description,
-            'bypassUrl'    => '/supervisor/bypass?feature=' . urlencode($key) . '&redirect=' . urlencode($currentUrl),
+            'bypassUrl'    => '/supervisor/bypass?feature=' . urlencode($key) . '&redirect=' . urlencode($returnUrl),
         ]);
         exit;
     }
