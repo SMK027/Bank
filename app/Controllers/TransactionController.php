@@ -337,6 +337,18 @@ class TransactionController extends Controller
             return;
         }
 
+        // Restituer le quota mensuel carte si la transaction supprimée est
+        // une dépense avec carte associée (schedulée ou immédiate).
+        // En mode dynamique : la ligne disparaît → recalcul automatique.
+        // En mode override actif : la valeur figée est décrémentée du montant.
+        if (($transaction['type'] ?? '') === 'expense' && !empty($transaction['card_id'])) {
+            $this->cardModel->restoreMonthlySpent(
+                (int) $transaction['card_id'],
+                (float) $transaction['amount'],
+                isCancellation: true
+            );
+        }
+
         $this->transactionModel->delete((int) $transactionId);
         $this->setFlash('success', 'Transaction supprimée.');
         $this->redirect('/accounts/' . $accountId);
