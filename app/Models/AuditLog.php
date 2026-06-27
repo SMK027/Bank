@@ -138,6 +138,13 @@ class AuditLog extends Model
     // Feature flags (modération)
     public const ACTION_FEATURE_FLAG_TOGGLE = 'feature_flag.toggle';
 
+    // Superviseurs
+    public const ACTION_SUPERVISOR_CREATE      = 'supervisor.create';
+    public const ACTION_SUPERVISOR_TOGGLE      = 'supervisor.toggle';
+    public const ACTION_SUPERVISOR_PIN_RESET   = 'supervisor.pin_reset';
+    public const ACTION_SUPERVISOR_BYPASS      = 'supervisor.bypass';
+    public const ACTION_SUPERVISOR_BYPASS_FAIL = 'supervisor.bypass_fail';
+
     // ── Labels lisibles ─────────────────────────────────────────────────────
 
     public const LABELS = [
@@ -205,6 +212,11 @@ class AuditLog extends Model
         'pos.merchant_resume'      => 'Commerçant TPE réactivé',
         'pos.refund'               => 'Remboursement partiel TPE',
         'feature_flag.toggle'      => 'Feature flag basculé',
+        'supervisor.create'        => 'Superviseur créé',
+        'supervisor.toggle'        => 'Superviseur activé/désactivé',
+        'supervisor.pin_reset'     => 'PIN superviseur réinitialisé',
+        'supervisor.bypass'        => 'Bypass superviseur accordé',
+        'supervisor.bypass_fail'   => 'Tentative de bypass superviseur échouée',
     ];
 
     /** Couleur Bootstrap associée à chaque catégorie. */
@@ -226,6 +238,7 @@ class AuditLog extends Model
         'api_payment'      => 'bg-info text-dark',
         'pos'              => 'bg-success',
         'feature_flag'     => 'bg-dark',
+        'supervisor'       => 'bg-purple',
     ];
 
     /**

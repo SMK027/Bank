@@ -197,6 +197,11 @@ abstract class Controller
             return;
         }
 
+        // Bypass superviseur actif en session pour cette fonctionnalité
+        if (\App\Models\Supervisor::hasBypass($key)) {
+            return;
+        }
+
         $flag = \App\Models\FeatureFlag::get($key);
         $label = $flag['label'] ?? $key;
         $description = $flag['description'] ?? '';
@@ -210,12 +215,16 @@ abstract class Controller
             ], 503);
         }
 
+        // Construire l'URL de retour (page courante) pour le formulaire de bypass
+        $currentUrl = $_SERVER['REQUEST_URI'] ?? '/';
+
         http_response_code(503);
         $this->render('errors/feature_disabled', [
-            'title'       => 'Fonctionnalité indisponible',
-            'featureKey'  => $key,
-            'label'       => $label,
-            'description' => $description,
+            'title'        => 'Fonctionnalité indisponible',
+            'featureKey'   => $key,
+            'label'        => $label,
+            'description'  => $description,
+            'bypassUrl'    => '/supervisor/bypass?feature=' . urlencode($key) . '&redirect=' . urlencode($currentUrl),
         ]);
         exit;
     }

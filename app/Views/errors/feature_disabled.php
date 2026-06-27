@@ -2,6 +2,7 @@
 /** @var string $label */
 /** @var string $description */
 /** @var string $featureKey */
+/** @var string $bypassUrl */
 ?>
 <div class="feature-disabled">
     <div class="feature-disabled__card">
@@ -30,6 +31,10 @@
         <div class="feature-disabled__actions">
             <a href="<?= is_authenticated() ? '/dashboard' : '/' ?>" class="btn btn-primary">
                 <i class="bi bi-arrow-left"></i> Retour
+            </a>
+            <a href="<?= e($bypassUrl) ?>" class="btn btn-outline"
+               style="border-color:rgba(146,64,14,0.4);color:inherit;">
+                <i class="bi bi-person-badge"></i> Superviseur
             </a>
         </div>
 

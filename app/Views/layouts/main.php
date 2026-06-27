@@ -183,6 +183,15 @@
                                 <a href="/moderation/overdraft-authorizations" class="navbar-mod-item" role="menuitem">
                                     <i class="bi bi-shield-plus"></i> Autorisations de dépassement
                                 </a>
+
+                                <div class="navbar-mod-sep"></div>
+                                <div class="navbar-mod-group-label">Configuration</div>
+                                <a href="/moderation/features" class="navbar-mod-item" role="menuitem">
+                                    <i class="bi bi-toggles"></i> Fonctionnalités
+                                </a>
+                                <a href="/moderation/supervisors" class="navbar-mod-item" role="menuitem">
+                                    <i class="bi bi-person-badge"></i> Superviseurs
+                                </a>
                             </div>
                         </div>
                     </div>

@@ -1,0 +1,319 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use App\Core\Controller;
+use App\Core\Session;
+use App\Models\AuditLog;
+use App\Models\FeatureFlag;
+use App\Models\Supervisor;
+
+/**
+ * Gestion des superviseurs et authentification de bypass.
+ *
+ * Deux rôles :
+ *  – Modération  : CRUD des comptes superviseurs (/moderation/supervisors/*)
+ *  – Public/auth : Formulaire d'auth de bypass (/supervisor/bypass/*)
+ */
+class SupervisorController extends Controller
+{
+    private Supervisor $supervisorModel;
+
+    public function __construct()
+    {
+        $this->supervisorModel = new Supervisor();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // MODÉRATION — Gestion des superviseurs
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /** Liste tous les superviseurs. */
+    public function index(): void
+    {
+        $this->requireModerator();
+
+        $supervisors = $this->supervisorModel->findAll('created_at', 'DESC');
+
+        $this->render('moderation/supervisors/index', [
+            'title'       => 'Modération — Superviseurs',
+            'supervisors' => $supervisors,
+        ]);
+    }
+
+    /** Formulaire de création. */
+    public function create(): void
+    {
+        $this->requireModerator();
+        $this->render('moderation/supervisors/form', [
+            'title'      => 'Nouveau superviseur',
+            'supervisor' => null,
+        ]);
+    }
+
+    /** Traitement création. */
+    public function store(): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $firstName    = trim($_POST['first_name']    ?? '');
+        $lastName     = trim($_POST['last_name']     ?? '');
+        $supervisorId = trim($_POST['supervisor_id'] ?? '');
+        $pin          = trim($_POST['pin']           ?? '');
+
+        if ($firstName === '' || $lastName === '' || $supervisorId === '') {
+            $this->setFlash('danger', 'Prénom, nom et identifiant sont obligatoires.');
+            $this->redirect('/moderation/supervisors/create');
+            return;
+        }
+
+        if (!preg_match('/^[a-zA-Z0-9_\-]{3,64}$/', $supervisorId)) {
+            $this->setFlash('danger', 'L\'identifiant ne doit contenir que des lettres, chiffres, tirets ou underscores (3–64 caractères).');
+            $this->redirect('/moderation/supervisors/create');
+            return;
+        }
+
+        // Si le PIN n'est pas fourni, en générer un automatiquement
+        $generatedPin = null;
+        if ($pin === '') {
+            $pin          = Supervisor::generatePin();
+            $generatedPin = $pin;
+        } elseif (strlen($pin) < 4) {
+            $this->setFlash('danger', 'Le code PIN doit comporter au moins 4 caractères.');
+            $this->redirect('/moderation/supervisors/create');
+            return;
+        }
+
+        try {
+            $newId = $this->supervisorModel->createSupervisor(
+                $firstName,
+                $lastName,
+                $supervisorId,
+                $pin,
+                (int) $this->getCurrentUserId()
+            );
+        } catch (\InvalidArgumentException $e) {
+            $this->setFlash('danger', $e->getMessage());
+            $this->redirect('/moderation/supervisors/create');
+            return;
+        }
+
+        AuditLog::log(
+            (int) $this->getCurrentUserId(),
+            AuditLog::ACTION_SUPERVISOR_CREATE,
+            ['supervisor_id' => $supervisorId, 'name' => $firstName . ' ' . $lastName]
+        );
+
+        if ($generatedPin !== null) {
+            $this->setFlash('success', sprintf(
+                'Superviseur « %s %s » créé. PIN généré : <strong>%s</strong> — notez-le, il ne sera plus affiché.',
+                htmlspecialchars($firstName),
+                htmlspecialchars($lastName),
+                $generatedPin
+            ));
+        } else {
+            $this->setFlash('success', sprintf('Superviseur « %s %s » créé.', $firstName, $lastName));
+        }
+
+        $this->redirect('/moderation/supervisors');
+    }
+
+    /** Bascule statut actif/désactivé. */
+    public function toggleStatus(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $supervisor = $this->supervisorModel->find((int) $id);
+        if (!$supervisor) {
+            $this->setFlash('danger', 'Superviseur introuvable.');
+            $this->redirect('/moderation/supervisors');
+            return;
+        }
+
+        $newStatus = $supervisor['status'] === 'active' ? 'disabled' : 'active';
+        $this->supervisorModel->setStatus((int) $id, $newStatus);
+
+        AuditLog::log(
+            (int) $this->getCurrentUserId(),
+            AuditLog::ACTION_SUPERVISOR_TOGGLE,
+            [
+                'supervisor_db_id' => (int) $id,
+                'supervisor_id'    => $supervisor['supervisor_id'],
+                'new_status'       => $newStatus,
+            ]
+        );
+
+        $this->setFlash(
+            'success',
+            sprintf(
+                'Superviseur « %s %s » %s.',
+                $supervisor['first_name'],
+                $supervisor['last_name'],
+                $newStatus === 'active' ? 'réactivé' : 'désactivé'
+            )
+        );
+        $this->redirect('/moderation/supervisors');
+    }
+
+    /** Réinitialise le PIN et affiche le nouveau PIN en flash. */
+    public function resetPin(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $supervisor = $this->supervisorModel->find((int) $id);
+        if (!$supervisor) {
+            $this->setFlash('danger', 'Superviseur introuvable.');
+            $this->redirect('/moderation/supervisors');
+            return;
+        }
+
+        $newPin = $this->supervisorModel->resetPin((int) $id);
+
+        AuditLog::log(
+            (int) $this->getCurrentUserId(),
+            AuditLog::ACTION_SUPERVISOR_PIN_RESET,
+            [
+                'supervisor_db_id' => (int) $id,
+                'supervisor_id'    => $supervisor['supervisor_id'],
+            ]
+        );
+
+        $this->setFlash('success', sprintf(
+            'PIN de « %s %s » réinitialisé : <strong>%s</strong> — notez-le, il ne sera plus affiché.',
+            htmlspecialchars($supervisor['first_name']),
+            htmlspecialchars($supervisor['last_name']),
+            $newPin
+        ));
+        $this->redirect('/moderation/supervisors');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // BYPASS — Authentification superviseur pour contourner un feature flag
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Affiche le formulaire d'authentification de bypass.
+     * GET /supervisor/bypass?feature=<key>&redirect=<url>
+     */
+    public function bypassForm(): void
+    {
+        $featureKey  = trim($_GET['feature']  ?? '');
+        $redirectUrl = trim($_GET['redirect'] ?? '/');
+
+        if ($featureKey === '') {
+            $this->redirect('/');
+            return;
+        }
+
+        // Si la fonctionnalité est en fait activée, rediriger directement
+        if (FeatureFlag::isEnabled($featureKey)) {
+            $this->redirect($this->safeRedirect($redirectUrl));
+            return;
+        }
+
+        // Si un bypass est déjà actif en session, rediriger directement
+        if (Supervisor::hasBypass($featureKey)) {
+            $this->redirect($this->safeRedirect($redirectUrl));
+            return;
+        }
+
+        $flag = FeatureFlag::get($featureKey);
+
+        $this->render('supervisor/bypass_form', [
+            'title'       => 'Authentification superviseur',
+            'featureKey'  => $featureKey,
+            'featureLabel'=> $flag['label'] ?? $featureKey,
+            'redirectUrl' => $redirectUrl,
+            'error'       => null,
+        ]);
+    }
+
+    /**
+     * Traitement de l'authentification de bypass.
+     * POST /supervisor/bypass
+     */
+    public function bypassAuthenticate(): void
+    {
+        $this->validateCSRF();
+
+        $featureKey   = trim($_POST['feature']       ?? '');
+        $supervisorId = trim($_POST['supervisor_id'] ?? '');
+        $pin          = trim($_POST['pin']           ?? '');
+        $redirectUrl  = trim($_POST['redirect']      ?? '/');
+
+        $flag = FeatureFlag::get($featureKey);
+
+        $renderError = function (string $msg) use ($featureKey, $flag, $redirectUrl): void {
+            http_response_code(401);
+            $this->render('supervisor/bypass_form', [
+                'title'        => 'Authentification superviseur',
+                'featureKey'   => $featureKey,
+                'featureLabel' => $flag['label'] ?? $featureKey,
+                'redirectUrl'  => $redirectUrl,
+                'error'        => $msg,
+            ]);
+            exit;
+        };
+
+        if ($featureKey === '' || $supervisorId === '' || $pin === '') {
+            $renderError('Tous les champs sont obligatoires.');
+        }
+
+        $supervisor = $this->supervisorModel->authenticate($supervisorId, $pin);
+
+        if ($supervisor === null) {
+            AuditLog::log(
+                null,
+                AuditLog::ACTION_SUPERVISOR_BYPASS_FAIL,
+                [
+                    'feature_key'        => $featureKey,
+                    'attempted_id'       => $supervisorId,
+                    'ip'                 => $_SERVER['REMOTE_ADDR'] ?? '',
+                ]
+            );
+            $renderError('Identifiant ou code PIN incorrect.');
+        }
+
+        // Bypass accordé
+        Supervisor::grantBypass($featureKey, (int) $supervisor['id']);
+
+        AuditLog::log(
+            null,
+            AuditLog::ACTION_SUPERVISOR_BYPASS,
+            [
+                'feature_key'      => $featureKey,
+                'supervisor_db_id' => (int) $supervisor['id'],
+                'supervisor_id'    => $supervisor['supervisor_id'],
+                'name'             => $supervisor['first_name'] . ' ' . $supervisor['last_name'],
+                'ip'               => $_SERVER['REMOTE_ADDR'] ?? '',
+            ]
+        );
+
+        $this->redirect($this->safeRedirect($redirectUrl));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Valide l'URL de redirection : doit être relative (commence par /).
+     * Prévient les open-redirect.
+     */
+    private function safeRedirect(string $url): string
+    {
+        if ($url === '' || $url[0] !== '/') {
+            return '/';
+        }
+        // Rejeter les doubles slashes du type //evil.com
+        if (str_starts_with($url, '//')) {
+            return '/';
+        }
+        return $url;
+    }
+}

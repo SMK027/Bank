@@ -42,6 +42,7 @@ use App\Controllers\FriendController;
 use App\Controllers\ExpenseSplitController;
 use App\Controllers\CheckbookController;
 use App\Controllers\ModerationOverdraftController;
+use App\Controllers\SupervisorController;
 
 // Démarrer la session
 Session::start();
@@ -186,6 +187,17 @@ $router->post('/transfers/recurring/{id}/cancel', TransferController::class, 'ca
 $router->get('/moderation', ModerationController::class, 'index');
 $router->get('/moderation/features', ModerationController::class, 'features');
 $router->post('/moderation/features/{key}/toggle', ModerationController::class, 'toggleFeature');
+
+// --- Superviseurs ---
+$router->get('/moderation/supervisors',                 SupervisorController::class, 'index');
+$router->get('/moderation/supervisors/create',          SupervisorController::class, 'create');
+$router->post('/moderation/supervisors',                SupervisorController::class, 'store');
+$router->post('/moderation/supervisors/{id}/toggle',    SupervisorController::class, 'toggleStatus');
+$router->post('/moderation/supervisors/{id}/pin/reset', SupervisorController::class, 'resetPin');
+
+// --- Bypass superviseur (accessible sans connexion) ---
+$router->get('/supervisor/bypass',  SupervisorController::class, 'bypassForm');
+$router->post('/supervisor/bypass', SupervisorController::class, 'bypassAuthenticate');
 $router->get('/moderation/transfers', ModerationController::class, 'transfers');
 $router->post('/moderation/transfers/{id}/cancel', ModerationController::class, 'cancelTransfer');
 $router->get('/moderation/users', ModerationController::class, 'users');
