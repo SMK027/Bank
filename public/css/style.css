@@ -4485,3 +4485,689 @@ input[type="date"].form-control {
 }
 
 
+
+/* ================================================================
+   REFONTE MOBILE COMPLÈTE — v2
+   Section unique, organisée, sans conflit avec les règles existantes.
+   Couvre : variables manquantes · safe-area · bottom-nav · tables ·
+            formulaires · modaux · pages modération · touch targets.
+   ================================================================ */
+
+/* ── 1. Variables CSS manquantes ────────────────────────────────── */
+:root {
+    /* Utilisées comme fallbacks partout dans le fichier
+       mais jamais déclarées dans :root → désormais définies. */
+    --card-bg:       var(--white, #ffffff);
+    --text-color:    var(--dark,  #212529);
+    --text-primary:  var(--dark,  #212529);
+    --text-secondary: #4a5568;
+    --text-muted:    var(--gray,  #6c757d);
+    --border-color:  var(--gray-light, #dee2e6);
+    --input-bg:      var(--white, #ffffff);
+    --bg-subtle:     var(--light, #f8f9fa);
+    --hover-bg:      var(--gray-lighter, #e9ecef);
+
+    /* Hauteur de la barre de navigation inférieure mobile */
+    --bottom-nav-height: 56px;
+}
+
+/* ── 2. Safe-area insets (encoches & Dynamic Island iPhone) ─────── */
+@supports (padding: env(safe-area-inset-top)) {
+    .navbar {
+        padding-top: env(safe-area-inset-top);
+    }
+    .bottom-nav {
+        padding-bottom: env(safe-area-inset-bottom);
+        height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
+    }
+    @media (max-width: 768px) {
+        .main-content {
+            padding-bottom: calc(1rem + var(--bottom-nav-height) + env(safe-area-inset-bottom));
+        }
+    }
+}
+
+/* ── 3. Comportements touch globaux ─────────────────────────────── */
+/* Désactiver le délai de 300ms sur tous les éléments interactifs */
+a, button, [role="button"], .btn, label,
+input[type="submit"], input[type="button"], input[type="reset"],
+select, .navbar-link, .sidebar-link, .card-link {
+    touch-action: manipulation;
+}
+
+/* Suppression du highlight bleu natif iOS/Android */
+* {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+
+/* Prévenir le select/copy involontaire sur boutons */
+.btn, .navbar-toggle, .pin-key, .navbar-link, .navbar-dropdown-toggle {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* ── 4. Tailles de police input (évite le zoom auto iOS ≥ 16px) ── */
+@media (max-width: 768px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+    select,
+    textarea {
+        font-size: 16px !important;
+        line-height: 1.5;
+    }
+}
+
+/* ── 5. Barre de navigation inférieure (mobile only) ────────────── */
+.bottom-nav {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    /* Espacement pour ne pas cacher le contenu sous la bottom nav */
+    body {
+        padding-bottom: var(--bottom-nav-height);
+    }
+
+    .bottom-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: var(--bottom-nav-height);
+        background: var(--white);
+        border-top: 1px solid var(--gray-light);
+        z-index: 1100;
+        justify-content: space-around;
+        align-items: stretch;
+        box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .bottom-nav-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        color: var(--gray);
+        font-size: 0.62rem;
+        font-weight: 500;
+        text-decoration: none;
+        padding: 4px 4px 2px;
+        border-radius: 0;
+        transition: color 0.18s, background 0.18s;
+        min-width: 0;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .bottom-nav-item i {
+        font-size: 1.35rem;
+        line-height: 1;
+        flex-shrink: 0;
+    }
+
+    .bottom-nav-item span {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+        font-size: 0.6rem;
+    }
+
+    .bottom-nav-item:hover,
+    .bottom-nav-item.active {
+        color: var(--primary);
+        background: rgba(67, 97, 238, 0.06);
+    }
+
+    .bottom-nav-item .notif-badge {
+        position: absolute;
+        top: 4px;
+        right: calc(50% - 14px);
+    }
+}
+
+/* ── 6. Overflow horizontal global ─────────────────────────────── */
+/* Déjà défini plus haut, on s'assure que c'est effectif */
+html {
+    overflow-x: clip; /* plus robuste que overflow-x: hidden */
+}
+
+/* Tables sans wrapper .table-responsive : scroll automatique */
+.card-body > table.table,
+.card > table.table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* ── 7. Touch targets minimum 44 × 44 px ────────────────────────── */
+@media (max-width: 768px) {
+    /* Boutons principaux */
+    .btn:not(.btn-sm):not([style*="font-size"]) {
+        min-height: 44px;
+    }
+
+    /* Liens de navigation */
+    .navbar-link,
+    .sidebar-link {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+    }
+
+    /* Icônes de la navbar */
+    .navbar-icon-link {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    /* Petits boutons dans tables : zone tactile agrandie sans changer l'aspect */
+    .btn-sm {
+        min-height: 36px;
+        min-width: 36px;
+    }
+
+    /* Checkboxes et radios */
+    input[type="checkbox"],
+    input[type="radio"] {
+        min-width: 20px;
+        min-height: 20px;
+        cursor: pointer;
+    }
+
+    /* Labels associés aux checkboxes/radios */
+    label:has(input[type="checkbox"]),
+    label:has(input[type="radio"]) {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+}
+
+/* ── 8. Page-header — gestion de tous les patterns ──────────────── */
+@media (max-width: 768px) {
+    /* Pattern 1 : page-header > div[style inline] */
+    .page-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.6rem;
+    }
+
+    .page-header > * {
+        max-width: 100%;
+    }
+
+    .page-header h1 {
+        font-size: clamp(1.1rem, 5vw, 1.5rem);
+        word-break: break-word;
+    }
+
+    /* Toolbar de boutons : bande horizontale scrollable */
+    .page-header > div,
+    .page-header > [style] {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        gap: 0.4rem !important;
+        padding-bottom: 2px;
+        scrollbar-width: none;
+        max-width: 100vw;
+        margin: 0;
+    }
+
+    .page-header > div::-webkit-scrollbar,
+    .page-header > [style]::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Titre seul (sans div wrapper) : pas de scroll */
+    .page-header > h1,
+    .page-header > h2 {
+        overflow: visible !important;
+    }
+
+    .page-header > div > .btn,
+    .page-header > div > a,
+    .page-header > div > form,
+    .page-header > div > span.btn {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+
+    .page-header > div > form .btn {
+        white-space: nowrap;
+    }
+}
+
+/* ── 9. Modaux : plein écran sur mobile ─────────────────────────── */
+@media (max-width: 600px) {
+    .modal,
+    .modal-content,
+    .agios-modal,
+    div[style*="max-width:460px"],
+    div[style*="max-width:520px"],
+    div[style*="max-width:580px"] {
+        max-width: calc(100vw - 1rem) !important;
+        width: calc(100vw - 1rem) !important;
+        margin: 0.5rem;
+        border-radius: var(--border-radius-lg);
+    }
+
+    .modal-overlay,
+    .agios-modal-overlay,
+    div[id*="ModalOverlay"] {
+        padding: 0.5rem;
+        align-items: flex-end !important;
+    }
+
+    /* Modaux ancrés au bas de l'écran */
+    .modal,
+    .agios-modal {
+        border-bottom-left-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+        border-top-left-radius: 1rem !important;
+        border-top-right-radius: 1rem !important;
+        padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+        max-height: 90dvh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* ── 10. Formulaires — espacement et ergonomie mobile ───────────── */
+@media (max-width: 600px) {
+    /* Groupes de formulaires plus aérés */
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    /* form-row passe à 1 colonne */
+    .form-row {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Inputs plus hauts pour faciliter le toucher */
+    .form-control {
+        min-height: 48px;
+        padding: 0.75rem 1rem;
+    }
+
+    select.form-control {
+        min-height: 48px;
+    }
+
+    /* Bouton submit : plein largeur, hauteur confortable */
+    .btn-block,
+    form > .btn-primary:last-child,
+    .auth-container .btn {
+        min-height: 52px;
+        width: 100%;
+    }
+
+    /* Champs date/heure inline dans les tables */
+    td input[type="text"],
+    td input[type="date"],
+    td input[type="number"] {
+        min-height: 38px;
+        font-size: 16px;
+    }
+}
+
+/* ── 11. Cards — layout mobile ──────────────────────────────────── */
+@media (max-width: 768px) {
+    .card-body {
+        padding: 0.875rem;
+    }
+
+    .card-header {
+        padding: 0.75rem 0.875rem;
+        flex-wrap: wrap;
+    }
+
+    .card-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .card {
+        border-radius: var(--border-radius);
+    }
+}
+
+/* ── 12. Tables modération — card view complète ─────────────────── */
+@media (max-width: 600px) {
+
+    /* Comptes (table #accounts-table) */
+    #accounts-table thead { display: none; }
+    #accounts-table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.1rem 0.5rem;
+        padding: 0.75rem 0.5rem;
+        border-bottom: 1px solid var(--gray-light);
+    }
+    #accounts-table td {
+        padding: 0;
+        border: none;
+        font-size: 0.85rem;
+    }
+    /* Col Nom (1) : ligne 1 gauche */
+    #accounts-table td:nth-child(1) { grid-column: 1; grid-row: 1; font-weight: 600; }
+    /* Col Solde (3 ou 6) : ligne 1 droite */
+    #accounts-table td:nth-child(3) { grid-column: 2; grid-row: 1; text-align: right; font-weight: 700; }
+    /* Col Type (2) : ligne 2 */
+    #accounts-table td:nth-child(2) { grid-column: 1 / -1; grid-row: 2; font-size: 0.78rem; color: var(--gray); }
+    /* Actions : pleine largeur bas */
+    #accounts-table td:last-child { grid-column: 1 / -1; grid-row: 3; }
+
+    /* Mandats (table #mandates-table) */
+    #mandates-table thead { display: none; }
+    #mandates-table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.15rem 0.5rem;
+        padding: 0.65rem 0.5rem;
+        border-bottom: 1px solid var(--gray-light);
+    }
+    #mandates-table td {
+        padding: 0;
+        border: none;
+        font-size: 0.85rem;
+    }
+
+    /* Virements */
+    #transfers-table thead { display: none; }
+    #transfers-table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.15rem 0.5rem;
+        padding: 0.65rem 0.5rem;
+        border-bottom: 1px solid var(--gray-light);
+    }
+    #transfers-table td {
+        padding: 0;
+        border: none;
+        font-size: 0.85rem;
+    }
+
+    /* Utilisateurs modération */
+    #users-table thead { display: none; }
+    #users-table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.15rem 0.5rem;
+        padding: 0.75rem 0.5rem;
+        border-bottom: 1px solid var(--gray-light);
+    }
+    #users-table td {
+        padding: 0;
+        border: none;
+        font-size: 0.85rem;
+    }
+    #users-table td:nth-child(1) { grid-column: 1; grid-row: 1; font-weight: 600; }
+    #users-table td:nth-child(2) { grid-column: 2; grid-row: 1; text-align: right; }
+    #users-table td:nth-child(3) { grid-column: 1 / -1; grid-row: 2; font-size: 0.78rem; color: var(--gray); }
+    #users-table td:last-child    { grid-column: 1 / -1; grid-row: 3; }
+}
+
+/* ── 13. Tables modération : masquage progressif de colonnes ─────── */
+@media (max-width: 768px) {
+    /* Mandats : masquer Intervalle et Dernière exéc. */
+    #mandates-table th:nth-child(6),
+    #mandates-table td:nth-child(6),
+    #mandates-table th:nth-child(8),
+    #mandates-table td:nth-child(8) { display: none; }
+
+    /* Virements : masquer Motif et Date création */
+    #transfers-table th:nth-child(4),
+    #transfers-table td:nth-child(4),
+    #transfers-table th:nth-child(6),
+    #transfers-table td:nth-child(6) { display: none; }
+
+    /* Virements récurrents : masquer Devise et Motif */
+    #recurring-table th:nth-child(4),
+    #recurring-table td:nth-child(4),
+    #recurring-table th:nth-child(5),
+    #recurring-table td:nth-child(5) { display: none; }
+
+    /* Superviseurs : masquer ID interne */
+    #supervisors-table th:nth-child(1),
+    #supervisors-table td:nth-child(1) { display: none; }
+
+    /* Accès partagé : masquer Date ajout */
+    #accesses-table th:nth-child(4),
+    #accesses-table td:nth-child(4) { display: none; }
+
+    /* API clients : masquer Secret partiel */
+    #api-clients-table th:nth-child(3),
+    #api-clients-table td:nth-child(3) { display: none; }
+
+    /* Feature flags : masquer Description */
+    #features-table th:nth-child(3),
+    #features-table td:nth-child(3) { display: none; }
+}
+
+/* ── 14. Stat cards (dashboard, comptes) ────────────────────────── */
+@media (max-width: 600px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.6rem;
+    }
+    .stat-card {
+        padding: 0.85rem 0.75rem;
+    }
+    .stat-card .stat-value {
+        font-size: clamp(1.3rem, 6vw, 1.8rem);
+    }
+    .stat-card .stat-label {
+        font-size: 0.78rem;
+    }
+}
+
+@media (max-width: 380px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── 15. Sidebar mobile (comptes avec accès partagé) ────────────── */
+@media (max-width: 768px) {
+    .layout-with-sidebar {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        position: static;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--gray-light);
+    }
+
+    .sidebar-nav {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 4px;
+        padding: 0.5rem;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .sidebar-nav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .sidebar-link {
+        flex-shrink: 0;
+        padding: 0.45rem 0.75rem;
+        white-space: nowrap;
+    }
+
+    .main-content.with-sidebar {
+        padding: 1rem;
+    }
+}
+
+/* ── 16. Section de filtres universelle ─────────────────────────── */
+@media (max-width: 600px) {
+    /* Barre de filtres avec display:flex ou display:grid inline */
+    [id*="filter"], [id*="Filter"], [class*="filter-bar"], [class*="filter_bar"] {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+
+    /* Sélecteurs et inputs dans les filtres : plein écran */
+    [id*="filter"] select,
+    [id*="filter"] input,
+    [id*="Filter"] select,
+    [id*="Filter"] input {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+}
+
+/* ── 17. Formulaires de modération (inline-styled) ──────────────── */
+@media (max-width: 600px) {
+    /* Cellules de table contenant des formulaires d'action */
+    td > form,
+    td > div > form {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.3rem !important;
+        width: 100%;
+    }
+
+    td > form input[type="text"],
+    td > form input[type="number"],
+    td > form input[type="password"],
+    td > form select {
+        width: 100% !important;
+        font-size: 16px;
+    }
+
+    /* Boutons dans les cellules action */
+    td > form .btn,
+    td > div .btn-sm {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* Formulaires inline dans details/summary */
+    details > form {
+        flex-direction: column !important;
+        gap: 0.5rem !important;
+    }
+
+    details > form > * {
+        width: 100% !important;
+    }
+}
+
+/* ── 18. Agios modal responsive ─────────────────────────────────── */
+@media (max-width: 500px) {
+    .agios-modal {
+        padding: 1rem;
+    }
+
+    .agios-taeg-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .agios-ep-taeg-row {
+        flex-direction: column;
+    }
+
+    .agios-ep-taeg-row .agios-ep-taeg-field {
+        width: 100%;
+    }
+
+    .agios-ep-taeg-field input {
+        width: 100% !important;
+    }
+
+    .agios-form-footer {
+        flex-direction: column;
+    }
+
+    .agios-form-footer .btn {
+        width: 100%;
+    }
+}
+
+/* ── 19. Page auth responsive — centrage vertical mobile ─────────── */
+@media (max-width: 500px) {
+    .auth-container {
+        margin: 0;
+        padding: 0;
+        min-height: 100dvh;
+        border-radius: 0;
+    }
+
+    .auth-container > .card {
+        border-radius: 0;
+        min-height: 100dvh;
+        box-shadow: none;
+    }
+
+    .auth-container .card-body {
+        padding: 1.5rem 1.25rem;
+    }
+}
+
+/* ── 20. Scrollbar esthétique (tout navigateur webkit) ───────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background: var(--gray-light);
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--gray);
+}
+
+/* ── 21. Améliorations typographiques mobile ─────────────────────── */
+@media (max-width: 480px) {
+    p, li, td, th, .form-hint, .form-error {
+        line-height: 1.55;
+    }
+
+    /* Texte long dans les badges et commentaires */
+    .badge {
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* Commentaires trop longs */
+    td[data-label], td:not([class]) {
+        word-break: break-word;
+        overflow-wrap: break-word;
+        max-width: 200px;
+    }
+}
+
+/* ── 22. Focus visible (accessibilité clavier + mobile) ─────────── */
+:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 3px;
+}
+
+/* ── 23. Impression — masquer éléments inutiles ─────────────────── */
+@media print {
+    .navbar,
+    .footer,
+    .bottom-nav,
+    .btn:not(.btn-print),
+    .sidebar { display: none !important; }
+    .main-content { padding: 0; }
+    body { background: white; }
+    .card { box-shadow: none; border: 1px solid #ccc; }
+}

@@ -3,7 +3,11 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#4361ee">
     <title><?= e($title ?? 'BankApp') ?></title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -251,6 +255,35 @@
             <?= $content ?>
         </div>
     </main>
+
+    <?php if (is_authenticated()): ?>
+    <!-- Barre de navigation inférieure (visible uniquement sur mobile ≤ 768px) -->
+    <nav class="bottom-nav" aria-label="Navigation principale mobile">
+        <a href="/dashboard" class="bottom-nav-item <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/dashboard') ? 'active' : '' ?>">
+            <i class="bi bi-speedometer2"></i>
+            <span>Tableau de bord</span>
+        </a>
+        <a href="/accounts/create" class="bottom-nav-item <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/accounts/create') ? 'active' : '' ?>">
+            <i class="bi bi-plus-circle"></i>
+            <span>Compte</span>
+        </a>
+        <a href="/transfers/create" class="bottom-nav-item <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/transfers') ? 'active' : '' ?>">
+            <i class="bi bi-arrow-left-right"></i>
+            <span>Virement</span>
+        </a>
+        <a href="/notifications" class="bottom-nav-item <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/notifications') ? 'active' : '' ?>" style="position:relative;">
+            <i class="bi bi-bell<?= $__unreadNotifs > 0 ? '-fill' : '' ?>"></i>
+            <?php if ($__unreadNotifs > 0): ?>
+                <span class="notif-badge"><?= $__unreadNotifs > 99 ? '99+' : $__unreadNotifs ?></span>
+            <?php endif; ?>
+            <span>Alertes</span>
+        </a>
+        <a href="/profile" class="bottom-nav-item <?= str_starts_with($_SERVER['REQUEST_URI'] ?? '', '/profile') ? 'active' : '' ?>">
+            <i class="bi bi-person-circle"></i>
+            <span>Profil</span>
+        </a>
+    </nav>
+    <?php endif; ?>
 
     <footer class="footer">
         <div class="container">
