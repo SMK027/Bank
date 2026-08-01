@@ -196,8 +196,9 @@ $router->post('/moderation/supervisors/{id}/toggle',    SupervisorController::cl
 $router->post('/moderation/supervisors/{id}/pin/reset', SupervisorController::class, 'resetPin');
 
 // --- Bypass superviseur (accessible sans connexion) ---
-$router->get('/supervisor/bypass',  SupervisorController::class, 'bypassForm');
-$router->post('/supervisor/bypass', SupervisorController::class, 'bypassAuthenticate');
+$router->get('/supervisor/bypass',        SupervisorController::class, 'bypassForm');
+$router->post('/supervisor/bypass',       SupervisorController::class, 'bypassAuthenticate');
+$router->get('/supervisor/bypass/replay', SupervisorController::class, 'bypassReplay');
 $router->get('/moderation/transfers', ModerationController::class, 'transfers');
 $router->post('/moderation/transfers/{id}/cancel', ModerationController::class, 'cancelTransfer');
 $router->get('/moderation/users', ModerationController::class, 'users');

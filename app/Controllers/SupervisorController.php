@@ -297,6 +297,52 @@ class SupervisorController extends Controller
         $this->redirect($this->safeRedirect($redirectUrl));
     }
 
+    /**
+     * Rejeu automatique d'un formulaire POST après authentification superviseur.
+     * GET /supervisor/bypass/replay?pending=<token>
+     *
+     * Charge les données POST sauvegardées en session, les injecte dans un
+     * formulaire caché et le soumet automatiquement via JavaScript.
+     * La session est nettoyée dès la lecture pour éviter tout rejeu non voulu.
+     */
+    public function bypassReplay(): void
+    {
+        $token = trim($_GET['pending'] ?? '');
+
+        if (!preg_match('/^[0-9a-f]{32}$/', $token)) {
+            $this->setFlash('warning', 'Lien de reprise invalide.');
+            $this->redirect('/');
+            return;
+        }
+
+        $sessionKey = 'bypass_pending_' . $token;
+        $pending    = \App\Core\Session::get($sessionKey);
+
+        if (!$pending || time() > ($pending['expires_at'] ?? 0)) {
+            \App\Core\Session::remove($sessionKey);
+            $this->setFlash('warning', 'Le lien de reprise a expiré (5 min). Veuillez recommencer.');
+            $this->redirect(parse_url($pending['action'] ?? '/', PHP_URL_PATH) ?: '/');
+            return;
+        }
+
+        if (!Supervisor::hasBypass($pending['feature'])) {
+            // Le bypass n'est plus actif (ne devrait pas arriver en pratique)
+            \App\Core\Session::remove($sessionKey);
+            $this->setFlash('warning', 'Le bypass superviseur n\'est plus actif.');
+            $this->redirect('/');
+            return;
+        }
+
+        // Lecture unique : on supprime immédiatement les données de la session
+        \App\Core\Session::remove($sessionKey);
+
+        $this->render('supervisor/bypass_replay', [
+            'title'  => 'Reprise en cours…',
+            'action' => $pending['action'],
+            'fields' => $pending['data'],
+        ], '');
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────────────────────────────────

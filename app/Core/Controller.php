@@ -222,20 +222,16 @@ abstract class Controller
         }
 
         // URL de retour après authentification superviseur.
-        // Pour les requêtes POST, l'URL cible n'est accessible qu'en POST :
-        // on redirige vers le Referer (page du formulaire) plutôt que vers
-        // l'URL de l'action, afin d'éviter un GET sur une route POST-only.
+        // Pour les requêtes POST non-AJAX : on sauvegarde les données du
+        // formulaire en session (TTL 5 min) et on redirige vers un point de
+        // rejeu qui soumet automatiquement le formulaire après authentification,
+        // sans demander à l'utilisateur de ressaisir ses informations.
+        // Pour les requêtes AJAX : réponse JSON 503 avec bypass_url.
         $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-        if ($requestMethod === 'POST' && !empty($_SERVER['HTTP_REFERER'])) {
-            $referer = parse_url($_SERVER['HTTP_REFERER'], PHP_URL_PATH) ?? '/';
-            $returnUrl = $referer ?: '/';
-        } else {
-            $returnUrl = $_SERVER['REQUEST_URI'] ?? '/';
-        }
-
-        $bypassUrl = '/supervisor/bypass?feature=' . urlencode($key) . '&redirect=' . urlencode($returnUrl);
 
         if ($this->isAjax()) {
+            $returnUrl = $_SERVER['REQUEST_URI'] ?? '/';
+            $bypassUrl = '/supervisor/bypass?feature=' . urlencode($key) . '&redirect=' . urlencode($returnUrl);
             $this->jsonResponse([
                 'success'      => false,
                 'feature_off'  => true,
@@ -243,6 +239,22 @@ abstract class Controller
                 'message'      => 'Fonctionnalité « ' . $label . ' » temporairement indisponible.',
                 'bypass_url'   => $bypassUrl,
             ], 503);
+        }
+
+        if ($requestMethod === 'POST') {
+            $token      = bin2hex(random_bytes(16));
+            $sessionKey = 'bypass_pending_' . $token;
+            \App\Core\Session::set($sessionKey, [
+                'feature'    => $key,
+                'action'     => $_SERVER['REQUEST_URI'] ?? '/',
+                'data'       => $_POST,
+                'expires_at' => time() + 300,
+            ]);
+            $replayUrl = '/supervisor/bypass/replay?pending=' . urlencode($token);
+            $bypassUrl = '/supervisor/bypass?feature=' . urlencode($key) . '&redirect=' . urlencode($replayUrl);
+        } else {
+            $returnUrl = $_SERVER['REQUEST_URI'] ?? '/';
+            $bypassUrl = '/supervisor/bypass?feature=' . urlencode($key) . '&redirect=' . urlencode($returnUrl);
         }
 
         $this->redirect($bypassUrl);
