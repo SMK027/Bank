@@ -24,6 +24,7 @@ class Account extends Model
         'standard' => ['label' => 'Compte courant',       'overdraft' => true,  'cap' => false, 'interest' => false],
         'pro'      => ['label' => 'Compte professionnel', 'overdraft' => true,  'cap' => false, 'interest' => false],
         'joint'    => ['label' => 'Compte joint',         'overdraft' => true,  'cap' => false, 'interest' => false],
+        'vault'    => ['label' => 'Coffre d\'entreprise',  'overdraft' => false, 'cap' => false, 'interest' => false],
         'savings'  => ['label' => 'Compte épargne',       'overdraft' => false, 'cap' => true,  'interest' => true],
         'online'   => ['label' => 'Banque en ligne',      'overdraft' => false, 'cap' => false, 'interest' => true],
         'minor'    => ['label' => 'Compte mineur',        'overdraft' => false, 'cap' => false, 'interest' => false],
@@ -54,7 +55,7 @@ class Account extends Model
      * Types créables par un professionnel vérifié.
      * Les professionnels ne peuvent créer que des comptes pro ou épargne.
      */
-    public const PRO_ALLOWED_TYPES = ['pro', 'savings'];
+    public const PRO_ALLOWED_TYPES = ['pro', 'savings', 'vault'];
 
     /**
      * Retourne les types de comptes créables via le formulaire standard.
@@ -96,7 +97,7 @@ class Account extends Model
     public static function isAdultOnlyAccount(array $account): bool
     {
         $type = $account['type'] ?? '';
-        if (in_array($type, ['pro', 'standard'], true)) {
+        if (in_array($type, ['pro', 'standard', 'vault'], true)) {
             return true;
         }
         if ($type === 'joint' && (float) ($account['overdraft'] ?? 0) > 0.0) {
@@ -127,7 +128,7 @@ class Account extends Model
      */
     public static function typeAllowsCard(string $type): bool
     {
-        return $type !== 'savings';
+        return !in_array($type, ['savings', 'vault'], true);
     }
 
     // ── Suspension TPE d'un compte professionnel ─────────────────────────────

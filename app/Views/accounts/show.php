@@ -171,6 +171,7 @@
                 $overdraftLimit   = $typeAllowsOd ? -(float)($account['overdraft'] ?? 0) : 0.0;
                 $isOverdraftExceed = $balance < $overdraftLimit;
             ?>
+            <?php if (($account['type'] ?? '') !== 'vault'): ?>
             <button type="button" class="btn <?= $isOverdraftExceed ? 'btn-danger' : 'btn-warning' ?> btn-sm"
                     onclick="openAgiosModal()">
                 <i class="bi bi-exclamation-triangle-fill"></i> Prélever agios
@@ -180,6 +181,7 @@
                title="Rapport des épisodes de dépassement de découvert et rejets associés">
                 <i class="bi bi-graph-down-arrow"></i> Rapport agios
             </a>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>

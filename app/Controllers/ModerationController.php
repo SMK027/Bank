@@ -216,6 +216,13 @@ class ModerationController extends Controller
         $balance   = $this->accountModel->getBalance($accountId);
         $overdraft = (float) ($account['overdraft'] ?? 0);
 
+        // Les coffres d'entreprise n'ont pas de découvert et ne peuvent pas subir d'agios.
+        if (($account['type'] ?? '') === 'vault') {
+            $this->setFlash('danger', 'Les coffres d\'entreprise ne peuvent pas subir d\'agios.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
         $data   = $this->getPostData(['amount', 'comment', 'taeg_rate', 'taeg_capital', 'taeg_days']);
         $amount = abs((float) ($data['amount'] ?? 0));
 
