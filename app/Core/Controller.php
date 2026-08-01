@@ -198,9 +198,13 @@ abstract class Controller
         }
 
         // Bypass superviseur actif en session pour cette fonctionnalité.
-        // Consommé immédiatement : un seul contournement par authentification.
+        // Le bypass est conservé lors de l'affichage du formulaire (GET) et
+        // consommé uniquement lors de l'action effective (POST/PUT/DELETE),
+        // pour couvrir le cycle complet formulaire → soumission.
         if (\App\Models\Supervisor::hasBypass($key)) {
-            \App\Models\Supervisor::consumeBypass($key);
+            if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
+                \App\Models\Supervisor::consumeBypass($key);
+            }
             return;
         }
 
