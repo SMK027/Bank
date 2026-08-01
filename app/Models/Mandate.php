@@ -36,7 +36,9 @@ class Mandate extends Model
      *
      * Pour les mandats récurrents, deux modes sont disponibles :
      * - $intervalDays  : prélèvement tous les N jours.
-     * - $executionDay  : prélèvement chaque mois à un jour fixe (1-28).
+     * - $executionDay  : prélèvement chaque mois à un jour fixe (1-31).
+     *   En février, les valeurs > 28 sont ramenées au 28.
+     *   Pour les mois de 30 jours, les valeurs 31 sont ramenées au dernier jour.
      * Les deux options sont mutuellement exclusives ; $executionDay est prioritaire.
      */
     public function createMandate(
@@ -52,7 +54,7 @@ class Mandate extends Model
         ?int    $executionDay = null
     ): int {
         $isRecurring  = ($type === self::TYPE_RECURRING);
-        $useFixedDay  = $isRecurring && $executionDay !== null && $executionDay >= 1 && $executionDay <= 28;
+        $useFixedDay  = $isRecurring && $executionDay !== null && $executionDay >= 1 && $executionDay <= 31;
 
         // Calcul de la prochaine exécution si aucune date explicite n'est fournie
         if ($firstExecutionAt === null && $useFixedDay) {
@@ -80,7 +82,7 @@ class Mandate extends Model
      * Calcule la prochaine date d'exécution pour un jour fixe du mois.
      * Si le jour est encore à venir ce mois-ci, retourne cette date.
      * Sinon, retourne le même jour du mois suivant.
-     * Limité au 28 pour garantir la validité en février.
+     * Le jour est ramené au dernier jour valide du mois cible (28 en février).
      */
     private function nextExecutionDateForDay(int $day): string
     {
@@ -88,14 +90,32 @@ class Mandate extends Model
         $year  = (int) $today->format('Y');
         $month = (int) $today->format('n');
 
-        $candidate = (clone $today)->setDate($year, $month, $day);
+        $effective = $this->clampDayToMonth($day, $year, $month);
+        $candidate = (clone $today)->setDate($year, $month, $effective);
+
         if ($candidate < $today) {
-            // Aller au mois suivant
-            $candidate->modify('first day of next month');
-            $candidate->setDate((int) $candidate->format('Y'), (int) $candidate->format('n'), $day);
+            $next      = (clone $today)->modify('first day of next month');
+            $ny        = (int) $next->format('Y');
+            $nm        = (int) $next->format('n');
+            $effective = $this->clampDayToMonth($day, $ny, $nm);
+            $candidate = $next->setDate($ny, $nm, $effective);
         }
 
         return $candidate->format('Y-m-d') . ' 00:00:00';
+    }
+
+    /**
+     * Ramène un numéro de jour au dernier jour valide d'un mois donné.
+     * Février est toujours limité à 28 (indépendamment des années bissextiles)
+     * pour éviter qu'un mandat « le 29 » saute une année sur deux.
+     */
+    private function clampDayToMonth(int $day, int $year, int $month): int
+    {
+        if ($month === 2) {
+            return min($day, 28);
+        }
+        $daysInMonth = (int) date('t', mktime(0, 0, 0, $month, 1, $year));
+        return min($day, $daysInMonth);
     }
 
     /**
@@ -187,9 +207,12 @@ class Mandate extends Model
             : null;
 
         if ($executionDay !== null) {
-            // Mode jour fixe : toujours le même jour du mois suivant
-            $next = new \DateTime('first day of next month');
-            $next->setDate((int) $next->format('Y'), (int) $next->format('n'), $executionDay);
+            // Mode jour fixe : même jour (effectif) du mois suivant
+            $next      = new \DateTime('first day of next month');
+            $ny        = (int) $next->format('Y');
+            $nm        = (int) $next->format('n');
+            $effective = $this->clampDayToMonth($executionDay, $ny, $nm);
+            $next->setDate($ny, $nm, $effective);
             $nextExecution = $next->format('Y-m-d') . ' 00:00:00';
         } else {
             $intervalDays  = (int) ($mandate['interval_days'] ?? 30);

@@ -9,6 +9,6 @@
 
 ALTER TABLE `mandates`
     ADD COLUMN `execution_day` TINYINT UNSIGNED NULL DEFAULT NULL
-        COMMENT 'Jour fixe du mois (1-28) pour les mandats récurrents à date fixe'
+        COMMENT 'Jour fixe du mois (1-31) pour les mandats récurrents à date fixe'
         AFTER `interval_days`,
-    ADD CONSTRAINT `chk_mandate_execution_day` CHECK (`execution_day` IS NULL OR (`execution_day` >= 1 AND `execution_day` <= 28));
+    ADD CONSTRAINT `chk_mandate_execution_day` CHECK (`execution_day` IS NULL OR (`execution_day` >= 1 AND `execution_day` <= 31));

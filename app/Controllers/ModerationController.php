@@ -2070,8 +2070,8 @@ class ModerationController extends Controller
             $recurringMode = $data['recurring_mode'] ?? 'interval';
             if ($recurringMode === 'fixed_day') {
                 $executionDay = (int) ($data['execution_day'] ?? 0);
-                if ($executionDay < 1 || $executionDay > 28) {
-                    $this->setFlash('danger', 'Le jour d\'exécution fixe doit être compris entre 1 et 28.');
+                if ($executionDay < 1 || $executionDay > 31) {
+                    $this->setFlash('danger', 'Le jour d\'exécution fixe doit être compris entre 1 et 31.');
                     $this->redirect('/moderation/mandates/create');
                     return;
                 }

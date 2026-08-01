@@ -93,10 +93,10 @@
 
                     <!-- Jour fixe du mois -->
                     <div id="fixed-day-group" style="display:none;">
-                        <label for="execution_day" class="form-label">Jour fixe d'exécution (1 – 28)</label>
+                        <label for="execution_day" class="form-label">Jour fixe d'exécution (1 – 31)</label>
                         <input type="number" id="execution_day" name="execution_day" class="form-control"
-                               min="1" max="28" step="1" placeholder="Ex : 5">
-                        <span class="form-hint">Le prélèvement sera effectué chaque mois à cette date (max. 28 pour garantir la validité en février).</span>
+                               min="1" max="31" step="1" placeholder="Ex : 5">
+                        <span class="form-hint">Le prélèvement sera effectué chaque mois à cette date. En février, les valeurs supérieures à 28 seront ramenées au 28. Pour les mois de 30 jours, le 31 sera ramené au 30.</span>
                     </div>
                 </div>
 
