@@ -2008,6 +2008,7 @@
                                     </button>
                                     <?php endif; ?>
                                     <?php if ($txDeletable): ?>
+                                    <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/transactions/<?= (int) $t['id'] ?>/delete"
                                           style="display:inline">
                                         <?= csrf_field() ?>
                                         <button type="submit" class="btn btn-outline-danger btn-sm"
