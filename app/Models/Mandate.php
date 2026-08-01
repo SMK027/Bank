@@ -33,6 +33,11 @@ class Mandate extends Model
      * Crée un nouveau mandat.
      * Quand $emitterAccountId est null, le mandat est émis par la banque :
      * seul le compte destinataire sera débité, aucun compte n'est crédité.
+     *
+     * Pour les mandats récurrents, deux modes sont disponibles :
+     * - $intervalDays  : prélèvement tous les N jours.
+     * - $executionDay  : prélèvement chaque mois à un jour fixe (1-28).
+     * Les deux options sont mutuellement exclusives ; $executionDay est prioritaire.
      */
     public function createMandate(
         string  $number,
@@ -43,8 +48,19 @@ class Mandate extends Model
         string  $type,
         ?int    $intervalDays,
         int     $createdBy,
-        ?string $firstExecutionAt = null
+        ?string $firstExecutionAt = null,
+        ?int    $executionDay = null
     ): int {
+        $isRecurring  = ($type === self::TYPE_RECURRING);
+        $useFixedDay  = $isRecurring && $executionDay !== null && $executionDay >= 1 && $executionDay <= 28;
+
+        // Calcul de la prochaine exécution si aucune date explicite n'est fournie
+        if ($firstExecutionAt === null && $useFixedDay) {
+            $firstExecutionAt = $this->nextExecutionDateForDay($executionDay);
+        } else {
+            $firstExecutionAt = $firstExecutionAt ?? date('Y-m-d H:i:s');
+        }
+
         return $this->create([
             'number'               => $number,
             'emitter_account_id'   => $emitterAccountId,
@@ -52,11 +68,34 @@ class Mandate extends Model
             'description'          => $description,
             'amount'               => $amount,
             'type'                 => $type,
-            'interval_days'        => $type === self::TYPE_RECURRING ? $intervalDays : null,
+            'interval_days'        => $isRecurring && !$useFixedDay ? $intervalDays : null,
+            'execution_day'        => $useFixedDay ? $executionDay : null,
             'status'               => self::STATUS_ACTIVE,
             'created_by'           => $createdBy,
-            'next_execution_at'    => $firstExecutionAt ?? date('Y-m-d H:i:s'),
+            'next_execution_at'    => $firstExecutionAt,
         ]);
+    }
+
+    /**
+     * Calcule la prochaine date d'exécution pour un jour fixe du mois.
+     * Si le jour est encore à venir ce mois-ci, retourne cette date.
+     * Sinon, retourne le même jour du mois suivant.
+     * Limité au 28 pour garantir la validité en février.
+     */
+    private function nextExecutionDateForDay(int $day): string
+    {
+        $today = new \DateTime('today');
+        $year  = (int) $today->format('Y');
+        $month = (int) $today->format('n');
+
+        $candidate = (clone $today)->setDate($year, $month, $day);
+        if ($candidate < $today) {
+            // Aller au mois suivant
+            $candidate->modify('first day of next month');
+            $candidate->setDate((int) $candidate->format('Y'), (int) $candidate->format('n'), $day);
+        }
+
+        return $candidate->format('Y-m-d') . ' 00:00:00';
     }
 
     /**
@@ -143,8 +182,19 @@ class Mandate extends Model
         }
 
         // Récurrent : planifier la prochaine exécution
-        $intervalDays   = (int) ($mandate['interval_days'] ?? 30);
-        $nextExecution  = date('Y-m-d H:i:s', strtotime("+{$intervalDays} days"));
+        $executionDay = isset($mandate['execution_day']) && $mandate['execution_day'] !== null
+            ? (int) $mandate['execution_day']
+            : null;
+
+        if ($executionDay !== null) {
+            // Mode jour fixe : toujours le même jour du mois suivant
+            $next = new \DateTime('first day of next month');
+            $next->setDate((int) $next->format('Y'), (int) $next->format('n'), $executionDay);
+            $nextExecution = $next->format('Y-m-d') . ' 00:00:00';
+        } else {
+            $intervalDays  = (int) ($mandate['interval_days'] ?? 30);
+            $nextExecution = date('Y-m-d H:i:s', strtotime("+{$intervalDays} days"));
+        }
 
         return $this->update($id, [
             'last_executed_at'  => $now,

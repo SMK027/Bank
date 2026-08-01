@@ -68,10 +68,36 @@
                 </div>
 
                 <div class="form-group" id="interval-group" style="display:none;">
-                    <label for="interval_days" class="form-label">Intervalle de prélèvement (jours)</label>
-                    <input type="number" id="interval_days" name="interval_days" class="form-control"
-                           min="1" step="1" placeholder="Ex : 30">
-                    <span class="form-hint">Nombre de jours entre chaque prélèvement</span>
+                    <!-- Mode de récurrence -->
+                    <div class="form-group" style="margin-bottom:0.6rem;">
+                        <label class="form-label">Mode de récurrence</label>
+                        <div style="display:flex;gap:1.2rem;flex-wrap:wrap;">
+                            <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;">
+                                <input type="radio" name="recurring_mode" id="mode_interval" value="interval" checked>
+                                Tous les N jours
+                            </label>
+                            <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;">
+                                <input type="radio" name="recurring_mode" id="mode_fixed_day" value="fixed_day">
+                                Jour fixe du mois
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Intervalle en jours -->
+                    <div id="interval-days-group">
+                        <label for="interval_days" class="form-label">Intervalle de prélèvement (jours)</label>
+                        <input type="number" id="interval_days" name="interval_days" class="form-control"
+                               min="1" step="1" placeholder="Ex : 30">
+                        <span class="form-hint">Nombre de jours entre chaque prélèvement</span>
+                    </div>
+
+                    <!-- Jour fixe du mois -->
+                    <div id="fixed-day-group" style="display:none;">
+                        <label for="execution_day" class="form-label">Jour fixe d'exécution (1 – 28)</label>
+                        <input type="number" id="execution_day" name="execution_day" class="form-control"
+                               min="1" max="28" step="1" placeholder="Ex : 5">
+                        <span class="form-hint">Le prélèvement sera effectué chaque mois à cette date (max. 28 pour garantir la validité en février).</span>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -101,12 +127,41 @@
     var typeEl       = document.getElementById('type');
     var intervalGrp  = document.getElementById('interval-group');
     var intervalInp  = document.getElementById('interval_days');
+    var executionInp = document.getElementById('execution_day');
+    var modeInterval = document.getElementById('mode_interval');
+    var modeFixed    = document.getElementById('mode_fixed_day');
+    var intervalDaysGrp = document.getElementById('interval-days-group');
+    var fixedDayGrp  = document.getElementById('fixed-day-group');
+
+    function toggleRecurringMode() {
+        var isFixed = modeFixed.checked;
+        intervalDaysGrp.style.display = isFixed ? 'none' : '';
+        fixedDayGrp.style.display     = isFixed ? '' : 'none';
+        intervalInp.required  = !isFixed;
+        executionInp.required = isFixed;
+        if (isFixed) {
+            intervalInp.value = '';
+        } else {
+            executionInp.value = '';
+        }
+    }
+
     function toggleInterval() {
         var show = typeEl.value === 'recurring';
         intervalGrp.style.display = show ? '' : 'none';
-        if (!show) intervalInp.value = '';
+        if (!show) {
+            intervalInp.value  = '';
+            executionInp.value = '';
+            intervalInp.required  = false;
+            executionInp.required = false;
+        } else {
+            toggleRecurringMode();
+        }
     }
+
     typeEl.addEventListener('change', toggleInterval);
+    modeInterval.addEventListener('change', toggleRecurringMode);
+    modeFixed.addEventListener('change', toggleRecurringMode);
     toggleInterval();
 
     // Toggle mandat bancaire

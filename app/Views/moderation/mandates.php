@@ -92,8 +92,14 @@
                     <?php endif; ?>
                 </td>
                 <td>
-                    <?php if ($m['type'] === 'recurring' && $m['interval_days']): ?>
-                        <?= (int) $m['interval_days'] ?> jour<?= (int) $m['interval_days'] > 1 ? 's' : '' ?>
+                    <?php if ($m['type'] === 'recurring'): ?>
+                        <?php if (!empty($m['execution_day'])): ?>
+                            Le <?= (int) $m['execution_day'] ?> du mois
+                        <?php elseif (!empty($m['interval_days'])): ?>
+                            <?= (int) $m['interval_days'] ?> jour<?= (int) $m['interval_days'] > 1 ? 's' : '' ?>
+                        <?php else: ?>
+                            —
+                        <?php endif; ?>
                     <?php else: ?>
                         —
                     <?php endif; ?>

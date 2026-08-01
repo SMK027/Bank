@@ -1995,7 +1995,8 @@ class ModerationController extends Controller
 
         $data = $this->getPostData([
             'number', 'bank_mandate', 'emitter_account_id', 'recipient_account_id',
-            'description', 'amount', 'type', 'interval_days', 'first_execution_at',
+            'description', 'amount', 'type', 'recurring_mode', 'interval_days',
+            'execution_day', 'first_execution_at',
         ]);
 
         $number = trim($data['number'] ?? '');
@@ -2064,12 +2065,23 @@ class ModerationController extends Controller
         }
 
         $intervalDays = null;
+        $executionDay = null;
         if ($type === Mandate::TYPE_RECURRING) {
-            $intervalDays = (int) ($data['interval_days'] ?? 0);
-            if ($intervalDays < 1) {
-                $this->setFlash('danger', 'L\'intervalle de prélèvement doit être d\'au moins 1 jour.');
-                $this->redirect('/moderation/mandates/create');
-                return;
+            $recurringMode = $data['recurring_mode'] ?? 'interval';
+            if ($recurringMode === 'fixed_day') {
+                $executionDay = (int) ($data['execution_day'] ?? 0);
+                if ($executionDay < 1 || $executionDay > 28) {
+                    $this->setFlash('danger', 'Le jour d\'exécution fixe doit être compris entre 1 et 28.');
+                    $this->redirect('/moderation/mandates/create');
+                    return;
+                }
+            } else {
+                $intervalDays = (int) ($data['interval_days'] ?? 0);
+                if ($intervalDays < 1) {
+                    $this->setFlash('danger', 'L\'intervalle de prélèvement doit être d\'au moins 1 jour.');
+                    $this->redirect('/moderation/mandates/create');
+                    return;
+                }
             }
         }
 
@@ -2094,7 +2106,8 @@ class ModerationController extends Controller
             $type,
             $intervalDays,
             $this->getCurrentUserId(),
-            $firstExecutionAt
+            $firstExecutionAt,
+            $executionDay
         );
 
         AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_MANDATE_CREATE, ['number' => $number, 'amount' => $amount, 'type' => $type, 'bank_mandate' => $isBankMandate], targetAccountId: $recipientAccountId);
