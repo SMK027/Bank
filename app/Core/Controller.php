@@ -229,14 +229,19 @@ abstract class Controller
             $returnUrl = $_SERVER['REQUEST_URI'] ?? '/';
         }
 
-        http_response_code(503);
-        $this->render('errors/feature_disabled', [
-            'title'        => 'Fonctionnalité indisponible',
-            'featureKey'   => $key,
-            'label'        => $label,
-            'description'  => $description,
-            'bypassUrl'    => '/supervisor/bypass?feature=' . urlencode($key) . '&redirect=' . urlencode($returnUrl),
-        ]);
+        $bypassUrl = '/supervisor/bypass?feature=' . urlencode($key) . '&redirect=' . urlencode($returnUrl);
+
+        if ($this->isAjax()) {
+            $this->jsonResponse([
+                'success'      => false,
+                'feature_off'  => true,
+                'feature_key'  => $key,
+                'message'      => 'Fonctionnalité « ' . $label . ' » temporairement indisponible.',
+                'bypass_url'   => $bypassUrl,
+            ], 503);
+        }
+
+        $this->redirect($bypassUrl);
         exit;
     }
 
