@@ -338,6 +338,14 @@ class TransactionController extends Controller
             return;
         }
 
+        // Transactions issues d'un débit différé exécuté :
+        // non supprimables par les utilisateurs normaux (traçabilité comptable).
+        if (!$this->isModerator() && $this->deferredDebitModel->getExecutedTransactionIds([$txId]) !== []) {
+            $this->setFlash('danger', 'Cette opération est liée à un débit différé exécuté et ne peut pas être supprimée.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
         // Opérations issues d'une action de modération (TPE, annulation de
         // virement, annulation/remboursement de crédit, rejet de prélèvement…) :
         // non supprimables afin de garantir la traçabilité comptable.

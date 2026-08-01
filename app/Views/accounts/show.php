@@ -1886,11 +1886,13 @@
                         $__splitTxIds  = array_flip($__splitModel->getSplitTransactionIds($__txIdsPage));
                         ?>
                         <?php foreach ($executedTransactions as $t):
-                            $txIsLinked  = in_array((int) $t['id'], $linkedTxIds ?? []);
-                            $txIsTpe     = \App\Models\Transaction::isModerationOnly($t);
-                            $txIsAlreadySplit = isset($__splitTxIds[(int) $t['id']]);
-                            $txAge       = time() - strtotime($t['created_at']);
+                            $txIsLinked           = in_array((int) $t['id'], $linkedTxIds ?? []);
+                            $txIsLinkedToDeferred = in_array((int) $t['id'], $deferredTxIds ?? []);
+                            $txIsTpe              = \App\Models\Transaction::isModerationOnly($t);
+                            $txIsAlreadySplit     = isset($__splitTxIds[(int) $t['id']]);
+                            $txAge                = time() - strtotime($t['created_at']);
                             $txEditable  = !$txIsLinked && !$txIsTpe && ($isModerator || $txAge <= 7 * 86400);
+                            $txDeletable = $txEditable && ($isModerator || !$txIsLinkedToDeferred);
                             $txHasScheduled = !empty($t['scheduled_at']);
                         ?>
                             <tr data-type="<?= e($t['type']) ?>"
@@ -2003,8 +2005,7 @@
                                         <i class="bi bi-pencil"></i>
                                     </button>
                                     <?php endif; ?>
-                                    <?php if ($txEditable): ?>
-                                    <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/transactions/<?= (int) $t['id'] ?>/delete"
+                                    <?php if ($txDeletable): ?>
                                           style="display:inline">
                                         <?= csrf_field() ?>
                                         <button type="submit" class="btn btn-outline-danger btn-sm"

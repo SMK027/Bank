@@ -253,6 +253,12 @@ class AccountController extends Controller
         $pageTxIds   = array_column($executedTransactions, 'id');
         $linkedTxIds = $pageTxIds ? $this->transactionModel->getProtectedIds($pageTxIds) : [];
 
+        // IDs des transactions liées à un débit différé exécuté :
+        // non supprimables par les utilisateurs normaux.
+        $deferredTxIds = (!$isModerator && $pageTxIds)
+            ? $this->deferredDebitModel->getExecutedTransactionIds($pageTxIds)
+            : [];
+
         // Prélèvements planifiés sur ce compte (to_account) non encore exécutés
         // Prélèvements planifiés liés au compte (qu'il soit débité ou crédité via mandat émis)
         $upcomingDebits = $this->directDebitModel->getUpcomingByAccount($accountId);
@@ -447,6 +453,7 @@ class AccountController extends Controller
             'mandates'           => [],
             'upcomingMandates'   => [],
             'linkedTxIds'        => $linkedTxIds,
+            'deferredTxIds'      => $deferredTxIds,
             'recurringTransfers' => $recurringTransfers,
             'accruedInterest'    => $accruedInterest,
             'deferredDebitEnabled'    => $deferredDebitEnabled,

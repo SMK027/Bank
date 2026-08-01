@@ -136,4 +136,27 @@ class DeferredDebit extends Model
             'DESC'
         );
     }
+
+    /**
+     * Retourne le sous-ensemble des IDs de transactions donnés qui sont liés
+     * à un débit différé exécuté (champ transaction_id).
+     * Utilisé pour bloquer la suppression par les utilisateurs normaux.
+     *
+     * @param  int[] $txIds
+     * @return int[]
+     */
+    public function getExecutedTransactionIds(array $txIds): array
+    {
+        if (empty($txIds)) {
+            return [];
+        }
+        $ids = array_values(array_map('intval', $txIds));
+        $ph  = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $this->getPdo()->prepare(
+            "SELECT transaction_id FROM `{$this->table}`
+             WHERE status = ? AND transaction_id IN ($ph)"
+        );
+        $stmt->execute(array_merge([self::STATUS_EXECUTED], $ids));
+        return array_map('intval', array_column($stmt->fetchAll(\PDO::FETCH_ASSOC), 'transaction_id'));
+    }
 }
