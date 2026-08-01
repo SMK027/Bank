@@ -687,9 +687,9 @@ class TransactionController extends Controller
         $ddId  = (int) $debitId;
         $userId = $this->getCurrentUserId();
 
-        if (!$this->isModerator() && !$this->accountModel->hasAccess($accId, $userId)) {
-            $this->setFlash('danger', 'Accès refusé.');
-            $this->redirect('/dashboard');
+        if (!$this->isModerator()) {
+            $this->setFlash('danger', 'Seul un modérateur peut annuler un débit différé.');
+            $this->redirect('/accounts/' . $accountId);
             return;
         }
 
