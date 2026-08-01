@@ -1679,7 +1679,7 @@
                                     <a href="/moderation/pos-payments" class="badge badge-secondary" style="font-size:0.7rem;text-decoration:none;" title="Débit différé issu d'un paiement TPE — annulation réservée à la page de modération des paiements TPE">
                                         <i class="bi bi-shield-lock"></i> TPE
                                     </a>
-                                    <?php elseif ($isModerator && !$ddLocked): ?>
+                                    <?php elseif (!$ddLocked): ?>
                                     <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/deferred-debits/<?= (int) $dd['id'] ?>/cancel"
                                           style="display:inline">
                                         <?= csrf_field() ?>
