@@ -2003,13 +2003,14 @@
                                         <i class="bi bi-pencil"></i>
                                     </button>
                                     <?php endif; ?>
-                                    <?php if ($isModerator && !$txIsLinked): ?>
+                                    <?php if ($txEditable): ?>
                                     <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/transactions/<?= (int) $t['id'] ?>/delete"
                                           style="display:inline">
                                         <?= csrf_field() ?>
                                         <button type="submit" class="btn btn-outline-danger btn-sm"
                                                 onclick="return confirm('Supprimer cette opération ?')"
-                                                style="padding:0.15rem 0.4rem;font-size:0.82rem;">
+                                                style="padding:0.15rem 0.4rem;font-size:0.82rem;"
+                                                title="<?= $isModerator ? 'Supprimer' : 'Supprimer (disponible 7 jours après création)' ?>">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>

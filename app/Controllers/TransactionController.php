@@ -305,23 +305,34 @@ class TransactionController extends Controller
         $this->requireFeature('transactions.edit');
         $this->validateCSRF();
 
-        $accId = (int) $accountId;
+        $accId  = (int) $accountId;
+        $txId   = (int) $transactionId;
         $userId = $this->getCurrentUserId();
 
-        if (!$this->isModerator()) {
-            $this->setFlash('danger', 'Seul un modérateur peut supprimer une opération.');
-            $this->redirect('/accounts/' . $accountId);
+        if (!$this->isModerator() && !$this->accountModel->hasAccess($accId, $userId)) {
+            $this->setFlash('danger', 'Accès refusé.');
+            $this->redirect('/dashboard');
             return;
         }
 
-        $transaction = $this->transactionModel->find((int) $transactionId);
+        $transaction = $this->transactionModel->find($txId);
         if (!$transaction || (int) $transaction['account_id'] !== $accId) {
             $this->setFlash('danger', 'Transaction introuvable.');
             $this->redirect('/accounts/' . $accountId);
             return;
         }
 
-        if ($this->transactionModel->getProtectedIds([(int) $transactionId]) !== []) {
+        // Utilisateurs : uniquement les transactions des 7 derniers jours
+        if (!$this->isModerator()) {
+            $createdAt = strtotime($transaction['created_at'] ?? '');
+            if (!$createdAt || (time() - $createdAt) > 7 * 86400) {
+                $this->setFlash('danger', 'Cette opération date de plus de 7 jours et ne peut plus être supprimée.');
+                $this->redirect('/accounts/' . $accountId);
+                return;
+            }
+        }
+
+        if ($this->transactionModel->getProtectedIds([$txId]) !== []) {
             $this->setFlash('danger', 'Cette transaction est liée à un virement ou un prélèvement automatique. Pour l\'annuler, utilisez la gestion dédiée (annulation du virement ou rejet du prélèvement).');
             $this->redirect('/accounts/' . $accountId);
             return;
@@ -329,8 +340,7 @@ class TransactionController extends Controller
 
         // Opérations issues d'une action de modération (TPE, annulation de
         // virement, annulation/remboursement de crédit, rejet de prélèvement…) :
-        // non supprimables, même par un modérateur, afin de garantir la
-        // traçabilité comptable.
+        // non supprimables afin de garantir la traçabilité comptable.
         if (Transaction::isModerationOnly($transaction)) {
             $this->setFlash('danger', 'Cette opération a été générée par la modération et ne peut pas être supprimée manuellement.');
             $this->redirect('/accounts/' . $accountId);
@@ -339,8 +349,6 @@ class TransactionController extends Controller
 
         // Restituer le quota mensuel carte si la transaction supprimée est
         // une dépense avec carte associée (schedulée ou immédiate).
-        // En mode dynamique : la ligne disparaît → recalcul automatique.
-        // En mode override actif : la valeur figée est décrémentée du montant.
         if (($transaction['type'] ?? '') === 'expense' && !empty($transaction['card_id'])) {
             $this->cardModel->restoreMonthlySpent(
                 (int) $transaction['card_id'],
@@ -349,7 +357,7 @@ class TransactionController extends Controller
             );
         }
 
-        $this->transactionModel->delete((int) $transactionId);
+        $this->transactionModel->delete($txId);
         $this->setFlash('success', 'Transaction supprimée.');
         $this->redirect('/accounts/' . $accountId);
     }
