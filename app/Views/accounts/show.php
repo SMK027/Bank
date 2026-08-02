@@ -523,12 +523,7 @@
             </script>
             <?php endif; ?>
             <?php else: /* ── Formulaire standard (comptes non-vault) ─────────── */ ?>
-            <div class="alert alert-frozen" style="margin-bottom:1rem;">
-                <i class="bi bi-snow"></i>
-                <strong>Compte gelé.</strong> Seules les <strong>entrées</strong> sont autorisées sur ce compte.
-            </div>
-            <?php endif; ?>
-            <?php if ($isDisabled && !$isModerator): ?>
+            <?php if ($isFrozen): ?>
             <div class="alert alert-danger" style="margin-bottom:0;display:flex;align-items:center;gap:0.6rem;">
                 <i class="bi bi-slash-circle" style="font-size:1.2rem;flex-shrink:0;"></i>
                 <span><strong>Compte en résiliation.</strong> L'enregistrement de nouvelles opérations est désactivé.</span>
