@@ -20,6 +20,7 @@ use App\Controllers\AuthController;
 use App\Controllers\DashboardController;
 use App\Controllers\AccountController;
 use App\Controllers\TransactionController;
+use App\Controllers\VaultController;
 use App\Controllers\AccessController;
 use App\Controllers\TransferController;
 use App\Controllers\ModerationController;
@@ -146,6 +147,10 @@ $router->post('/accounts/{accountId}/transactions', TransactionController::class
 $router->post('/accounts/{accountId}/transactions/{transactionId}/edit', TransactionController::class, 'editTransaction');
 $router->post('/accounts/{accountId}/transactions/{transactionId}/delete', TransactionController::class, 'deleteTransaction');
 $router->post('/accounts/{accountId}/transactions/{transactionId}/toggle-budget-exclusion', TransactionController::class, 'toggleBudgetExclusion');
+
+// --- Coffre d'entreprise (encaissements / décaissements) ---
+$router->get('/accounts/{id}/vault',  VaultController::class, 'form');
+$router->post('/accounts/{id}/vault', VaultController::class, 'operate');
 
 // --- Débits différés ---
 $router->post('/accounts/{accountId}/deferred-debits', TransactionController::class, 'createDeferredDebit');

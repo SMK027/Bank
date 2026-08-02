@@ -145,6 +145,10 @@ class AuditLog extends Model
     public const ACTION_SUPERVISOR_BYPASS      = 'supervisor.bypass';
     public const ACTION_SUPERVISOR_BYPASS_FAIL = 'supervisor.bypass_fail';
 
+    // Coffre d'entreprise
+    public const ACTION_VAULT_CASH_IN  = 'vault.cash_in';
+    public const ACTION_VAULT_CASH_OUT = 'vault.cash_out';
+
     // ── Labels lisibles ─────────────────────────────────────────────────────
 
     public const LABELS = [
@@ -217,6 +221,8 @@ class AuditLog extends Model
         'supervisor.pin_reset'     => 'PIN superviseur réinitialisé',
         'supervisor.bypass'        => 'Bypass superviseur accordé',
         'supervisor.bypass_fail'   => 'Tentative de bypass superviseur échouée',
+        'vault.cash_in'            => 'Encaissement coffre',
+        'vault.cash_out'           => 'Décaissement coffre',
     ];
 
     /** Couleur Bootstrap associée à chaque catégorie. */

@@ -56,6 +56,26 @@ class Transaction extends Model
         'Autre'              => '📌',
     ];
 
+    /** Catégories d'encaissement pour les coffres d'entreprise */
+    public const VAULT_INCOME_CATEGORIES = [
+        'Recette de caisse'       => '💵',
+        'Remise de fonds'         => '💰',
+        'Remboursement reçu'      => '🔙',
+        'Alimentation caisse'     => '🏦',
+        'Règlement client'        => '🤝',
+        'Autre encaissement'      => '📌',
+    ];
+
+    /** Catégories de décaissement pour les coffres d'entreprise */
+    public const VAULT_EXPENSE_CATEGORIES = [
+        'Remise en banque'        => '🏦',
+        'Règlement fournisseur'   => '🤝',
+        "Frais d'exploitation"    => '📄',
+        'Avance opérationnelle'   => '👤',
+        'Frais de représentation' => '🍽️',
+        'Autre décaissement'      => '📌',
+    ];
+
     /** Toutes les catégories (rétro-compatibilité) */
     public const CATEGORIES = [
         'Alimentation',
@@ -94,11 +114,27 @@ class Transaction extends Model
     }
 
     /**
+     * Retourne les catégories coffre (clé => emoji) pour un type donné.
+     */
+    public static function getVaultCategoriesForType(string $type): array
+    {
+        return $type === 'income' ? self::VAULT_INCOME_CATEGORIES : self::VAULT_EXPENSE_CATEGORIES;
+    }
+
+    /**
      * Vérifie si une catégorie est valide pour un type donné.
      */
     public static function isValidCategory(string $category, string $type): bool
     {
         return array_key_exists($category, self::getCategoriesForType($type));
+    }
+
+    /**
+     * Vérifie si une catégorie est valide pour un coffre d'entreprise.
+     */
+    public static function isValidVaultCategory(string $category, string $type): bool
+    {
+        return array_key_exists($category, self::getVaultCategoriesForType($type));
     }
 
     public function addTransaction(int $accountId, string $type, float $amount, string $category, string $comment = '', int $userId = 0, ?string $scheduledAt = null, ?int $cardId = null, ?int $checkId = null): int

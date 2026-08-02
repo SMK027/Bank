@@ -104,6 +104,12 @@
                          line-height:1;margin-left:0.25rem;font-style:normal;"><?= count(array_filter($posPayments, fn($p) => empty($p['cancelled_at']))) ?></span>
         </a>
         <?php endif; ?>
+        <?php if (($account['type'] ?? '') === 'vault'): ?>
+        <a href="/accounts/<?= (int) $account['id'] ?>/vault" class="btn btn-sm"
+           style="background:#854d0e;color:#fff;border:none;" title="Opérations de caisse">
+            <i class="bi bi-safe2"></i> Caisse
+        </a>
+        <?php endif; ?>
         <?php if ($isOwner): ?>
             <a href="/accounts/<?= (int) $account['id'] ?>/edit" class="btn btn-warning btn-sm"><i class="bi bi-pencil"></i> Modifier</a>
         <?php endif; ?>
@@ -378,10 +384,145 @@
     <!-- Formulaire d'ajout de transaction -->
     <div class="card mb-2">
         <div class="card-header">
+            <?php if (($account['type'] ?? '') === 'vault'): ?>
+            <h3><i class="bi bi-safe2"></i> Opération de caisse</h3>
+            <?php else: ?>
             <h3><i class="bi bi-plus-circle"></i> Nouvelle opération</h3>
+            <?php endif; ?>
         </div>
         <div class="card-body">
-            <?php if ($isFrozen): ?>
+            <?php if (($account['type'] ?? '') === 'vault'): ?>
+            <?php /* ── Formulaire dédié coffre ─────────────────────────────── */ ?>
+            <?php if (!empty($account['frozen'])): ?>
+            <div class="alert alert-frozen" style="margin-bottom:1rem;">
+                <i class="bi bi-snow"></i>
+                <strong>Coffre gelé.</strong> Aucune opération n'est possible.
+            </div>
+            <?php elseif ($isDisabled && !$isModerator): ?>
+            <div class="alert alert-danger" style="margin-bottom:0;display:flex;align-items:center;gap:0.6rem;">
+                <i class="bi bi-slash-circle" style="font-size:1.2rem;flex-shrink:0;"></i>
+                <span><strong>Coffre en résiliation.</strong> L'enregistrement de nouvelles opérations est désactivé.</span>
+            </div>
+            <?php else: ?>
+            <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/vault" id="vault-form-inline">
+                <?= csrf_field() ?>
+                <!-- Type -->
+                <div class="form-group">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;">
+                        <label id="vi-income-label"
+                               style="display:flex;align-items:center;gap:0.5rem;padding:0.65rem 0.75rem;
+                                      border:2px solid var(--success,#06d6a0);border-radius:8px;cursor:pointer;
+                                      background:rgba(6,214,160,0.07);transition:all .18s;font-size:0.88rem;font-weight:600;">
+                            <input type="radio" name="operation_type" value="income" id="vi-income" checked style="display:none;">
+                            <i class="bi bi-arrow-down-circle-fill" style="color:var(--success,#06d6a0);font-size:1.15rem;"></i>
+                            Encaissement
+                        </label>
+                        <label id="vi-expense-label"
+                               style="display:flex;align-items:center;gap:0.5rem;padding:0.65rem 0.75rem;
+                                      border:2px solid var(--gray-light);border-radius:8px;cursor:pointer;
+                                      transition:all .18s;font-size:0.88rem;font-weight:600;">
+                            <input type="radio" name="operation_type" value="expense" id="vi-expense" style="display:none;">
+                            <i class="bi bi-arrow-up-circle-fill" style="color:var(--danger);font-size:1.15rem;"></i>
+                            Décaissement
+                        </label>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="vi-amount" class="form-label">Montant (<?= e($account['currency']) ?>)</label>
+                        <input type="number" id="vi-amount" name="amount"
+                               class="form-control" inputmode="decimal"
+                               min="0.01" step="0.01" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="vi-category" class="form-label">Catégorie</label>
+                        <select id="vi-category" name="category" class="form-control" required>
+                            <option value="">— Choisir —</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="vi-tiers" class="form-label">
+                            Tiers <span class="text-muted" style="font-weight:400;font-size:0.82em;">(optionnel)</span>
+                        </label>
+                        <input type="text" id="vi-tiers" name="tiers"
+                               class="form-control" maxlength="150" placeholder="Client, fournisseur…">
+                    </div>
+                    <div class="form-group">
+                        <label for="vi-comment" class="form-label">
+                            Commentaire <span class="text-muted" style="font-weight:400;font-size:0.82em;">(optionnel)</span>
+                        </label>
+                        <input type="text" id="vi-comment" name="comment"
+                               class="form-control" maxlength="255" placeholder="Référence, libellé…">
+                    </div>
+                </div>
+                <button type="submit" id="vi-submit" class="btn btn-primary btn-block">
+                    <i class="bi bi-arrow-down-circle" id="vi-submit-icon"></i>
+                    <span id="vi-submit-label">Enregistrer l'encaissement</span>
+                </button>
+                <div style="text-align:center;margin-top:0.6rem;">
+                    <a href="/accounts/<?= (int) $account['id'] ?>/vault" style="font-size:0.82rem;color:var(--gray);">
+                        <i class="bi bi-arrows-fullscreen"></i> Formulaire complet (date, tiers…)
+                    </a>
+                </div>
+            </form>
+            <script>
+            (function () {
+                var incCats = <?= json_encode(
+                    array_map(fn($emoji, $label) => ['value' => $label, 'label' => $emoji . ' ' . $label],
+                        array_values(\App\Models\Transaction::VAULT_INCOME_CATEGORIES),
+                        array_keys(\App\Models\Transaction::VAULT_INCOME_CATEGORIES)),
+                    JSON_UNESCAPED_UNICODE | JSON_HEX_TAG
+                ) ?>;
+                var expCats = <?= json_encode(
+                    array_map(fn($emoji, $label) => ['value' => $label, 'label' => $emoji . ' ' . $label],
+                        array_values(\App\Models\Transaction::VAULT_EXPENSE_CATEGORIES),
+                        array_keys(\App\Models\Transaction::VAULT_EXPENSE_CATEGORIES)),
+                    JSON_UNESCAPED_UNICODE | JSON_HEX_TAG
+                ) ?>;
+                var inR = document.getElementById('vi-income');
+                var exR = document.getElementById('vi-expense');
+                var inL = document.getElementById('vi-income-label');
+                var exL = document.getElementById('vi-expense-label');
+                var cat = document.getElementById('vi-category');
+                var ico = document.getElementById('vi-submit-icon');
+                var lbl = document.getElementById('vi-submit-label');
+                function fill(cats) {
+                    cat.innerHTML = '<option value="">— Choisir —</option>';
+                    cats.forEach(function(c) {
+                        var o = document.createElement('option');
+                        o.value = c.value; o.textContent = c.label;
+                        cat.appendChild(o);
+                    });
+                }
+                function setIncome() {
+                    inL.style.borderColor = 'var(--success,#06d6a0)';
+                    inL.style.background  = 'rgba(6,214,160,0.07)';
+                    exL.style.borderColor = 'var(--gray-light)';
+                    exL.style.background  = '';
+                    ico.className = 'bi bi-arrow-down-circle';
+                    lbl.textContent = "Enregistrer l'encaissement";
+                    fill(incCats);
+                }
+                function setExpense() {
+                    exL.style.borderColor = 'var(--danger)';
+                    exL.style.background  = 'rgba(239,71,111,0.06)';
+                    inL.style.borderColor = 'var(--gray-light)';
+                    inL.style.background  = '';
+                    ico.className = 'bi bi-arrow-up-circle';
+                    lbl.textContent = 'Enregistrer le décaissement';
+                    fill(expCats);
+                }
+                fill(incCats);
+                inR.addEventListener('change', setIncome);
+                exR.addEventListener('change', setExpense);
+                inL.addEventListener('click', function() { inR.checked = true; setIncome(); });
+                exL.addEventListener('click', function() { exR.checked = true; setExpense(); });
+            })();
+            </script>
+            <?php endif; ?>
+            <?php else: /* ── Formulaire standard (comptes non-vault) ─────────── */ ?>
             <div class="alert alert-frozen" style="margin-bottom:1rem;">
                 <i class="bi bi-snow"></i>
                 <strong>Compte gelé.</strong> Seules les <strong>entrées</strong> sont autorisées sur ce compte.
@@ -748,6 +889,7 @@
             })();
             </script>
             <?php endif; // fin du bloc conditionnel compte non désactivé (ou modérateur) ?>
+            <?php endif; // fin vault/standard ?>
         </div>
     </div>
 
