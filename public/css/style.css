@@ -1576,6 +1576,16 @@ select.form-control {
     border-left-color: var(--info);
 }
 
+.account-card.account-frozen {
+    border-left-color: #3b82f6;
+    background: linear-gradient(135deg, rgba(59,130,246,0.06) 0%, transparent 60%);
+    opacity: 0.88;
+}
+
+.account-card.account-frozen .account-balance {
+    color: #1d4ed8;
+}
+
 .account-balance {
     font-size: 1.5rem;
     font-weight: 700;

@@ -50,11 +50,14 @@
     <div class="card-grid">
         <?php foreach ($ownAccounts as $account): ?>
             <a href="/accounts/<?= (int) $account['id'] ?>" class="card-link">
-                <div class="card account-card <?= $account['balance'] >= 0 ? 'account-positive' : 'account-negative' ?>">
+                <div class="card account-card <?= $account['balance'] >= 0 ? 'account-positive' : 'account-negative' ?> <?= !empty($account['frozen']) ? 'account-frozen' : '' ?>">
                     <div class="card-body">
                         <div class="d-flex justify-between align-center mb-1">
                             <h3 style="margin:0"><?= e($account['name']) ?></h3>
                             <div style="display:flex;gap:0.3rem;align-items:center;flex-wrap:wrap;">
+                                <?php if (!empty($account['frozen'])): ?>
+                                    <span class="badge badge-frozen"><i class="bi bi-snow"></i> Gelé</span>
+                                <?php endif; ?>
                                 <?php if (!empty($account['disabled_at'])): ?>
                                     <span class="badge" style="background:var(--danger);color:#fff;font-size:0.72em;">
                                         <i class="bi bi-slash-circle"></i> Résiliation
@@ -114,7 +117,7 @@
     <div class="card-grid">
         <?php foreach ($internalAccounts as $account): ?>
             <a href="/accounts/<?= (int) $account['id'] ?>" class="card-link">
-                <div class="card account-card <?= $account['balance'] >= 0 ? 'account-positive' : 'account-negative' ?>"
+                <div class="card account-card <?= $account['balance'] >= 0 ? 'account-positive' : 'account-negative' ?> <?= !empty($account['frozen']) ? 'account-frozen' : '' ?>"
                      style="border-top:3px solid var(--warning,#f59e0b);">
                     <div class="card-body">
                         <div class="d-flex justify-between align-center mb-1">
@@ -123,6 +126,9 @@
                                 <span class="badge" style="background:var(--warning,#f59e0b);color:#fff;font-size:0.72em;">
                                     <i class="bi bi-tools"></i> Interne
                                 </span>
+                                <?php if (!empty($account['frozen'])): ?>
+                                    <span class="badge badge-frozen"><i class="bi bi-snow"></i> Gelé</span>
+                                <?php endif; ?>
                                 <?php if (!empty($account['disabled_at'])): ?>
                                     <span class="badge" style="background:var(--danger);color:#fff;font-size:0.72em;">
                                         <i class="bi bi-slash-circle"></i> Résiliation
@@ -154,7 +160,7 @@
     <div class="card-grid">
         <?php foreach ($sharedAccounts as $account): ?>
             <a href="/accounts/<?= (int) $account['id'] ?>" class="card-link">
-                <div class="card account-card account-shared">
+                <div class="card account-card account-shared <?= !empty($account['frozen']) ? 'account-frozen' : '' ?>">
                     <div class="card-body">
                         <div class="d-flex justify-between align-center mb-1">
                             <h3 style="margin:0"><?= e($account['name']) ?></h3>
@@ -163,6 +169,9 @@
                                     <span class="badge" style="background:var(--warning,#f59e0b);color:#fff;font-size:0.72em;" title="Compte interne de modération (test) — non partageable">
                                         <i class="bi bi-tools"></i> Interne
                                     </span>
+                                <?php endif; ?>
+                                <?php if (!empty($account['frozen'])): ?>
+                                    <span class="badge badge-frozen"><i class="bi bi-snow"></i> Gelé</span>
                                 <?php endif; ?>
                                 <?php if (!empty($account['disabled_at'])): ?>
                                     <span class="badge" style="background:var(--danger);color:#fff;font-size:0.72em;">
