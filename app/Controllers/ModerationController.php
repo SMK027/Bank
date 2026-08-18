@@ -2131,6 +2131,91 @@ class ModerationController extends Controller
     }
 
     /**
+     * Modifier le montant, le descriptif et le type d'un mandat (POST).
+     */
+    public function editMandate(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $mandateId = (int) $id;
+        $mandate   = $this->mandateModel->find($mandateId);
+
+        if (!$mandate) {
+            $this->setFlash('danger', 'Mandat introuvable.');
+            $this->redirect('/moderation/mandates');
+            return;
+        }
+
+        if ($mandate['status'] === Mandate::STATUS_REVOKED) {
+            $this->setFlash('danger', 'Un mandat révoqué ne peut pas être modifié.');
+            $this->redirect('/moderation/mandates');
+            return;
+        }
+
+        $data = $this->getPostData(['description', 'amount', 'type', 'interval_days', 'execution_day']);
+
+        $description = trim($data['description'] ?? '');
+
+        $amount = (float) ($data['amount'] ?? 0);
+        if ($amount <= 0) {
+            $this->setFlash('danger', 'Le montant doit être strictement positif.');
+            $this->redirect('/moderation/mandates');
+            return;
+        }
+
+        $type = $data['type'] ?? '';
+        if (!array_key_exists($type, Mandate::TYPES)) {
+            $this->setFlash('danger', 'Type de mandat invalide.');
+            $this->redirect('/moderation/mandates');
+            return;
+        }
+
+        $updates = [
+            'description' => $description,
+            'amount'      => $amount,
+            'type'        => $type,
+        ];
+
+        if ($type === Mandate::TYPE_RECURRING) {
+            $executionDay = (int) ($data['execution_day'] ?? 0);
+            if ($executionDay >= 1 && $executionDay <= 31) {
+                $updates['execution_day']  = $executionDay;
+                $updates['interval_days']  = null;
+            } else {
+                $intervalDays = (int) ($data['interval_days'] ?? 0);
+                if ($intervalDays < 1) {
+                    $this->setFlash('danger', 'L\'intervalle ou le jour fixe est requis pour un mandat récurrent.');
+                    $this->redirect('/moderation/mandates');
+                    return;
+                }
+                $updates['interval_days'] = $intervalDays;
+                $updates['execution_day'] = null;
+            }
+        } else {
+            $updates['interval_days'] = null;
+            $updates['execution_day'] = null;
+        }
+
+        $this->mandateModel->update($mandateId, $updates);
+
+        AuditLog::log(
+            $this->getCurrentUserId(),
+            AuditLog::ACTION_MANDATE_EDIT,
+            [
+                'number'      => $mandate['number'],
+                'amount'      => $amount,
+                'type'        => $type,
+                'description' => $description,
+            ],
+            targetAccountId: (int) $mandate['recipient_account_id']
+        );
+
+        $this->setFlash('success', 'Mandat ' . $mandate['number'] . ' modifié.');
+        $this->redirect('/moderation/mandates');
+    }
+
+    /**
      * Reprogrammer la date de prochaine exécution d'un mandat actif (POST).
      */
     public function rescheduleMandate(string $id): void

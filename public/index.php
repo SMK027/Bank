@@ -235,8 +235,7 @@ $router->get('/moderation/users/search', ModerationController::class, 'searchUse
 // Mandats professionnels
 $router->get('/moderation/mandates', ModerationController::class, 'mandates');
 $router->get('/moderation/mandates/create', ModerationController::class, 'createMandateForm');
-$router->post('/moderation/mandates', ModerationController::class, 'createMandate');
-$router->post('/moderation/mandates/{id}/revoke', ModerationController::class, 'revokeMandate');
+$router->post('/moderation/mandates', ModerationController::class, 'createMandate');$router->post('/moderation/mandates/{id}/edit', ModerationController::class, 'editMandate');$router->post('/moderation/mandates/{id}/revoke', ModerationController::class, 'revokeMandate');
 $router->post('/moderation/mandates/{id}/reschedule', ModerationController::class, 'rescheduleMandate');
 $router->post('/moderation/direct-debits/{id}/reschedule', ModerationController::class, 'rescheduleDirectDebit');
 $router->get('/moderation/recurring-transfers', ModerationController::class, 'recurringTransfers');

@@ -22,12 +22,6 @@
 <div class="card mb-2">
     <div class="card-body" style="padding:0.8rem 1rem;">
         <div style="display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;">
-            <select id="filter-status" class="form-control" style="width:auto;min-width:140px;">
-                <option value="">Tous les statuts</option>
-                <option value="active">Actif</option>
-                <option value="executed">Exécuté</option>
-                <option value="revoked">Révoqué</option>
-            </select>
             <select id="filter-type" class="form-control" style="width:auto;min-width:140px;">
                 <option value="">Tous les types</option>
                 <option value="one_time">Ponctuel</option>
@@ -35,6 +29,9 @@
             </select>
             <input type="text" id="filter-search" class="form-control" placeholder="Rechercher…"
                    style="width:auto;min-width:180px;flex:1;">
+            <button type="button" id="btn-show-revoked" class="btn btn-outline btn-sm">
+                <i class="bi bi-eye"></i> Afficher révoqués
+            </button>
             <span id="mandate-count" style="font-size:0.85rem;color:var(--text-muted)"></span>
         </div>
     </div>
@@ -144,15 +141,29 @@
                                     <i class="bi bi-calendar2-event"></i>
                                 </button>
                             </form>
-                            <form method="POST" action="/moderation/mandates/<?= (int) $m['id'] ?>/revoke"
-                                  style="display:inline;"
-                                  onsubmit="return confirm('Révoquer ce mandat ?');">
-                                <?= csrf_field() ?>
-                                <button type="submit" class="btn btn-danger btn-sm"
-                                        style="padding:0.25rem 0.6rem;font-size:0.76rem;">
-                                    <i class="bi bi-x-circle"></i> Révoquer
+                            <div style="display:flex;gap:0.3rem;">
+                                <button type="button" class="btn btn-outline btn-sm btn-edit-mandate"
+                                        style="padding:0.25rem 0.5rem;font-size:0.76rem;"
+                                        title="Modifier le mandat"
+                                        data-id="<?= (int) $m['id'] ?>"
+                                        data-number="<?= e($m['number']) ?>"
+                                        data-description="<?= e($m['description'] ?? '') ?>"
+                                        data-amount="<?= e((string) (float) $m['amount']) ?>"
+                                        data-type="<?= e($m['type']) ?>"
+                                        data-interval="<?= (int) ($m['interval_days'] ?? 0) ?>"
+                                        data-execday="<?= (int) ($m['execution_day'] ?? 0) ?>">
+                                    <i class="bi bi-pencil"></i>
                                 </button>
-                            </form>
+                                <form method="POST" action="/moderation/mandates/<?= (int) $m['id'] ?>/revoke"
+                                      style="display:inline;"
+                                      onsubmit="return confirm('Révoquer ce mandat ?');">
+                                    <?= csrf_field() ?>
+                                    <button type="submit" class="btn btn-danger btn-sm"
+                                            style="padding:0.25rem 0.6rem;font-size:0.76rem;">
+                                        <i class="bi bi-x-circle"></i> Révoquer
+                                    </button>
+                                </form>
+                            </div>
                         </div>
                     <?php else: ?>
                         <span class="text-muted">—</span>
@@ -165,33 +176,173 @@
 </div>
 <?php endif; ?>
 
+<!-- Modal d'édition de mandat -->
+<div id="edit-mandate-overlay"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center;padding:1rem;">
+    <div style="background:var(--card-bg,#fff);border-radius:12px;padding:1.5rem;width:100%;max-width:480px;box-shadow:0 8px 32px rgba(0,0,0,.2);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+            <h3 style="margin:0;"><i class="bi bi-pencil"></i> Modifier le mandat <span id="edit-mandate-number"></span></h3>
+            <button type="button" id="edit-mandate-close" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--gray);">&times;</button>
+        </div>
+        <form method="POST" id="edit-mandate-form" action="">
+            <?= csrf_field() ?>
+            <div class="form-group">
+                <label class="form-label">Descriptif</label>
+                <input type="text" name="description" id="edit-desc" class="form-control" maxlength="255"
+                       placeholder="Ex : Abonnement mensuel SaaS">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Montant (€)</label>
+                    <input type="number" name="amount" id="edit-amount" class="form-control"
+                           min="0.01" step="0.01" required placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Type</label>
+                    <select name="type" id="edit-type" class="form-control" required>
+                        <?php foreach (\App\Models\Mandate::TYPES as $key => $label): ?>
+                            <option value="<?= e($key) ?>"><?= e($label) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+            <div id="edit-recurring-fields" style="display:none;">
+                <div class="form-group">
+                    <label class="form-label">Mode de récurrence</label>
+                    <div style="display:flex;gap:1rem;">
+                        <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;">
+                            <input type="radio" name="recurring_mode" id="edit-mode-interval" value="interval" checked>
+                            Tous les N jours
+                        </label>
+                        <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;">
+                            <input type="radio" name="recurring_mode" id="edit-mode-fixedday" value="fixed_day">
+                            Jour fixe du mois
+                        </label>
+                    </div>
+                </div>
+                <div id="edit-interval-group" class="form-group">
+                    <label class="form-label">Intervalle (jours)</label>
+                    <input type="number" name="interval_days" id="edit-interval" class="form-control" min="1" step="1" placeholder="Ex : 30">
+                </div>
+                <div id="edit-fixedday-group" class="form-group" style="display:none;">
+                    <label class="form-label">Jour fixe (1–31)</label>
+                    <input type="number" name="execution_day" id="edit-execday" class="form-control" min="1" max="31" step="1" placeholder="Ex : 5">
+                </div>
+            </div>
+            <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.5rem;">
+                <button type="button" id="edit-mandate-cancel" class="btn btn-outline">Annuler</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Enregistrer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 (function () {
-    var rows       = document.querySelectorAll('.mandate-row');
-    var statusSel  = document.getElementById('filter-status');
-    var typeSel    = document.getElementById('filter-type');
-    var searchEl   = document.getElementById('filter-search');
-    var countEl    = document.getElementById('mandate-count');
+    var rows        = document.querySelectorAll('.mandate-row');
+    var typeSel     = document.getElementById('filter-type');
+    var searchEl    = document.getElementById('filter-search');
+    var countEl     = document.getElementById('mandate-count');
+    var btnRevoked  = document.getElementById('btn-show-revoked');
+    var showRevoked = false;
 
     function applyFilters() {
-        var st = statusSel.value;
         var tp = typeSel.value;
         var q  = searchEl.value.toLowerCase().trim();
         var shown = 0;
         rows.forEach(function (row) {
-            var matchSt = !st || row.dataset.status === st;
+            var isRevoked = row.dataset.status === 'revoked';
+            if (isRevoked && !showRevoked) { row.style.display = 'none'; return; }
             var matchTp = !tp || row.dataset.type === tp;
             var matchQ  = !q  || row.dataset.search.indexOf(q) !== -1;
-            var vis = matchSt && matchTp && matchQ;
+            var vis = matchTp && matchQ;
             row.style.display = vis ? '' : 'none';
             if (vis) shown++;
         });
         countEl.textContent = shown + '/' + rows.length;
     }
 
-    statusSel.addEventListener('change', applyFilters);
+    btnRevoked.addEventListener('click', function () {
+        showRevoked = !showRevoked;
+        this.innerHTML = showRevoked
+            ? '<i class="bi bi-eye-slash"></i> Masquer révoqués'
+            : '<i class="bi bi-eye"></i> Afficher révoqués';
+        applyFilters();
+    });
+
     typeSel.addEventListener('change', applyFilters);
     searchEl.addEventListener('input', applyFilters);
     applyFilters();
+
+    // ── Modal d'édition ──────────────────────────────────────────────────────
+    var overlay      = document.getElementById('edit-mandate-overlay');
+    var form         = document.getElementById('edit-mandate-form');
+    var numEl        = document.getElementById('edit-mandate-number');
+    var descEl       = document.getElementById('edit-desc');
+    var amountEl     = document.getElementById('edit-amount');
+    var typeEl       = document.getElementById('edit-type');
+    var recurFields  = document.getElementById('edit-recurring-fields');
+    var modeInterval = document.getElementById('edit-mode-interval');
+    var modeFixed    = document.getElementById('edit-mode-fixedday');
+    var intervalGrp  = document.getElementById('edit-interval-group');
+    var fixedGrp     = document.getElementById('edit-fixedday-group');
+    var intervalEl   = document.getElementById('edit-interval');
+    var execdayEl    = document.getElementById('edit-execday');
+
+    function toggleRecurring() {
+        var isRecurring = typeEl.value === 'recurring';
+        recurFields.style.display = isRecurring ? '' : 'none';
+        if (isRecurring) toggleRecurringMode();
+    }
+
+    function toggleRecurringMode() {
+        var isFixed = modeFixed.checked;
+        intervalGrp.style.display = isFixed ? 'none' : '';
+        fixedGrp.style.display    = isFixed ? '' : 'none';
+        intervalEl.required  = !isFixed;
+        execdayEl.required   = isFixed;
+    }
+
+    typeEl.addEventListener('change', toggleRecurring);
+    modeInterval.addEventListener('change', toggleRecurringMode);
+    modeFixed.addEventListener('change', toggleRecurringMode);
+
+    function openModal(btn) {
+        var id       = btn.dataset.id;
+        var type     = btn.dataset.type;
+        var interval = parseInt(btn.dataset.interval, 10) || 0;
+        var execday  = parseInt(btn.dataset.execday, 10) || 0;
+
+        form.action    = '/moderation/mandates/' + id + '/edit';
+        numEl.textContent   = btn.dataset.number;
+        descEl.value        = btn.dataset.description;
+        amountEl.value      = btn.dataset.amount;
+        typeEl.value        = type;
+
+        if (execday > 0) {
+            modeFixed.checked = true;
+            execdayEl.value   = execday;
+            intervalEl.value  = '';
+        } else {
+            modeInterval.checked = true;
+            intervalEl.value     = interval > 0 ? interval : '';
+            execdayEl.value      = '';
+        }
+
+        toggleRecurring();
+        overlay.style.display = 'flex';
+    }
+
+    function closeModal() {
+        overlay.style.display = 'none';
+    }
+
+    document.querySelectorAll('.btn-edit-mandate').forEach(function (btn) {
+        btn.addEventListener('click', function () { openModal(this); });
+    });
+
+    document.getElementById('edit-mandate-close').addEventListener('click', closeModal);
+    document.getElementById('edit-mandate-cancel').addEventListener('click', closeModal);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
 })();
 </script>

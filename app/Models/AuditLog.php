@@ -65,6 +65,7 @@ class AuditLog extends Model
 
     // Mandats
     public const ACTION_MANDATE_CREATE     = 'mandate.create';
+    public const ACTION_MANDATE_EDIT       = 'mandate.edit';
     public const ACTION_MANDATE_REVOKE     = 'mandate.revoke';
     public const ACTION_MANDATE_RESCHEDULE = 'mandate.reschedule';
 
@@ -177,6 +178,7 @@ class AuditLog extends Model
         'direct_debit.execute'     => 'Prélèvement exécuté',
         'direct_debit.fail'        => 'Prélèvement échoué',
         'mandate.create'           => 'Mandat créé',
+        'mandate.edit'             => 'Mandat modifié',
         'mandate.revoke'           => 'Mandat révoqué',
         'user.role_change'         => 'Rôle modifié',
         'user.suspend'             => 'Utilisateur suspendu',
