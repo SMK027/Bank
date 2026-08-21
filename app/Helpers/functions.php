@@ -78,7 +78,7 @@ function url(string $path = ''): string
  */
 function is_authenticated(): bool
 {
-    return Session::get('user_id') !== null;
+    return Session::get('auth_user_id', Session::get('user_id')) !== null;
 }
 
 /**
@@ -86,8 +86,19 @@ function is_authenticated(): bool
  */
 function current_user_id(): ?int
 {
-    $id = Session::get('user_id');
-    return $id ? (int) $id : null;
+    $authId = Session::get('auth_user_id', Session::get('user_id'));
+    $ctx = Session::get(\App\Core\Controller::ACCOUNT_CONTROL_SESSION_KEY);
+
+    if (!is_array($ctx) || !isset($ctx['target_user_id'])) {
+        return $authId ? (int) $authId : null;
+    }
+
+    $path = (string) (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/');
+    if (str_starts_with($path, '/moderation') || str_starts_with($path, '/supervisor/')) {
+        return $authId ? (int) $authId : null;
+    }
+
+    return (int) $ctx['target_user_id'];
 }
 
 /**
@@ -95,7 +106,19 @@ function current_user_id(): ?int
  */
 function current_username(): string
 {
-    return Session::get('username') ?? '';
+    $authUsername = (string) Session::get('auth_username', Session::get('username', ''));
+    $ctx = Session::get(\App\Core\Controller::ACCOUNT_CONTROL_SESSION_KEY);
+
+    if (!is_array($ctx) || !isset($ctx['target_username'])) {
+        return $authUsername;
+    }
+
+    $path = (string) (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/');
+    if (str_starts_with($path, '/moderation') || str_starts_with($path, '/supervisor/')) {
+        return $authUsername;
+    }
+
+    return (string) $ctx['target_username'];
 }
 
 /**
@@ -156,6 +179,29 @@ function current_avatar(): string
 function current_global_role(): string
 {
     return Session::get('global_role') ?? 'user';
+}
+
+/**
+ * Retourne le contexte de prise de main actif, si présent.
+ */
+function account_control_context(): ?array
+{
+    $ctx = Session::get(\App\Core\Controller::ACCOUNT_CONTROL_SESSION_KEY);
+    if (!is_array($ctx)) {
+        return null;
+    }
+    if (!isset($ctx['target_user_id'], $ctx['target_username'], $ctx['started_at'])) {
+        return null;
+    }
+    return $ctx;
+}
+
+/**
+ * Indique si une prise de main modérateur est active.
+ */
+function is_account_control_active(): bool
+{
+    return account_control_context() !== null;
 }
 
 /**

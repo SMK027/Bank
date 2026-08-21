@@ -208,6 +208,8 @@ $router->get('/moderation/transfers', ModerationController::class, 'transfers');
 $router->post('/moderation/transfers/{id}/cancel', ModerationController::class, 'cancelTransfer');
 $router->get('/moderation/users', ModerationController::class, 'users');
 $router->post('/moderation/users/{id}/role', ModerationController::class, 'setRole');
+$router->post('/moderation/users/{id}/control/start', ModerationController::class, 'startUserControl');
+$router->post('/moderation/users/control/stop', ModerationController::class, 'stopUserControl');
 $router->post('/moderation/users/{id}/suspend', ModerationController::class, 'suspendUser');
 $router->post('/moderation/users/{id}/ban', ModerationController::class, 'banUser');
 $router->post('/moderation/users/{id}/activate', ModerationController::class, 'activateUser');

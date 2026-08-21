@@ -1,3 +1,4 @@
+<?php /** @var array|null $accountControl */ ?>
 <div class="page-header">
     <div>
         <h1><i class="bi bi-people"></i> Modération — Utilisateurs</h1>
@@ -29,6 +30,7 @@
                         <th>Statut</th>
                         <th>Modifier le rôle</th>
                         <th>Actions</th>
+                        <th>Prise de main</th>
                         <th>Code PIN</th>
                     </tr>
                 </thead>
@@ -36,6 +38,8 @@
                     <?php foreach ($allUsers as $user):
                         $isSelf    = (int) $user['id'] === $currentUserId;
                         $isMod     = ($user['global_role'] ?? 'user') === 'moderator';
+                        $isControlled = !empty($accountControl)
+                            && (int) $user['id'] === (int) ($accountControl['target_user_id'] ?? 0);
                         $status    = $user['status'] ?? 'active';
                         $untilRaw  = $user['suspended_until'] ?? null;
                         $untilFmt  = $untilRaw ? (new DateTime($untilRaw))->format('d/m/Y') : null;
@@ -144,6 +148,31 @@
                                         <?= csrf_field() ?>
                                         <button type="submit" class="btn btn-success btn-sm" title="Réactiver le compte">
                                             <i class="bi bi-play-circle"></i> Réactiver
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if ($isSelf || $isMod): ?>
+                                    <span class="text-muted text-small">—</span>
+                                <?php elseif ($isControlled): ?>
+                                    <div style="display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center;">
+                                        <span class="badge badge-warning" style="font-size:0.72rem;">
+                                            <i class="bi bi-incognito"></i> Active
+                                        </span>
+                                        <form method="POST" action="/moderation/users/control/stop" style="margin:0;">
+                                            <?= csrf_field() ?>
+                                            <button type="submit" class="btn btn-outline btn-sm" title="Quitter la prise de main">
+                                                <i class="bi bi-box-arrow-left"></i> Quitter
+                                            </button>
+                                        </form>
+                                    </div>
+                                <?php else: ?>
+                                    <form method="POST" action="/moderation/users/<?= (int) $user['id'] ?>/control/start"
+                                          onsubmit="return confirm('Prendre la main sur « <?= e($user['username']) ?> » ?')">
+                                        <?= csrf_field() ?>
+                                        <button type="submit" class="btn btn-primary btn-sm" title="Prendre la main sur ce compte">
+                                            <i class="bi bi-incognito"></i> Prendre la main
                                         </button>
                                     </form>
                                 <?php endif; ?>

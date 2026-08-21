@@ -6,7 +6,7 @@
  * @var bool  $isModerator
  */
 $isClosed = !empty($conversation['is_closed']);
-$currentUserId = (int) (\App\Core\Session::get('user_id') ?? 0);
+$currentUserId = (int) (current_user_id() ?? 0);
 ?>
 <div class="page-header">
     <div>

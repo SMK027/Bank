@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Controller;
+use App\Core\Session;
 use App\Models\Account;
 use App\Models\AccountAccess;
 use App\Models\AuditLog;
@@ -755,13 +756,99 @@ class ModerationController extends Controller
         $this->requireModerator();
 
         $allUsers = $this->userModel->findAll('id', 'ASC');
-        $currentUserId = $this->getCurrentUserId();
+        $currentUserId = $this->getAuthenticatedUserId();
+        $accountControl = $this->getAccountControlContext();
 
         $this->render('moderation/users', [
             'title'         => 'Modération — Utilisateurs',
             'allUsers'      => $allUsers,
             'currentUserId' => $currentUserId,
+            'accountControl'=> $accountControl,
         ]);
+    }
+
+    /**
+     * Permet à un modérateur de prendre la main sur un compte utilisateur (POST).
+     */
+    public function startUserControl(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $targetId    = (int) $id;
+        $moderatorId = $this->getAuthenticatedUserId();
+
+        if ($moderatorId === null) {
+            $this->setFlash('danger', 'Session modérateur invalide.');
+            $this->redirect('/moderation/users');
+            return;
+        }
+
+        if ($targetId === $moderatorId) {
+            $this->setFlash('danger', 'Vous ne pouvez pas prendre la main sur votre propre compte.');
+            $this->redirect('/moderation/users');
+            return;
+        }
+
+        $target = $this->userModel->find($targetId);
+        if (!$target) {
+            $this->setFlash('danger', 'Utilisateur introuvable.');
+            $this->redirect('/moderation/users');
+            return;
+        }
+
+        if (($target['global_role'] ?? 'user') === 'moderator') {
+            $this->setFlash('danger', 'Impossible de prendre la main sur le compte d\'un autre modérateur.');
+            $this->redirect('/moderation/users');
+            return;
+        }
+
+        Session::set(self::ACCOUNT_CONTROL_SESSION_KEY, [
+            'moderator_user_id' => $moderatorId,
+            'target_user_id'    => $targetId,
+            'target_username'   => (string) ($target['username'] ?? ('Utilisateur #' . $targetId)),
+            'started_at'        => date('Y-m-d H:i:s'),
+        ]);
+
+        AuditLog::log(
+            $moderatorId,
+            AuditLog::ACTION_ACCOUNT_CONTROL_START,
+            ['target_username' => (string) ($target['username'] ?? ''), 'target_user_id' => $targetId],
+            targetUserId: $targetId
+        );
+
+        $this->setFlash('success', 'Prise de main activée sur « ' . e((string) $target['username']) . ' ».');
+        $this->redirect('/dashboard');
+    }
+
+    /**
+     * Met fin à la prise de main d'un compte utilisateur (POST).
+     */
+    public function stopUserControl(): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $moderatorId = $this->getAuthenticatedUserId();
+        $ctx = $this->getAccountControlContext();
+
+        if ($ctx === null) {
+            $this->setFlash('info', 'Aucune prise de main active.');
+            $this->redirect('/moderation/users');
+            return;
+        }
+
+        Session::remove(self::ACCOUNT_CONTROL_SESSION_KEY);
+
+        AuditLog::log(
+            $moderatorId,
+            AuditLog::ACTION_ACCOUNT_CONTROL_STOP,
+            ['target_username' => (string) ($ctx['target_username'] ?? ''), 'target_user_id' => (int) ($ctx['target_user_id'] ?? 0)],
+            targetUserId: (int) ($ctx['target_user_id'] ?? 0)
+        );
+
+        $this->setFlash('success', 'Prise de main désactivée. Retour au compte modérateur.');
+        $this->redirect('/moderation/users');
     }
 
     /**

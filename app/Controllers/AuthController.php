@@ -123,8 +123,11 @@ class AuthController extends Controller
 
         Session::set('user_id', $user['id']);
         Session::set('username', $user['username']);
+        Session::set('auth_user_id', $user['id']);
+        Session::set('auth_username', $user['username']);
         Session::set('global_role', $user['global_role']);
         Session::set('birth_date_missing', empty($user['birth_date']));
+        Session::remove(self::ACCOUNT_CONTROL_SESSION_KEY);
 
         $this->setFlash('success', 'Bienvenue, ' . $user['username'] . ' !');
         AuditLog::log($user['id'], AuditLog::ACTION_AUTH_LOGIN, ['username' => $user['username']], targetUserId: $user['id']);
@@ -236,8 +239,11 @@ class AuthController extends Controller
         Session::regenerate();
         Session::set('user_id', $user['id']);
         Session::set('username', $user['username']);
+        Session::set('auth_user_id', $user['id']);
+        Session::set('auth_username', $user['username']);
         Session::set('global_role', $user['global_role']);
         Session::set('birth_date_missing', empty($user['birth_date']));
+        Session::remove(self::ACCOUNT_CONTROL_SESSION_KEY);
 
         $this->setFlash('success', 'Bienvenue, ' . $user['username'] . ' !');
         AuditLog::log($user['id'], AuditLog::ACTION_AUTH_LOGIN, ['username' => $user['username']], targetUserId: $user['id']);
@@ -317,8 +323,11 @@ class AuthController extends Controller
         Session::regenerate();
         Session::set('user_id', $userId);
         Session::set('username', $data['username']);
+        Session::set('auth_user_id', $userId);
+        Session::set('auth_username', $data['username']);
         Session::set('global_role', 'user');
         Session::set('birth_date_missing', false);
+        Session::remove(self::ACCOUNT_CONTROL_SESSION_KEY);
 
         $isMinor = User::isMinorFromDate($data['birth_date']);
         AuditLog::log($userId, AuditLog::ACTION_AUTH_REGISTER, ['username' => $data['username'], 'email' => $data['email']], targetUserId: $userId);

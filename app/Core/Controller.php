@@ -12,6 +12,9 @@ use App\Models\User;
  */
 abstract class Controller
 {
+    public const ACCOUNT_CONTROL_SESSION_KEY = 'moderator_account_control';
+    protected const ACCOUNT_CONTROL_STEPUP_KEY = 'moderation.account_control_stepup';
+
     /**
      * Affiche une vue avec les données fournies.
      */
@@ -89,7 +92,7 @@ abstract class Controller
      */
     protected function requireAuth(): void
     {
-        if (!Session::get('user_id')) {
+        if (!$this->getAuthenticatedUserId()) {
             if ($this->isAjax()) {
                 $this->jsonResponse(['success' => false, 'message' => 'Authentification requise.'], 401);
             }
@@ -104,7 +107,7 @@ abstract class Controller
 
         if ($now - $lastCheck >= 60) {
             $userModel = new User();
-            $user      = $userModel->find((int) Session::get('user_id'));
+            $user      = $userModel->find((int) $this->getAuthenticatedUserId());
 
             Session::set('status_checked_at', $now);
 
@@ -176,6 +179,86 @@ abstract class Controller
     protected function requireModerator(): void
     {
         $this->requireGlobalRole(['moderator']);
+        $this->requireSupervisorStepUpForModerationIfAccountControlActive();
+    }
+
+    protected function getAccountControlContext(): ?array
+    {
+        $ctx = Session::get(self::ACCOUNT_CONTROL_SESSION_KEY);
+        if (!is_array($ctx)) {
+            return null;
+        }
+
+        $required = ['moderator_user_id', 'target_user_id', 'target_username', 'started_at'];
+        foreach ($required as $key) {
+            if (!array_key_exists($key, $ctx)) {
+                Session::remove(self::ACCOUNT_CONTROL_SESSION_KEY);
+                return null;
+            }
+        }
+
+        return $ctx;
+    }
+
+    protected function isAccountControlActive(): bool
+    {
+        return $this->getAccountControlContext() !== null;
+    }
+
+    protected function getAuthenticatedUserId(): ?int
+    {
+        $id = Session::get('auth_user_id', Session::get('user_id'));
+        return $id ? (int) $id : null;
+    }
+
+    protected function requireSupervisorStepUpForModerationIfAccountControlActive(): void
+    {
+        if (!$this->isAccountControlActive()) {
+            return;
+        }
+
+        $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+        if (in_array($method, ['GET', 'HEAD', 'OPTIONS'], true)) {
+            return;
+        }
+
+        $stepUpKey = self::ACCOUNT_CONTROL_STEPUP_KEY;
+
+        if (\App\Models\Supervisor::hasBypass($stepUpKey)) {
+            \App\Models\Supervisor::consumeBypass($stepUpKey);
+            return;
+        }
+
+        if ($this->isAjax()) {
+            $returnUrl = $_SERVER['REQUEST_URI'] ?? '/moderation';
+            $bypassUrl = '/supervisor/bypass?feature=' . urlencode($stepUpKey) . '&redirect=' . urlencode($returnUrl);
+            $this->jsonResponse([
+                'success'    => false,
+                'step_up'    => true,
+                'message'    => 'Authentification superviseur requise pour cette opération de modération.',
+                'bypass_url' => $bypassUrl,
+            ], 403);
+        }
+
+        if ($method === 'POST') {
+            $token      = bin2hex(random_bytes(16));
+            $sessionKey = 'bypass_pending_' . $token;
+            \App\Core\Session::set($sessionKey, [
+                'feature'    => $stepUpKey,
+                'action'     => $_SERVER['REQUEST_URI'] ?? '/moderation',
+                'data'       => $_POST,
+                'expires_at' => time() + 300,
+            ]);
+            $replayUrl = '/supervisor/bypass/replay?pending=' . urlencode($token);
+            $bypassUrl = '/supervisor/bypass?feature=' . urlencode($stepUpKey) . '&redirect=' . urlencode($replayUrl);
+        } else {
+            $returnUrl = $_SERVER['REQUEST_URI'] ?? '/moderation';
+            $bypassUrl = '/supervisor/bypass?feature=' . urlencode($stepUpKey) . '&redirect=' . urlencode($returnUrl);
+        }
+
+        $this->setFlash('warning', 'Authentification superviseur requise pour valider cette opération de modération.');
+        $this->redirect($bypassUrl);
+        exit;
     }
 
     /**
@@ -293,7 +376,17 @@ abstract class Controller
      */
     protected function getCurrentUserId(): ?int
     {
-        $id = Session::get('user_id');
-        return $id ? (int) $id : null;
+        $authId = $this->getAuthenticatedUserId();
+        $ctx = $this->getAccountControlContext();
+        if ($ctx === null) {
+            return $authId;
+        }
+
+        $path = (string) (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/');
+        if (str_starts_with($path, '/moderation') || str_starts_with($path, '/supervisor/')) {
+            return $authId;
+        }
+
+        return (int) $ctx['target_user_id'];
     }
 }

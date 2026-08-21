@@ -3,6 +3,9 @@
 /** @var string  $featureLabel */
 /** @var string  $redirectUrl */
 /** @var string|null $error */
+/** @var bool|null $isStepUp */
+
+$isStepUp = (bool) ($isStepUp ?? false);
 ?>
 <div style="max-width:420px;margin:4rem auto;padding:0 1rem;">
     <div class="card" style="border-radius:16px;overflow:hidden;">
@@ -10,7 +13,11 @@
             <i class="bi bi-person-badge" style="font-size:2.5rem;display:block;margin-bottom:0.5rem;"></i>
             <h1 style="font-size:1.25rem;margin:0;font-weight:700;">Authentification superviseur</h1>
             <p style="margin:0.4rem 0 0;font-size:0.85rem;opacity:0.85;">
-                Accès restreint — fonctionnalité <strong><?= e($featureLabel) ?></strong>
+                <?php if ($isStepUp): ?>
+                    Validation requise — <strong><?= e($featureLabel) ?></strong>
+                <?php else: ?>
+                    Accès restreint — fonctionnalité <strong><?= e($featureLabel) ?></strong>
+                <?php endif; ?>
             </p>
         </div>
 
@@ -22,8 +29,13 @@
             <?php endif; ?>
 
             <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:1.25rem;">
-                Cette fonctionnalité est temporairement désactivée. Un superviseur autorisé
-                peut débloquer provisoirement l'accès pour cette session.
+                <?php if ($isStepUp): ?>
+                    La prise de main d'un compte utilisateur est active. Chaque opération de modération
+                    doit être validée par un superviseur.
+                <?php else: ?>
+                    Cette fonctionnalité est temporairement désactivée. Un superviseur autorisé
+                    peut débloquer provisoirement l'accès pour cette session.
+                <?php endif; ?>
             </p>
 
             <form method="POST" action="/supervisor/bypass" autocomplete="off">
@@ -52,7 +64,7 @@
                 </div>
 
                 <button type="submit" class="btn btn-primary" style="width:100%;">
-                    <i class="bi bi-unlock"></i> Débloquer l'accès
+                    <i class="bi bi-unlock"></i> <?= $isStepUp ? 'Valider l\'opération' : 'Débloquer l\'accès' ?>
                 </button>
             </form>
 

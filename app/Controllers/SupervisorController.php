@@ -19,6 +19,8 @@ use App\Models\Supervisor;
  */
 class SupervisorController extends Controller
 {
+    private const ACCOUNT_CONTROL_STEPUP_KEY = 'moderation.account_control_stepup';
+
     private Supervisor $supervisorModel;
 
     public function __construct()
@@ -204,6 +206,7 @@ class SupervisorController extends Controller
     {
         $featureKey  = trim($_GET['feature']  ?? '');
         $redirectUrl = trim($_GET['redirect'] ?? '/');
+        $isStepUp    = $featureKey === self::ACCOUNT_CONTROL_STEPUP_KEY;
 
         if ($featureKey === '') {
             $this->redirect('/');
@@ -211,7 +214,7 @@ class SupervisorController extends Controller
         }
 
         // Si la fonctionnalité est en fait activée, rediriger directement
-        if (FeatureFlag::isEnabled($featureKey)) {
+        if (!$isStepUp && FeatureFlag::isEnabled($featureKey)) {
             $this->redirect($this->safeRedirect($redirectUrl));
             return;
         }
@@ -227,8 +230,9 @@ class SupervisorController extends Controller
         $this->render('supervisor/bypass_form', [
             'title'       => 'Authentification superviseur',
             'featureKey'  => $featureKey,
-            'featureLabel'=> $flag['label'] ?? $featureKey,
+            'featureLabel'=> $isStepUp ? 'Validation opération de modération' : ($flag['label'] ?? $featureKey),
             'redirectUrl' => $redirectUrl,
+            'isStepUp'    => $isStepUp,
             'error'       => null,
         ]);
     }
@@ -245,16 +249,18 @@ class SupervisorController extends Controller
         $supervisorId = trim($_POST['supervisor_id'] ?? '');
         $pin          = trim($_POST['pin']           ?? '');
         $redirectUrl  = trim($_POST['redirect']      ?? '/');
+        $isStepUp     = $featureKey === self::ACCOUNT_CONTROL_STEPUP_KEY;
 
         $flag = FeatureFlag::get($featureKey);
 
-        $renderError = function (string $msg) use ($featureKey, $flag, $redirectUrl): void {
+        $renderError = function (string $msg) use ($featureKey, $flag, $redirectUrl, $isStepUp): void {
             http_response_code(401);
             $this->render('supervisor/bypass_form', [
                 'title'        => 'Authentification superviseur',
                 'featureKey'   => $featureKey,
-                'featureLabel' => $flag['label'] ?? $featureKey,
+                'featureLabel' => $isStepUp ? 'Validation opération de modération' : ($flag['label'] ?? $featureKey),
                 'redirectUrl'  => $redirectUrl,
+                'isStepUp'     => $isStepUp,
                 'error'        => $msg,
             ]);
             exit;

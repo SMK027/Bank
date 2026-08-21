@@ -252,6 +252,26 @@
     <main class="main-content">
         <div class="container">
             <?php include __DIR__ . '/../partials/flash.php'; ?>
+
+            <?php if (is_authenticated() && is_moderator() && is_account_control_active()): ?>
+                <?php $control = account_control_context(); ?>
+                <div class="alert alert-warning" style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+                    <div>
+                        <strong><i class="bi bi-incognito"></i> Prise de main active</strong>
+                        <div style="font-size:0.9rem;opacity:0.95;">
+                            Vous utilisez actuellement le compte de <strong><?= e((string) ($control['target_username'] ?? '')) ?></strong> (#<?= (int) ($control['target_user_id'] ?? 0) ?>).
+                            Toute opération de modération nécessite une authentification superviseur.
+                        </div>
+                    </div>
+                    <form method="POST" action="/moderation/users/control/stop" style="margin:0;">
+                        <?= csrf_field() ?>
+                        <button type="submit" class="btn btn-outline btn-sm">
+                            <i class="bi bi-box-arrow-left"></i> Quitter la prise de main
+                        </button>
+                    </form>
+                </div>
+            <?php endif; ?>
+
             <?= $content ?>
         </div>
     </main>
