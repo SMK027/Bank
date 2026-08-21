@@ -208,7 +208,7 @@ function is_account_control_active(): bool
  * Formate un montant avec notation compacte pour les grandes valeurs.
  *
  * - En dessous de 1 000 000 : formatage standard (1 234,56)
- * - Au-delà : notation compacte avec suffixe (M / Md / Bn / Bd …)
+ * - Au-delà : notation compacte avec suffixe (M / Md / Bn / Bd / Tn / Td / Qa / Qd ...)
  *   La valeur exacte est toujours accessible via l'attribut title du <abbr>.
  *
  * @param float  $amount   Montant brut
@@ -220,7 +220,13 @@ function fmt_amount_smart(float $amount, int $decimals = 2): string
     $exact = number_format($amount, $decimals, ',', ' ');
     $abs   = abs($amount);
 
-    if ($abs >= 1_000_000_000_000_000_000) {
+    if ($abs >= 1_000_000_000_000_000_000_000_000_000) {
+        $compact = number_format($amount / 1_000_000_000_000_000_000_000_000_000, $decimals, ',', ' ') . '&nbsp;Qd';
+    } elseif ($abs >= 1_000_000_000_000_000_000_000_000) {
+        $compact = number_format($amount / 1_000_000_000_000_000_000_000_000, $decimals, ',', ' ') . '&nbsp;Qa';
+    } elseif ($abs >= 1_000_000_000_000_000_000_000) {
+        $compact = number_format($amount / 1_000_000_000_000_000_000_000, $decimals, ',', ' ') . '&nbsp;Td';
+    } elseif ($abs >= 1_000_000_000_000_000_000) {
         $compact = number_format($amount / 1_000_000_000_000_000_000, $decimals, ',', ' ') . '&nbsp;Tn';
     } elseif ($abs >= 1_000_000_000_000_000) {
         $compact = number_format($amount / 1_000_000_000_000_000, $decimals, ',', ' ') . '&nbsp;Bd';
