@@ -208,6 +208,12 @@ class SupervisorController extends Controller
         $redirectUrl = trim($_GET['redirect'] ?? '/');
         $isStepUp    = $featureKey === self::ACCOUNT_CONTROL_STEPUP_KEY;
 
+        if ($isStepUp && !$this->canUseStepUpFlow()) {
+            $this->setFlash('warning', 'Votre session modérateur n\'est plus active. Veuillez vous reconnecter.');
+            $this->redirect('/login');
+            return;
+        }
+
         if ($featureKey === '') {
             $this->redirect('/');
             return;
@@ -250,6 +256,12 @@ class SupervisorController extends Controller
         $pin          = trim($_POST['pin']           ?? '');
         $redirectUrl  = trim($_POST['redirect']      ?? '/');
         $isStepUp     = $featureKey === self::ACCOUNT_CONTROL_STEPUP_KEY;
+
+        if ($isStepUp && !$this->canUseStepUpFlow()) {
+            $this->setFlash('warning', 'Votre session modérateur n\'est plus active. Veuillez vous reconnecter.');
+            $this->redirect('/login');
+            return;
+        }
 
         $flag = FeatureFlag::get($featureKey);
 
@@ -326,8 +338,15 @@ class SupervisorController extends Controller
 
         if (!$pending || time() > ($pending['expires_at'] ?? 0)) {
             \App\Core\Session::remove($sessionKey);
-            $this->setFlash('warning', 'Le lien de reprise a expiré (5 min). Veuillez recommencer.');
-            $this->redirect(parse_url($pending['action'] ?? '/', PHP_URL_PATH) ?: '/');
+            $this->setFlash('warning', 'Le lien de reprise a expiré (15 min). Veuillez recommencer.');
+            $this->redirect($this->resolveReplayFallbackUrl($pending));
+            return;
+        }
+
+        if (($pending['feature'] ?? '') === self::ACCOUNT_CONTROL_STEPUP_KEY && !$this->canUseStepUpFlow()) {
+            \App\Core\Session::remove($sessionKey);
+            $this->setFlash('warning', 'Votre session modérateur n\'est plus active. Veuillez vous reconnecter.');
+            $this->redirect('/login');
             return;
         }
 
@@ -367,5 +386,39 @@ class SupervisorController extends Controller
             return '/';
         }
         return $url;
+    }
+
+    /**
+     * Step-up autorisé uniquement pour un modérateur connecté
+     * avec une prise de main active.
+     */
+    private function canUseStepUpFlow(): bool
+    {
+        $authId = $this->getAuthenticatedUserId();
+        if ($authId === null) {
+            return false;
+        }
+
+        if (!$this->isModerator()) {
+            return false;
+        }
+
+        return $this->isAccountControlActive();
+    }
+
+    /**
+     * Évite les redirections vers une route POST lors d'un replay expiré.
+     */
+    private function resolveReplayFallbackUrl(mixed $pending): string
+    {
+        if ($this->getAuthenticatedUserId() === null) {
+            return '/login';
+        }
+
+        if ($this->isModerator()) {
+            return '/moderation/users';
+        }
+
+        return '/dashboard';
     }
 }

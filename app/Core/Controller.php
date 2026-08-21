@@ -247,7 +247,7 @@ abstract class Controller
                 'feature'    => $stepUpKey,
                 'action'     => $_SERVER['REQUEST_URI'] ?? '/moderation',
                 'data'       => $_POST,
-                'expires_at' => time() + 300,
+                'expires_at' => time() + 900,
             ]);
             $replayUrl = '/supervisor/bypass/replay?pending=' . urlencode($token);
             $bypassUrl = '/supervisor/bypass?feature=' . urlencode($stepUpKey) . '&redirect=' . urlencode($replayUrl);
