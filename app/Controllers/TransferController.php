@@ -152,6 +152,10 @@ class TransferController extends Controller
             return;
         }
 
+        if (!$this->ensureTransferAllowedByEventRules($fromAccount, $toAccount, $modMode)) {
+            return;
+        }
+
         $fromBlockedReason = Account::operationBlockedReason($fromAccount);
         if ($fromBlockedReason !== null) {
             $this->setFlash('danger', 'Compte émetteur: ' . $fromBlockedReason);
@@ -579,6 +583,25 @@ class TransferController extends Controller
         } else {
             $this->redirect('/transfers/recurring');
         }
+    }
+
+    private function ensureTransferAllowedByEventRules(array $fromAccount, array $toAccount, bool $modMode): bool
+    {
+        $fromIsEvent = Account::isEventType((string) ($fromAccount['type'] ?? ''));
+        $toIsEvent   = Account::isEventType((string) ($toAccount['type'] ?? ''));
+
+        if (!$fromIsEvent) {
+            return true;
+        }
+
+        if ($fromIsEvent && $toIsEvent) {
+            $this->setFlash('danger', 'Virement impossible : les virements entre comptes événementiels sont strictement interdits.');
+        } else {
+            $this->setFlash('danger', 'Virement impossible : un compte événementiel ne peut émettre aucun virement vers un autre type de compte.');
+        }
+
+        $this->redirect('/transfers/create?tab=' . ($modMode ? 'moderation' : 'personal'));
+        return false;
     }
 }
 

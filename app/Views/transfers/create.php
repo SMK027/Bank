@@ -13,6 +13,8 @@ $isMod     = $isModerator ?? false;
 $activeTab = $activeTab ?? 'personal';
 $allAccounts = $isMod ? ($allAccountsJson ?? '[]') : '[]';
 $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
+$personalSenderOwnAccounts = array_values(array_filter($ownAccounts, fn(array $acc) => ($acc['type'] ?? '') !== 'event'));
+$personalSenderSharedAccounts = array_values(array_filter($sharedAccounts, fn(array $acc) => ($acc['type'] ?? '') !== 'event'));
 ?>
 
 <div class="auth-container" style="max-width:600px">
@@ -69,9 +71,9 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                         </label>
                         <select id="from_account_id" name="from_account_id" class="form-control" required>
                             <option value="">— Sélectionner —</option>
-                            <?php if (!empty($ownAccounts)): ?>
+                            <?php if (!empty($personalSenderOwnAccounts)): ?>
                                 <optgroup label="Mes comptes">
-                                    <?php foreach ($ownAccounts as $acc): ?>
+                                    <?php foreach ($personalSenderOwnAccounts as $acc): ?>
                                         <option value="<?= (int) $acc['id'] ?>"
                                                 data-balance="<?= (float) ($acc['balance'] ?? 0) ?>"
                                                 data-overdraft="<?= (float) ($acc['overdraft'] ?? 0) ?>"
@@ -85,9 +87,9 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
                                     <?php endforeach; ?>
                                 </optgroup>
                             <?php endif; ?>
-                            <?php if (!empty($sharedAccounts)): ?>
+                            <?php if (!empty($personalSenderSharedAccounts)): ?>
                                 <optgroup label="Comptes partagés">
-                                    <?php foreach ($sharedAccounts as $acc): ?>
+                                    <?php foreach ($personalSenderSharedAccounts as $acc): ?>
                                         <option value="<?= (int) $acc['id'] ?>"
                                                 data-balance="<?= (float) ($acc['balance'] ?? 0) ?>"
                                                 data-overdraft="<?= (float) ($acc['overdraft'] ?? 0) ?>"
@@ -603,14 +605,17 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
 
         function rebuildSelects() {
             var accounts = filteredAccounts();
+            var senderAccounts = accounts.filter(function (a) { return a.type !== 'event'; });
             var prevFrom = modFrom.value;
             var prevTo   = modTo.value;
 
             modFrom.innerHTML = '<option value="">\u2014 S\u00e9lectionner un compte \u2014</option>';
             modTo.innerHTML   = '<option value="">\u2014 S\u00e9lectionner un compte \u2014</option>';
 
-            accounts.forEach(function (a) {
+            senderAccounts.forEach(function (a) {
                 modFrom.appendChild(buildOption(a));
+            });
+            accounts.forEach(function (a) {
                 modTo.appendChild(buildOption(a));
             });
 
@@ -632,7 +637,7 @@ $personalAccounts = array_merge($ownAccounts, $sharedAccounts);
             var prevOther = otherSel.value;
             // Reconstruire l'autre select en filtrant par interne/normal
             var accounts = filteredAccounts().filter(function (a) {
-                return a.internal === isInt;
+                return a.internal === isInt && a.type !== 'event';
             });
             var selectedId = changedSel.value;
             otherSel.innerHTML = '<option value="">\u2014 S\u00e9lectionner un compte \u2014</option>';
