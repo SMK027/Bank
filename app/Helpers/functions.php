@@ -208,7 +208,7 @@ function is_account_control_active(): bool
  * Formate un montant avec notation compacte pour les grandes valeurs.
  *
  * - En dessous de 1 000 000 : formatage standard (1 234,56)
- * - Au-delà : notation compacte avec suffixe (M / Md / Bn / Bd / Tn / Td / Qa / Qd ...)
+ * - Au-delà : notation compacte avec suffixe (M / Md / Bn / Bd / Tn / Td / Qa / Qd / Qi / Qid / Sx / Sxd ...)
  *   La valeur exacte est toujours accessible via l'attribut title du <abbr>.
  *
  * @param float  $amount   Montant brut
@@ -220,23 +220,31 @@ function fmt_amount_smart(float $amount, int $decimals = 2): string
     $exact = number_format($amount, $decimals, ',', ' ');
     $abs   = abs($amount);
 
-    if ($abs >= 1_000_000_000_000_000_000_000_000_000) {
-        $compact = number_format($amount / 1_000_000_000_000_000_000_000_000_000, $decimals, ',', ' ') . '&nbsp;Qd';
-    } elseif ($abs >= 1_000_000_000_000_000_000_000_000) {
-        $compact = number_format($amount / 1_000_000_000_000_000_000_000_000, $decimals, ',', ' ') . '&nbsp;Qa';
-    } elseif ($abs >= 1_000_000_000_000_000_000_000) {
-        $compact = number_format($amount / 1_000_000_000_000_000_000_000, $decimals, ',', ' ') . '&nbsp;Td';
-    } elseif ($abs >= 1_000_000_000_000_000_000) {
-        $compact = number_format($amount / 1_000_000_000_000_000_000, $decimals, ',', ' ') . '&nbsp;Tn';
-    } elseif ($abs >= 1_000_000_000_000_000) {
-        $compact = number_format($amount / 1_000_000_000_000_000, $decimals, ',', ' ') . '&nbsp;Bd';
-    } elseif ($abs >= 1_000_000_000_000) {
-        $compact = number_format($amount / 1_000_000_000_000, $decimals, ',', ' ') . '&nbsp;Bn';
-    } elseif ($abs >= 1_000_000_000) {
-        $compact = number_format($amount / 1_000_000_000, $decimals, ',', ' ') . '&nbsp;Md';
-    } elseif ($abs >= 1_000_000) {
-        $compact = number_format($amount / 1_000_000, $decimals, ',', ' ') . '&nbsp;M';
-    } else {
+    $scales = [
+        ['threshold' => 1.0e39, 'suffix' => 'Sxd'],
+        ['threshold' => 1.0e36, 'suffix' => 'Sx'],
+        ['threshold' => 1.0e33, 'suffix' => 'Qid'],
+        ['threshold' => 1.0e30, 'suffix' => 'Qi'],
+        ['threshold' => 1.0e27, 'suffix' => 'Qd'],
+        ['threshold' => 1.0e24, 'suffix' => 'Qa'],
+        ['threshold' => 1.0e21, 'suffix' => 'Td'],
+        ['threshold' => 1.0e18, 'suffix' => 'Tn'],
+        ['threshold' => 1.0e15, 'suffix' => 'Bd'],
+        ['threshold' => 1.0e12, 'suffix' => 'Bn'],
+        ['threshold' => 1.0e9,  'suffix' => 'Md'],
+        ['threshold' => 1.0e6,  'suffix' => 'M'],
+    ];
+
+    $compact = null;
+    foreach ($scales as $scale) {
+        $threshold = (float) $scale['threshold'];
+        if ($abs >= $threshold) {
+            $compact = number_format($amount / $threshold, $decimals, ',', ' ') . '&nbsp;' . $scale['suffix'];
+            break;
+        }
+    }
+
+    if ($compact === null) {
         return $exact;
     }
 
