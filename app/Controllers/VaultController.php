@@ -70,6 +70,13 @@ class VaultController extends Controller
             return;
         }
 
+        $eventBlockedReason = Account::operationBlockedReason($account);
+        if ($eventBlockedReason !== null) {
+            $this->setFlash('danger', $eventBlockedReason);
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
         $balance = $this->accountModel->getBalance($accountId);
 
         $this->render('vault/form', [

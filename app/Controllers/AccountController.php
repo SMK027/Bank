@@ -13,6 +13,7 @@ use App\Models\DeferredDebit;
 use App\Models\Transaction;
 use App\Models\AccountAccess;
 use App\Models\DirectDebit;
+use App\Models\EventSchedule;
 use App\Models\Guardianship;
 use App\Models\Mandate;
 use App\Models\PaymentCard;
@@ -40,6 +41,7 @@ class AccountController extends Controller
     private PaymentCard $cardModel;
     private Checkbook $checkbookModel;
     private Check $checkModel;
+    private EventSchedule $eventScheduleModel;
 
     public function __construct()
     {
@@ -55,6 +57,7 @@ class AccountController extends Controller
         $this->recurringTransferModel = new RecurringTransfer();
         $this->loanModel              = new Loan();
         $this->cardModel              = new PaymentCard();
+        $this->eventScheduleModel     = new EventSchedule();
     }
 
     public function createForm(): void
@@ -69,11 +72,18 @@ class AccountController extends Controller
             return;
         }
         $isPro = User::isProfessional($user);
+        $activeEvent = $this->eventScheduleModel->findActiveAt();
+        $types = Account::getAllowedTypes($isMinor, $isPro);
+        if ($activeEvent === null) {
+            unset($types['event']);
+        }
+
         $this->render('accounts/create', [
             'title'        => 'Créer un compte bancaire',
-            'accountTypes' => Account::getAllowedTypes($isMinor, $isPro),
+            'accountTypes' => $types,
             'isMinor'      => $isMinor,
             'isPro'        => $isPro,
+            'activeEvent'  => $activeEvent,
         ]);
     }
 
@@ -127,13 +137,33 @@ class AccountController extends Controller
         $overdraft = Account::typeAllowsOverdraft($type) ? abs((float) ($data['overdraft'] ?: 0)) : 0.0;
         $cap       = Account::typeHasCap($type) && $data['cap'] !== '' ? abs((float) $data['cap']) : null;
 
+        $eventWindow = null;
+        if ($type === 'event') {
+            $activeEvent = $this->eventScheduleModel->findActiveAt();
+            if ($activeEvent === null) {
+                $this->setFlash('danger', 'Aucun événement actif. L\'ouverture de comptes événementiels est fermée.');
+                $this->redirect('/accounts/create');
+                return;
+            }
+
+            $this->requireSupervisorValidation('accounts.event_open');
+
+            $eventWindow = [
+                'title'    => (string) ($activeEvent['title'] ?? 'Événement'),
+                'start_at' => (string) $activeEvent['start_at'],
+                'end_at'   => (string) $activeEvent['end_at'],
+            ];
+        }
+
         $accountId = $this->accountModel->createAccount(
             $this->getCurrentUserId(),
             $data['name'],
             $data['currency'],
             $overdraft,
             $type,
-            $cap
+            $cap,
+            false,
+            $eventWindow
         );
 
         AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_ACCOUNT_CREATE, ['name' => $data['name'], 'type' => $type], targetAccountId: $accountId);
@@ -153,6 +183,8 @@ class AccountController extends Controller
             $this->redirect('/dashboard');
             return;
         }
+
+        $eventBlockedReason = Account::operationBlockedReason($account);
 
         $transactions = $this->transactionModel->getByAccount($accountId);
         // Enrichir chaque transaction avec le nom de l'auteur et le statut programmé
@@ -473,6 +505,7 @@ class AccountController extends Controller
                 : [],
             // Chèques en attente d'encaissement sur ce compte
             'pendingChecks'          => $this->checkModel->getEmittedByAccount($accountId),
+            'eventBlockedReason'       => $eventBlockedReason,
         ]);
     }
 

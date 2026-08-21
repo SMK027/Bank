@@ -152,6 +152,19 @@ class TransferController extends Controller
             return;
         }
 
+        $fromBlockedReason = Account::operationBlockedReason($fromAccount);
+        if ($fromBlockedReason !== null) {
+            $this->setFlash('danger', 'Compte émetteur: ' . $fromBlockedReason);
+            $this->redirect('/transfers/create?tab=' . ($modMode ? 'moderation' : 'personal'));
+            return;
+        }
+        $toBlockedReason = Account::operationBlockedReason($toAccount);
+        if ($toBlockedReason !== null) {
+            $this->setFlash('danger', 'Compte destinataire: ' . $toBlockedReason);
+            $this->redirect('/transfers/create?tab=' . ($modMode ? 'moderation' : 'personal'));
+            return;
+        }
+
         // Bloquer les virements mixtes entre un compte interne et un compte normal (hors mode modération)
         if (!$modMode) {
             $fromInternal = Account::isInternal($fromAccount);
@@ -542,6 +555,13 @@ class TransferController extends Controller
 
         if (!$this->recurringTransferModel->canCancel($record)) {
             $this->setFlash('danger', 'Ce virement récurrent est déjà annulé.');
+            $this->redirect('/transfers/recurring');
+            return;
+        }
+
+        $fromAccount = $this->accountModel->find((int) $record['from_account_id']);
+        if ($fromAccount && ($reason = Account::operationBlockedReason($fromAccount)) !== null) {
+            $this->setFlash('danger', $reason);
             $this->redirect('/transfers/recurring');
             return;
         }

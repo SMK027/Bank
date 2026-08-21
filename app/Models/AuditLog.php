@@ -45,6 +45,7 @@ class AuditLog extends Model
     public const ACTION_ACCOUNT_MODERATION_TX = 'account.moderation_tx';
     public const ACTION_ACCOUNT_CONTROL_START = 'account.control_start';
     public const ACTION_ACCOUNT_CONTROL_STOP  = 'account.control_stop';
+    public const ACTION_EVENT_SCHEDULE_CREATE = 'event_schedule.create';
     public const ACTION_ACCOUNT_HIDE     = 'account.hide';
     public const ACTION_ACCOUNT_SHOW     = 'account.show';
 
@@ -168,6 +169,7 @@ class AuditLog extends Model
         'account.unfreeze'         => 'Compte dégelé',
         'account.control_start'    => 'Prise de main compte activée',
         'account.control_stop'     => 'Prise de main compte désactivée',
+        'event_schedule.create'    => 'Événement planifié',
         'transaction.create'       => 'Transaction créée',
         'transaction.delete'       => 'Transaction supprimée',
         'transfer.create'          => 'Virement créé',

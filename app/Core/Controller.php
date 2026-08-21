@@ -345,6 +345,53 @@ abstract class Controller
     }
 
     /**
+     * Exige une authentification superviseur ponctuelle pour l'action courante.
+     * Le bypass est one-shot: il est consommé sur la requête non-GET suivante.
+     */
+    protected function requireSupervisorValidation(string $key): void
+    {
+        if (\App\Models\Supervisor::hasBypass($key)) {
+            if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
+                \App\Models\Supervisor::consumeBypass($key);
+            }
+            return;
+        }
+
+        if ($this->isAjax()) {
+            $returnUrl = $_SERVER['REQUEST_URI'] ?? '/';
+            $bypassUrl = '/supervisor/bypass?feature=' . urlencode($key) . '&redirect=' . urlencode($returnUrl);
+            $this->jsonResponse([
+                'success'    => false,
+                'step_up'    => true,
+                'message'    => 'Authentification superviseur requise.',
+                'bypass_url' => $bypassUrl,
+            ], 403);
+        }
+
+        $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+
+        if ($requestMethod === 'POST') {
+            $token      = bin2hex(random_bytes(16));
+            $sessionKey = 'bypass_pending_' . $token;
+            \App\Core\Session::set($sessionKey, [
+                'feature'    => $key,
+                'action'     => $_SERVER['REQUEST_URI'] ?? '/',
+                'data'       => $_POST,
+                'expires_at' => time() + 900,
+            ]);
+            $replayUrl = '/supervisor/bypass/replay?pending=' . urlencode($token);
+            $bypassUrl = '/supervisor/bypass?feature=' . urlencode($key) . '&redirect=' . urlencode($replayUrl);
+        } else {
+            $returnUrl = $_SERVER['REQUEST_URI'] ?? '/';
+            $bypassUrl = '/supervisor/bypass?feature=' . urlencode($key) . '&redirect=' . urlencode($returnUrl);
+        }
+
+        $this->setFlash('warning', 'Authentification superviseur requise pour poursuivre.');
+        $this->redirect($bypassUrl);
+        exit;
+    }
+
+    /**
      * Récupère et filtre les données POST.
      */
     protected function getPostData(array $keys): array

@@ -33,6 +33,7 @@ $categoryIcons = [
         <a href="/moderation" class="btn btn-outline btn-sm"><i class="bi bi-shield-check"></i> Comptes</a>
         <a href="/moderation/users" class="btn btn-outline btn-sm"><i class="bi bi-people"></i> Utilisateurs</a>
         <a href="/moderation/audit-log" class="btn btn-outline btn-sm"><i class="bi bi-journal-text"></i> Journal d'audit</a>
+        <a href="/moderation/events" class="btn btn-outline btn-sm"><i class="bi bi-calendar2-week"></i> Événements</a>
         <a href="/moderation/supervisors" class="btn btn-outline btn-sm"><i class="bi bi-person-badge"></i> Superviseurs</a>
         <span class="btn btn-outline btn-sm disabled" aria-current="page"><i class="bi bi-toggles"></i> Fonctionnalités</span>
     </div>

@@ -63,6 +63,10 @@ class TransactionController extends Controller
             return;
         }
 
+        if (!$this->ensureEventAccountOperational($accId, '/accounts/' . $accountId)) {
+            return;
+        }
+
         $data = $this->getPostData(['type', 'amount', 'category', 'comment', 'scheduled_at', 'card_id', 'checkbook_id', 'check_payee']);
 
         if (empty($data['type']) || empty($data['amount']) || empty($data['category'])) {
@@ -315,6 +319,10 @@ class TransactionController extends Controller
             return;
         }
 
+        if (!$this->ensureEventAccountOperational($accId, '/accounts/' . $accountId)) {
+            return;
+        }
+
         $transaction = $this->transactionModel->find($txId);
         if (!$transaction || (int) $transaction['account_id'] !== $accId) {
             $this->setFlash('danger', 'Transaction introuvable.');
@@ -390,6 +398,10 @@ class TransactionController extends Controller
         if (!$this->isModerator() && !$this->accountModel->hasAccess($accId, $userId)) {
             $this->setFlash('danger', 'Accès refusé.');
             $this->redirect('/dashboard');
+            return;
+        }
+
+        if (!$this->ensureEventAccountOperational($accId, '/accounts/' . $accountId)) {
             return;
         }
 
@@ -484,6 +496,10 @@ class TransactionController extends Controller
             return;
         }
 
+        if (!$this->ensureEventAccountOperational($accId, '/accounts/' . $accountId)) {
+            return;
+        }
+
         $transaction = $this->transactionModel->find($txId);
         if (!$transaction || (int) $transaction['account_id'] !== $accId) {
             $this->setFlash('danger', 'Transaction introuvable.');
@@ -526,6 +542,10 @@ class TransactionController extends Controller
         if (!$this->isModerator() && !$this->accountModel->hasAccess($accId, $userId)) {
             $this->setFlash('danger', 'Accès refusé.');
             $this->redirect('/dashboard');
+            return;
+        }
+
+        if (!$this->ensureEventAccountOperational($accId, '/accounts/' . $accountId)) {
             return;
         }
 
@@ -701,6 +721,10 @@ class TransactionController extends Controller
             return;
         }
 
+        if (!$this->ensureEventAccountOperational($accId, '/accounts/' . $accountId)) {
+            return;
+        }
+
         $dd = $this->deferredDebitModel->find($ddId);
         if (!$dd || (int) $dd['account_id'] !== $accId || $dd['status'] !== DeferredDebit::STATUS_PENDING) {
             $this->setFlash('danger', 'Opération introuvable ou déjà traitée.');
@@ -836,5 +860,24 @@ class TransactionController extends Controller
         }
 
         $this->redirect('/accounts/' . $accountId);
+    }
+
+    private function ensureEventAccountOperational(int $accountId, string $redirect): bool
+    {
+        $account = $this->accountModel->find($accountId);
+        if (!$account) {
+            $this->setFlash('danger', 'Compte introuvable.');
+            $this->redirect($redirect);
+            return false;
+        }
+
+        $reason = Account::operationBlockedReason($account);
+        if ($reason !== null) {
+            $this->setFlash('danger', $reason);
+            $this->redirect($redirect);
+            return false;
+        }
+
+        return true;
     }
 }

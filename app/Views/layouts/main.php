@@ -193,6 +193,9 @@
                                 <a href="/moderation/features" class="navbar-mod-item" role="menuitem">
                                     <i class="bi bi-toggles"></i> Fonctionnalités
                                 </a>
+                                <a href="/moderation/events" class="navbar-mod-item" role="menuitem">
+                                    <i class="bi bi-calendar2-week"></i> Événements
+                                </a>
                                 <a href="/moderation/supervisors" class="navbar-mod-item" role="menuitem">
                                     <i class="bi bi-person-badge"></i> Superviseurs
                                 </a>

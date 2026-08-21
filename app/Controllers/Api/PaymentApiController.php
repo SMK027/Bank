@@ -114,6 +114,13 @@ class PaymentApiController
             return;
         }
 
+        $eventBlockedReason = Account::operationBlockedReason($account);
+        if ($eventBlockedReason !== null) {
+            $this->logFailure($operation, (int) $card['id'], (int) $account['id'], $amount, $currency, 'event_closed', $comment);
+            $this->json(['success' => false, 'message' => $eventBlockedReason], 403);
+            return;
+        }
+
         // Comptes d'épargne interdits (sécurité défensive : on l'empêche déjà côté UI)
         if (!Account::typeAllowsCard($account['type'] ?? '')) {
             $this->logFailure($operation, (int) $card['id'], (int) $account['id'], $amount, $currency, 'savings_account', $comment);

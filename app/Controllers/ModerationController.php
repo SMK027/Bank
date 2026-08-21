@@ -18,6 +18,7 @@ use App\Models\TicketMessage;
 use App\Models\Transaction;
 use App\Models\Transfer;
 use App\Models\User;
+use App\Models\EventSchedule;
 use App\Models\SavingsInterest;
 use App\Models\SavingsRate;
 use App\Models\DeferredDebit;
@@ -41,6 +42,7 @@ class ModerationController extends Controller
     private SavingsRate     $rateModel;
     private SavingsInterest $interestModel;
     private RecurringTransfer $recurringTransferModel;
+    private EventSchedule $eventScheduleModel;
 
     public function __construct()
     {
@@ -58,6 +60,7 @@ class ModerationController extends Controller
         $this->rateModel          = new SavingsRate();
         $this->interestModel      = new SavingsInterest();
         $this->recurringTransferModel = new RecurringTransfer();
+        $this->eventScheduleModel = new EventSchedule();
     }
 
     /**
@@ -1341,13 +1344,27 @@ class ModerationController extends Controller
             return;
         }
 
+        $toBlockedReason = Account::operationBlockedReason($toAccount);
+        if ($toBlockedReason !== null) {
+            $this->setFlash('danger', 'Compte destinataire: ' . $toBlockedReason);
+            $this->redirect('/moderation/direct-debits/create');
+            return;
+        }
+
         // Compte émetteur (facultatif — vide ou 0 = banque)
         $fromAccountRaw = trim($data['from_account_id'] ?? '');
         $fromAccountId  = null;
         if ($fromAccountRaw !== '' && $fromAccountRaw !== '0') {
             $fromAccountId = (int) $fromAccountRaw;
-            if (!$this->accountModel->find($fromAccountId)) {
+            $fromAccount = $this->accountModel->find($fromAccountId);
+            if (!$fromAccount) {
                 $this->setFlash('danger', 'Compte émetteur introuvable.');
+                $this->redirect('/moderation/direct-debits/create');
+                return;
+            }
+            $fromBlockedReason = Account::operationBlockedReason($fromAccount);
+            if ($fromBlockedReason !== null) {
+                $this->setFlash('danger', 'Compte émetteur: ' . $fromBlockedReason);
                 $this->redirect('/moderation/direct-debits/create');
                 return;
             }
@@ -2120,6 +2137,12 @@ class ModerationController extends Controller
                 $this->redirect('/moderation/mandates/create');
                 return;
             }
+            $emitterBlockedReason = Account::operationBlockedReason($emitterAccount);
+            if ($emitterBlockedReason !== null) {
+                $this->setFlash('danger', 'Compte émetteur: ' . $emitterBlockedReason);
+                $this->redirect('/moderation/mandates/create');
+                return;
+            }
             if (($emitterAccount['type'] ?? '') !== 'pro') {
                 $this->setFlash('danger', 'Le compte émetteur doit être un compte professionnel.');
                 $this->redirect('/moderation/mandates/create');
@@ -2132,6 +2155,12 @@ class ModerationController extends Controller
         $recipientAccount = $recipientAccountId > 0 ? $this->accountModel->find($recipientAccountId) : null;
         if (!$recipientAccount) {
             $this->setFlash('danger', 'Compte destinataire invalide.');
+            $this->redirect('/moderation/mandates/create');
+            return;
+        }
+        $recipientBlockedReason = Account::operationBlockedReason($recipientAccount);
+        if ($recipientBlockedReason !== null) {
+            $this->setFlash('danger', 'Compte destinataire: ' . $recipientBlockedReason);
             $this->redirect('/moderation/mandates/create');
             return;
         }
@@ -2319,6 +2348,13 @@ class ModerationController extends Controller
             return;
         }
 
+        $recipient = $this->accountModel->find((int) $mandate['recipient_account_id']);
+        if ($recipient && ($reason = Account::operationBlockedReason($recipient)) !== null) {
+            $this->setFlash('danger', 'Compte destinataire: ' . $reason);
+            $this->redirect('/moderation/mandates');
+            return;
+        }
+
         $data    = $this->getPostData(['next_execution_at']);
         $rawDate = trim($data['next_execution_at'] ?? '');
         $dt      = parse_datetime_input($rawDate);
@@ -2358,6 +2394,13 @@ class ModerationController extends Controller
 
         if (!$directDebit || $directDebit['status'] !== DirectDebit::STATUS_SCHEDULED) {
             $this->setFlash('danger', 'Prélèvement introuvable ou non planifié.');
+            $this->redirect('/moderation/direct-debits');
+            return;
+        }
+
+        $toAccount = $this->accountModel->find((int) $directDebit['to_account_id']);
+        if ($toAccount && ($reason = Account::operationBlockedReason($toAccount)) !== null) {
+            $this->setFlash('danger', 'Compte destinataire: ' . $reason);
             $this->redirect('/moderation/direct-debits');
             return;
         }
@@ -2642,6 +2685,7 @@ class ModerationController extends Controller
             'title'        => 'Modération — Créer un compte',
             'accountTypes' => Account::TYPES,
             'maxRates'     => $maxRates,
+            'activeEvent'  => $this->eventScheduleModel->findActiveAt(),
             'csrfToken'    => csrf_token(),
         ]);
     }
@@ -2682,6 +2726,23 @@ class ModerationController extends Controller
             return;
         }
 
+        $eventWindow = null;
+        if ($type === 'event') {
+            $activeEvent = $this->eventScheduleModel->findActiveAt();
+            if ($activeEvent === null) {
+                $this->setFlash('danger', 'Aucun événement actif. L\'ouverture de comptes événementiels est fermée.');
+                $this->redirect('/moderation/accounts/create');
+                return;
+            }
+
+            $this->requireSupervisorValidation('accounts.event_open');
+            $eventWindow = [
+                'title'    => (string) ($activeEvent['title'] ?? 'Événement'),
+                'start_at' => (string) $activeEvent['start_at'],
+                'end_at'   => (string) $activeEvent['end_at'],
+            ];
+        }
+
         $overdraft = Account::typeAllowsOverdraft($type) ? abs((float) ($data['overdraft'] ?: 0)) : 0.0;
         $cap       = Account::typeHasCap($type) && ($data['cap'] ?? '') !== '' ? abs((float) $data['cap']) : null;
 
@@ -2696,7 +2757,7 @@ class ModerationController extends Controller
         }
 
         $moderatorId = $this->getCurrentUserId();
-        $accountId   = $this->accountModel->createAccount($targetUserId, $name, $currency, $overdraft, $type, $cap);
+        $accountId   = $this->accountModel->createAccount($targetUserId, $name, $currency, $overdraft, $type, $cap, false, $eventWindow);
 
         if ($interestRate !== null) {
             $this->accountModel->update($accountId, ['interest_rate' => $interestRate]);
@@ -2740,6 +2801,7 @@ class ModerationController extends Controller
             'title'        => 'Modération — Créer un compte interne',
             'accountTypes' => Account::TYPES,
             'maxRates'     => $maxRates,
+            'activeEvent'  => $this->eventScheduleModel->findActiveAt(),
             'csrfToken'    => csrf_token(),
         ]);
     }
@@ -2771,6 +2833,23 @@ class ModerationController extends Controller
             return;
         }
 
+        $eventWindow = null;
+        if ($type === 'event') {
+            $activeEvent = $this->eventScheduleModel->findActiveAt();
+            if ($activeEvent === null) {
+                $this->setFlash('danger', 'Aucun événement actif. L\'ouverture de comptes événementiels est fermée.');
+                $this->redirect('/moderation/internal-accounts/create');
+                return;
+            }
+
+            $this->requireSupervisorValidation('accounts.event_open');
+            $eventWindow = [
+                'title'    => (string) ($activeEvent['title'] ?? 'Événement'),
+                'start_at' => (string) $activeEvent['start_at'],
+                'end_at'   => (string) $activeEvent['end_at'],
+            ];
+        }
+
         $overdraft = Account::typeAllowsOverdraft($type) ? abs((float) ($data['overdraft'] ?: 0)) : 0.0;
         $cap       = Account::typeHasCap($type) && ($data['cap'] ?? '') !== '' ? abs((float) $data['cap']) : null;
 
@@ -2789,7 +2868,8 @@ class ModerationController extends Controller
             $overdraft,
             $type,
             $cap,
-            true // internal = true
+            true, // internal = true
+            $eventWindow
         );
 
         if ($interestRate !== null) {
@@ -2878,6 +2958,19 @@ class ModerationController extends Controller
 
         if (!$rt || $rt['status'] !== RecurringTransfer::STATUS_ACTIVE) {
             $this->setFlash('danger', 'Virement récurrent introuvable ou non actif.');
+            $this->redirect('/moderation/recurring-transfers');
+            return;
+        }
+
+        $fromAccount = $this->accountModel->find((int) $rt['from_account_id']);
+        if ($fromAccount && ($reason = Account::operationBlockedReason($fromAccount)) !== null) {
+            $this->setFlash('danger', 'Compte émetteur: ' . $reason);
+            $this->redirect('/moderation/recurring-transfers');
+            return;
+        }
+        $toAccount = $this->accountModel->find((int) $rt['to_account_id']);
+        if ($toAccount && ($reason = Account::operationBlockedReason($toAccount)) !== null) {
+            $this->setFlash('danger', 'Compte destinataire: ' . $reason);
             $this->redirect('/moderation/recurring-transfers');
             return;
         }
@@ -3046,6 +3139,75 @@ class ModerationController extends Controller
         }
 
         $this->redirect('/moderation/features');
+    }
+
+    /**
+     * Liste et formulaire de planification des événements.
+     */
+    public function events(): void
+    {
+        $this->requireModerator();
+
+        $events = $this->eventScheduleModel->findUpcoming(100);
+        $active = $this->eventScheduleModel->findActiveAt();
+
+        $this->render('moderation/events', [
+            'title'  => 'Modération — Événements',
+            'events' => $events,
+            'active' => $active,
+        ]);
+    }
+
+    /**
+     * Crée un événement planifié (POST).
+     */
+    public function createEvent(): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $data = $this->getPostData(['title', 'start_at', 'end_at']);
+
+        $title = trim($data['title'] ?? '');
+        if ($title === '') {
+            $this->setFlash('danger', 'Le titre de l\'événement est obligatoire.');
+            $this->redirect('/moderation/events');
+            return;
+        }
+
+        $start = parse_datetime_input($data['start_at'] ?? '');
+        $end   = parse_datetime_input($data['end_at'] ?? '');
+        if (!$start || !$end) {
+            $this->setFlash('danger', 'Les dates début/fin sont invalides (format attendu : jj/mm/aaaa hh:mm).');
+            $this->redirect('/moderation/events');
+            return;
+        }
+        if ($end <= $start) {
+            $this->setFlash('danger', 'La date de fin doit être postérieure à la date de début.');
+            $this->redirect('/moderation/events');
+            return;
+        }
+
+        $startAt = $start->format('Y-m-d H:i:s');
+        $endAt   = $end->format('Y-m-d H:i:s');
+
+        if ($this->eventScheduleModel->hasOverlap($startAt, $endAt)) {
+            $this->setFlash('danger', 'Un événement existe déjà sur cette plage. Merci de choisir une période non chevauchante.');
+            $this->redirect('/moderation/events');
+            return;
+        }
+
+        $eventId = $this->eventScheduleModel->createEvent($title, $startAt, $endAt, (int) $this->getCurrentUserId());
+
+        AuditLog::log(
+            $this->getCurrentUserId(),
+            AuditLog::ACTION_EVENT_SCHEDULE_CREATE,
+            ['event_id' => $eventId, 'title' => $title, 'start_at' => $startAt, 'end_at' => $endAt]
+        );
+
+        $this->setFlash('success', 'Événement planifié : « ' . e($title) . ' » du '
+            . $start->format('d/m/Y H:i') . ' au ' . $end->format('d/m/Y H:i') . '.');
+        $this->redirect('/moderation/events');
     }
 }
 

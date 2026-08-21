@@ -17,6 +17,7 @@
         <a href="/moderation/audit-log" class="btn btn-outline btn-sm"><i class="bi bi-journal-text"></i> Journal d'audit</a>
         <a href="/moderation/savings-rate" class="btn btn-outline btn-sm"><i class="bi bi-percent"></i> Taux d'intérêt</a>
         <a href="/moderation/features" class="btn btn-outline btn-sm"><i class="bi bi-toggles"></i> Fonctionnalités</a>
+        <a href="/moderation/events" class="btn btn-outline btn-sm"><i class="bi bi-calendar2-week"></i> Événements</a>
     </div>
 </div>
 

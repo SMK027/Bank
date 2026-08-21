@@ -13,6 +13,20 @@
 
 <div class="card" style="max-width:580px;margin:0 auto;">
     <div class="card-body">
+        <?php if (!empty($activeEvent)): ?>
+            <div class="alert alert-success" style="margin-bottom:1rem;">
+                <i class="bi bi-calendar2-week"></i>
+                Événement actif: <strong><?= e($activeEvent['title']) ?></strong>
+                (fin le <?= e((new DateTime($activeEvent['end_at']))->format('d/m/Y H:i')) ?>).
+                Les comptes événementiels nécessitent une authentification superviseur.
+            </div>
+        <?php else: ?>
+            <div class="alert alert-warning" style="margin-bottom:1rem;">
+                <i class="bi bi-pause-circle"></i>
+                Aucun événement actif: la création de comptes événementiels est fermée.
+            </div>
+        <?php endif; ?>
+
         <form method="POST" action="/moderation/accounts" novalidate>
             <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
 

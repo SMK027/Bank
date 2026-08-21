@@ -139,6 +139,16 @@ class Transaction extends Model
 
     public function addTransaction(int $accountId, string $type, float $amount, string $category, string $comment = '', int $userId = 0, ?string $scheduledAt = null, ?int $cardId = null, ?int $checkId = null): int
     {
+        $account = (new Account())->find($accountId);
+        if (!$account) {
+            throw new \RuntimeException('Compte introuvable.');
+        }
+
+        $eventBlockedReason = Account::operationBlockedReason($account);
+        if ($eventBlockedReason !== null) {
+            throw new \RuntimeException($eventBlockedReason);
+        }
+
         $row = [
             'account_id'   => $accountId,
             'user_id'      => $userId,

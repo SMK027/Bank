@@ -27,6 +27,7 @@ class Account extends Model
         'vault'    => ['label' => 'Coffre d\'entreprise',  'overdraft' => false, 'cap' => false, 'interest' => false],
         'savings'  => ['label' => 'Compte épargne',       'overdraft' => false, 'cap' => true,  'interest' => true],
         'online'   => ['label' => 'Banque en ligne',      'overdraft' => false, 'cap' => false, 'interest' => true],
+        'event'    => ['label' => 'Compte événementiel',  'overdraft' => false, 'cap' => false, 'interest' => false],
         'minor'    => ['label' => 'Compte mineur',        'overdraft' => false, 'cap' => false, 'interest' => false],
     ];
 
@@ -55,7 +56,7 @@ class Account extends Model
      * Types créables par un professionnel vérifié.
      * Les professionnels ne peuvent créer que des comptes pro ou épargne.
      */
-    public const PRO_ALLOWED_TYPES = ['pro', 'savings', 'vault'];
+    public const PRO_ALLOWED_TYPES = ['pro', 'savings', 'vault', 'event'];
 
     /**
      * Retourne les types de comptes créables via le formulaire standard.
@@ -85,6 +86,56 @@ class Account extends Model
             fn(string $key) => $key !== 'minor' && $key !== 'pro',
             ARRAY_FILTER_USE_KEY
         );
+    }
+
+    public static function isEventType(string $type): bool
+    {
+        return $type === 'event';
+    }
+
+    /**
+     * Les comptes événementiels ne sont opérationnels que durant leur fenêtre.
+     */
+    public static function isOperationalNow(array $account, ?int $atTimestamp = null): bool
+    {
+        $type = (string) ($account['type'] ?? '');
+        if (!self::isEventType($type)) {
+            return true;
+        }
+
+        $at = $atTimestamp ?? time();
+        $start = !empty($account['event_start_at']) ? strtotime((string) $account['event_start_at']) : null;
+        $end   = !empty($account['event_end_at']) ? strtotime((string) $account['event_end_at']) : null;
+
+        if ($start === null || $end === null) {
+            return false;
+        }
+
+        return $at >= $start && $at <= $end;
+    }
+
+    public static function operationBlockedReason(array $account): ?string
+    {
+        if (self::isOperationalNow($account)) {
+            return null;
+        }
+
+        if (!self::isEventType((string) ($account['type'] ?? ''))) {
+            return null;
+        }
+
+        $startRaw = $account['event_start_at'] ?? null;
+        $endRaw   = $account['event_end_at'] ?? null;
+
+        if ($startRaw && strtotime((string) $startRaw) > time()) {
+            return 'Les opérations sur ce compte événementiel ne sont pas encore ouvertes.';
+        }
+
+        if ($endRaw) {
+            return 'Cet événement est terminé depuis le ' . (new \DateTime((string) $endRaw))->format('d/m/Y à H\hi') . '. Les opérations sont définitivement bloquées.';
+        }
+
+        return 'Les opérations sur ce compte événementiel sont bloquées hors période.';
     }
 
     /**
@@ -229,7 +280,16 @@ class Account extends Model
         return $balanceBefore >= $threshold && $balanceAfter < $threshold;
     }
 
-    public function createAccount(int $userId, string $name, string $currency, float $overdraft = 0.0, string $type = 'standard', ?float $cap = null, bool $internal = false): int
+    public function createAccount(
+        int $userId,
+        string $name,
+        string $currency,
+        float $overdraft = 0.0,
+        string $type = 'standard',
+        ?float $cap = null,
+        bool $internal = false,
+        ?array $eventWindow = null
+    ): int
     {
         if (!self::typeAllowsOverdraft($type)) {
             $overdraft = 0.0;
@@ -237,7 +297,7 @@ class Account extends Model
         if (!self::typeHasCap($type)) {
             $cap = null;
         }
-        return $this->create([
+        $row = [
             'user_id'   => $userId,
             'name'      => $name,
             'currency'  => $currency,
@@ -245,7 +305,15 @@ class Account extends Model
             'type'      => $type,
             'cap'       => $cap,
             'internal'  => $internal ? 1 : 0,
-        ]);
+        ];
+
+        if ($eventWindow !== null && self::isEventType($type)) {
+            $row['event_title']    = mb_substr((string) ($eventWindow['title'] ?? ''), 0, 180);
+            $row['event_start_at'] = (string) ($eventWindow['start_at'] ?? '');
+            $row['event_end_at']   = (string) ($eventWindow['end_at'] ?? '');
+        }
+
+        return $this->create($row);
     }
 
     /**

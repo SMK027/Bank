@@ -2,6 +2,16 @@
     <div class="card">
         <div class="card-body">
             <h2><i class="bi bi-plus-circle"></i> Créer un compte bancaire</h2>
+            <?php if (!empty($activeEvent)): ?>
+            <div class="alert alert-success" style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;">
+                <i class="bi bi-calendar2-week" style="font-size:1.2rem;"></i>
+                <span>
+                    <strong>Événement actif</strong> — Vous pouvez ouvrir un compte événementiel jusqu'au
+                    <strong><?= e((new DateTime($activeEvent['end_at']))->format('d/m/Y H:i')) ?></strong>
+                    après validation superviseur.
+                </span>
+            </div>
+            <?php endif; ?>
             <?php if ($isMinor): ?>
             <div class="alert alert-warning" style="display:flex;align-items:center;gap:0.6rem;margin-bottom:1rem;">
                 <i class="bi bi-person-arms-up" style="font-size:1.2rem;"></i>

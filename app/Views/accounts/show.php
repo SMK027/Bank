@@ -21,6 +21,7 @@
  * @var bool        $isModerator
  * @var bool        $isFrozen
  * @var bool        $isDisabled
+ * @var string|null $eventBlockedReason
  * @var array       $accesses
  * @var array|null  $owner
  * @var array       $guardians
@@ -228,6 +229,16 @@
             </button>
         </form>
         <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if (!empty($eventBlockedReason)): ?>
+<div class="alert alert-danger" style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+    <i class="bi bi-calendar-x" style="font-size:1.4rem;"></i>
+    <div>
+        <strong>Compte événementiel hors période.</strong>
+        <?= e($eventBlockedReason) ?>
     </div>
 </div>
 <?php endif; ?>

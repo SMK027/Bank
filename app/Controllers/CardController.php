@@ -190,6 +190,13 @@ class CardController extends Controller
             return;
         }
 
+        $eventBlockedReason = Account::operationBlockedReason($account);
+        if ($eventBlockedReason !== null) {
+            $this->setFlash('danger', $eventBlockedReason);
+            $this->redirect('/cards/create');
+            return;
+        }
+
         if (!empty($account['disabled_at'])) {
             $this->setFlash('danger', 'Ce compte est en cours de résiliation.');
             $this->redirect('/cards/create');
@@ -263,6 +270,13 @@ class CardController extends Controller
 
         if (!Account::typeAllowsCard($account['type'] ?? '')) {
             $this->setFlash('danger', 'Les comptes d\'épargne ne peuvent pas être associés à une carte bancaire.');
+            $this->redirect('/cards');
+            return;
+        }
+
+        $eventBlockedReason = Account::operationBlockedReason($account);
+        if ($eventBlockedReason !== null) {
+            $this->setFlash('danger', $eventBlockedReason);
             $this->redirect('/cards');
             return;
         }

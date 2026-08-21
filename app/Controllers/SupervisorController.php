@@ -207,6 +207,7 @@ class SupervisorController extends Controller
         $featureKey  = trim($_GET['feature']  ?? '');
         $redirectUrl = trim($_GET['redirect'] ?? '/');
         $isStepUp    = $featureKey === self::ACCOUNT_CONTROL_STEPUP_KEY;
+        $flag        = FeatureFlag::get($featureKey);
 
         if ($isStepUp && !$this->canUseStepUpFlow()) {
             $this->setFlash('warning', 'Votre session modérateur n\'est plus active. Veuillez vous reconnecter.');
@@ -220,7 +221,7 @@ class SupervisorController extends Controller
         }
 
         // Si la fonctionnalité est en fait activée, rediriger directement
-        if (!$isStepUp && FeatureFlag::isEnabled($featureKey)) {
+        if (!$isStepUp && $flag !== null && FeatureFlag::isEnabled($featureKey)) {
             $this->redirect($this->safeRedirect($redirectUrl));
             return;
         }
@@ -230,8 +231,6 @@ class SupervisorController extends Controller
             $this->redirect($this->safeRedirect($redirectUrl));
             return;
         }
-
-        $flag = FeatureFlag::get($featureKey);
 
         $this->render('supervisor/bypass_form', [
             'title'       => 'Authentification superviseur',
