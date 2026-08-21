@@ -56,6 +56,9 @@ class DashboardController extends Controller
 
         $totalBalance = 0.0;
         foreach ($ownAccounts as $account) {
+            if (($account['type'] ?? '') === 'event') {
+                continue;
+            }
             $totalBalance += $account['balance'];
         }
 
