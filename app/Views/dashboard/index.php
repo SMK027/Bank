@@ -1,3 +1,16 @@
+<?php
+$ownEventAccounts = array_values(array_filter($ownAccounts, fn(array $a) => ($a['type'] ?? '') === 'event'));
+$ownRegularAccounts = array_values(array_filter($ownAccounts, fn(array $a) => ($a['type'] ?? '') !== 'event'));
+
+$internalEventAccounts = array_values(array_filter($internalAccounts ?? [], fn(array $a) => ($a['type'] ?? '') === 'event'));
+$internalRegularAccounts = array_values(array_filter($internalAccounts ?? [], fn(array $a) => ($a['type'] ?? '') !== 'event'));
+
+$sharedEventAccounts = array_values(array_filter($sharedAccounts, fn(array $a) => ($a['type'] ?? '') === 'event'));
+$sharedRegularAccounts = array_values(array_filter($sharedAccounts, fn(array $a) => ($a['type'] ?? '') !== 'event'));
+
+$eventAccountsCount = count($ownEventAccounts) + count($internalEventAccounts) + count($sharedEventAccounts);
+?>
+
 <div class="page-header">
     <div>
         <h1><i class="bi bi-bank2"></i> Tableau de bord</h1>
@@ -17,16 +30,20 @@
         <div class="stat-label">Solde total (comptes personnels)</div>
     </div>
     <div class="stat-card">
-        <div class="stat-value"><?= count($ownAccounts) ?></div>
-        <div class="stat-label">Mes comptes</div>
+        <div class="stat-value"><?= count($ownRegularAccounts) ?></div>
+        <div class="stat-label">Mes comptes (hors événement)</div>
     </div>
     <div class="stat-card">
-        <div class="stat-value"><?= count($sharedAccounts) ?></div>
-        <div class="stat-label">Comptes partagés</div>
+        <div class="stat-value"><?= count($sharedRegularAccounts) ?></div>
+        <div class="stat-label">Comptes partagés (hors événement)</div>
     </div>
-    <?php if (!empty($internalAccounts)): ?>
     <div class="stat-card">
-        <div class="stat-value"><?= count($internalAccounts) ?></div>
+        <div class="stat-value"><?= $eventAccountsCount ?></div>
+        <div class="stat-label">Comptes événementiels</div>
+    </div>
+    <?php if (!empty($internalRegularAccounts)): ?>
+    <div class="stat-card">
+        <div class="stat-value"><?= count($internalRegularAccounts) ?></div>
         <div class="stat-label">Comptes internes (test)</div>
     </div>
     <?php endif; ?>
@@ -35,7 +52,7 @@
 <!-- Mes comptes -->
 <h2 class="mb-2"><i class="bi bi-wallet2"></i> Mes comptes</h2>
 
-<?php if (empty($ownAccounts)): ?>
+<?php if (empty($ownRegularAccounts)): ?>
     <div class="empty-state">
         <div class="empty-icon">🏦</div>
         <?php if ($isMinor): ?>
@@ -48,7 +65,7 @@
     </div>
 <?php else: ?>
     <div class="card-grid">
-        <?php foreach ($ownAccounts as $account): ?>
+        <?php foreach ($ownRegularAccounts as $account): ?>
             <a href="/accounts/<?= (int) $account['id'] ?>" class="card-link">
                 <div class="card account-card <?= $account['balance'] >= 0 ? 'account-positive' : 'account-negative' ?> <?= !empty($account['frozen']) ? 'account-frozen' : '' ?>">
                     <div class="card-body">
@@ -105,8 +122,112 @@
     </div>
 <?php endif; ?>
 
+<?php if ($eventAccountsCount > 0): ?>
+    <h2 class="mt-3 mb-2" style="color:#0f766e;">
+        <i class="bi bi-calendar2-week"></i> Comptes événementiels
+    </h2>
+    <div class="alert" style="background:rgba(15,118,110,0.1);border-left:4px solid #0f766e;font-size:0.85rem;padding:0.6rem 1rem;margin-bottom:0.75rem;">
+        <i class="bi bi-info-circle"></i>
+        Les comptes événementiels sont valides uniquement jusqu'à la date de fin de l'événement et ne sont pas reconductibles.
+    </div>
+
+    <div class="card-grid">
+        <?php foreach ($ownEventAccounts as $account): ?>
+            <a href="/accounts/<?= (int) $account['id'] ?>" class="card-link">
+                <div class="card account-card <?= $account['balance'] >= 0 ? 'account-positive' : 'account-negative' ?> <?= !empty($account['frozen']) ? 'account-frozen' : '' ?>" style="border-top:3px solid #0f766e;">
+                    <div class="card-body">
+                        <div class="d-flex justify-between align-center mb-1">
+                            <h3 style="margin:0"><?= e($account['name']) ?></h3>
+                            <div style="display:flex;gap:0.3rem;align-items:center;flex-wrap:wrap;">
+                                <span class="badge" style="background:#0f766e;color:#fff;font-size:0.72em;">
+                                    <i class="bi bi-calendar2-week"></i> Événement
+                                </span>
+                                <span class="badge badge-success">Personnel</span>
+                            </div>
+                        </div>
+                        <div class="account-balance <?= $account['balance'] >= 0 ? 'balance-positive' : 'balance-negative' ?>">
+                            <?= fmt_amount_smart($account['balance']) ?> <?= e($account['currency']) ?>
+                        </div>
+                        <div class="text-small mt-1" style="color:#0f766e;">
+                            <i class="bi bi-calendar-x"></i> Fin d'événement :
+                            <strong><?= !empty($account['event_end_at']) ? e((new DateTime($account['event_end_at']))->format('d/m/Y à H\hi')) : 'Non définie' ?></strong>
+                        </div>
+                        <div class="text-small text-muted mt-1">
+                            <i class="bi bi-slash-circle"></i> Non reconductible
+                        </div>
+                    </div>
+                </div>
+            </a>
+        <?php endforeach; ?>
+
+        <?php foreach ($internalEventAccounts as $account): ?>
+            <a href="/accounts/<?= (int) $account['id'] ?>" class="card-link">
+                <div class="card account-card <?= $account['balance'] >= 0 ? 'account-positive' : 'account-negative' ?> <?= !empty($account['frozen']) ? 'account-frozen' : '' ?>" style="border-top:3px solid #0f766e;">
+                    <div class="card-body">
+                        <div class="d-flex justify-between align-center mb-1">
+                            <h3 style="margin:0"><?= e($account['name']) ?></h3>
+                            <div style="display:flex;gap:0.3rem;align-items:center;flex-wrap:wrap;">
+                                <span class="badge" style="background:#0f766e;color:#fff;font-size:0.72em;">
+                                    <i class="bi bi-calendar2-week"></i> Événement
+                                </span>
+                                <span class="badge" style="background:var(--warning,#f59e0b);color:#fff;font-size:0.72em;">
+                                    <i class="bi bi-tools"></i> Interne
+                                </span>
+                            </div>
+                        </div>
+                        <div class="account-balance <?= $account['balance'] >= 0 ? 'balance-positive' : 'balance-negative' ?>">
+                            <?= fmt_amount_smart($account['balance']) ?> <?= e($account['currency']) ?>
+                        </div>
+                        <div class="text-small mt-1" style="color:#0f766e;">
+                            <i class="bi bi-calendar-x"></i> Fin d'événement :
+                            <strong><?= !empty($account['event_end_at']) ? e((new DateTime($account['event_end_at']))->format('d/m/Y à H\hi')) : 'Non définie' ?></strong>
+                        </div>
+                        <div class="text-small text-muted mt-1">
+                            <i class="bi bi-slash-circle"></i> Non reconductible
+                        </div>
+                    </div>
+                </div>
+            </a>
+        <?php endforeach; ?>
+
+        <?php foreach ($sharedEventAccounts as $account): ?>
+            <a href="/accounts/<?= (int) $account['id'] ?>" class="card-link">
+                <div class="card account-card account-shared <?= !empty($account['frozen']) ? 'account-frozen' : '' ?>" style="border-top:3px solid #0f766e;">
+                    <div class="card-body">
+                        <div class="d-flex justify-between align-center mb-1">
+                            <h3 style="margin:0"><?= e($account['name']) ?></h3>
+                            <div style="display:flex;gap:0.3rem;align-items:center;flex-wrap:wrap;">
+                                <span class="badge" style="background:#0f766e;color:#fff;font-size:0.72em;">
+                                    <i class="bi bi-calendar2-week"></i> Événement
+                                </span>
+                                <?php if (($account['_access_type'] ?? '') === 'guardian'): ?>
+                                    <span class="badge" style="background:#f59e0b;color:#fff;">
+                                        <i class="bi bi-person-lock"></i> Responsable légal
+                                    </span>
+                                <?php else: ?>
+                                    <span class="badge badge-info">Partagé</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <div class="account-balance <?= $account['balance'] >= 0 ? 'balance-positive' : 'balance-negative' ?>">
+                            <?= fmt_amount_smart($account['balance']) ?> <?= e($account['currency']) ?>
+                        </div>
+                        <div class="text-small mt-1" style="color:#0f766e;">
+                            <i class="bi bi-calendar-x"></i> Fin d'événement :
+                            <strong><?= !empty($account['event_end_at']) ? e((new DateTime($account['event_end_at']))->format('d/m/Y à H\hi')) : 'Non définie' ?></strong>
+                        </div>
+                        <div class="text-small text-muted mt-1">
+                            <i class="bi bi-slash-circle"></i> Non reconductible
+                        </div>
+                    </div>
+                </div>
+            </a>
+        <?php endforeach; ?>
+    </div>
+<?php endif; ?>
+
 <!-- Comptes internes de modération -->
-<?php if (!empty($internalAccounts)): ?>
+<?php if (!empty($internalRegularAccounts)): ?>
     <h2 class="mt-3 mb-2" style="color:var(--warning,#f59e0b);">
         <i class="bi bi-tools"></i> Comptes internes (test)
     </h2>
@@ -115,7 +236,7 @@
         Ces comptes sont réservés à la modération. Ils autorisent toutes les opérations bancaires et ne peuvent pas être partagés.
     </div>
     <div class="card-grid">
-        <?php foreach ($internalAccounts as $account): ?>
+        <?php foreach ($internalRegularAccounts as $account): ?>
             <a href="/accounts/<?= (int) $account['id'] ?>" class="card-link">
                 <div class="card account-card <?= $account['balance'] >= 0 ? 'account-positive' : 'account-negative' ?> <?= !empty($account['frozen']) ? 'account-frozen' : '' ?>"
                      style="border-top:3px solid var(--warning,#f59e0b);">
@@ -155,10 +276,10 @@
 <?php endif; ?>
 
 <!-- Comptes partagés et sous tutelle -->
-<?php if (!empty($sharedAccounts)): ?>
+<?php if (!empty($sharedRegularAccounts)): ?>
     <h2 class="mt-3 mb-2"><i class="bi bi-people"></i> Comptes partagés & sous tutelle</h2>
     <div class="card-grid">
-        <?php foreach ($sharedAccounts as $account): ?>
+        <?php foreach ($sharedRegularAccounts as $account): ?>
             <a href="/accounts/<?= (int) $account['id'] ?>" class="card-link">
                 <div class="card account-card account-shared <?= !empty($account['frozen']) ? 'account-frozen' : '' ?>">
                     <div class="card-body">

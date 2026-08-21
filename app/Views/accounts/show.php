@@ -61,6 +61,11 @@
             <?php if (!empty($account['hidden_from_owner'])): ?>
                 <span class="badge" style="background:#6b7280;color:#fff;font-size:0.55em;vertical-align:middle;" title="Ce compte est masqué pour son propriétaire"><i class="bi bi-eye-slash"></i> Masqué</span>
             <?php endif; ?>
+            <?php if (($account['type'] ?? '') === 'event'): ?>
+                <span class="badge" style="background:#0f766e;color:#fff;font-size:0.55em;vertical-align:middle;">
+                    <i class="bi bi-calendar2-week"></i> Événementiel
+                </span>
+            <?php endif; ?>
         </h1>
         <p class="page-description">
             <?php if ($isOwner): ?>
@@ -78,6 +83,13 @@
                 Compte partagé par <?= e($owner['username'] ?? 'Inconnu') ?> — Devise : <?= e($account['currency']) ?>
             <?php endif; ?>
         </p>
+        <?php if (($account['type'] ?? '') === 'event'): ?>
+            <p class="page-description" style="margin-top:0.25rem;color:#0f766e;">
+                <i class="bi bi-calendar-x"></i>
+                Fin de validité: <strong><?= !empty($account['event_end_at']) ? e((new DateTime($account['event_end_at']))->format('d/m/Y à H\hi')) : 'Non définie' ?></strong>
+                · Compte non reconductible.
+            </p>
+        <?php endif; ?>
     </div>
     <div class="btn-group">
         <a href="<?= $isModerator && !$isOwner ? '/moderation' : '/dashboard' ?>" class="btn btn-outline btn-sm"><i class="bi bi-arrow-left"></i> Retour</a>
@@ -239,6 +251,16 @@
     <div>
         <strong>Compte événementiel hors période.</strong>
         <?= e($eventBlockedReason) ?>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if (($account['type'] ?? '') === 'event' && empty($eventBlockedReason)): ?>
+<div class="alert" style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;background:rgba(15,118,110,0.12);border-left:4px solid #0f766e;">
+    <i class="bi bi-info-circle" style="font-size:1.2rem;color:#0f766e;"></i>
+    <div style="color:#0f766e;">
+        <strong>Compte événementiel actif.</strong>
+        Ce compte reste utilisable jusqu'à la fin de l'événement puis devient définitivement non opérationnel (non reconductible).
     </div>
 </div>
 <?php endif; ?>
