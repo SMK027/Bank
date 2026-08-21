@@ -19,7 +19,7 @@ use App\Models\Supervisor;
  */
 class SupervisorController extends Controller
 {
-    private const ACCOUNT_CONTROL_STEPUP_KEY = 'moderation.account_control_stepup';
+    protected const ACCOUNT_CONTROL_STEPUP_KEY = 'moderation.account_control_stepup';
 
     private Supervisor $supervisorModel;
 
