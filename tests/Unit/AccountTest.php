@@ -249,4 +249,32 @@ class AccountTest extends TestCase
         $this->assertGreaterThanOrEqual(0.0, $compensation);
         $this->assertFalse($upgradeModel->isPassiveIncomePaused($id));
     }
+
+    public function testEventEconomySummaryProvidesProgressionMetrics(): void
+    {
+        $id = $this->account->createAccount(
+            1,
+            'Festival local',
+            'EUR',
+            0.0,
+            'event',
+            null,
+            false,
+            [
+                'title' => 'Festival local',
+                'start_at' => date('Y-m-d H:i:s', time() - 3600),
+                'end_at' => date('Y-m-d H:i:s', time() + 3600),
+            ]
+        );
+
+        $upgradeModel = new EventAccountUpgrade();
+        $this->assertTrue($upgradeModel->buyUpgrade($id, 'ticket_booth', 1));
+
+        $summary = $upgradeModel->getEventEconomySummary($id);
+        $this->assertArrayHasKey('prestige_tier', $summary);
+        $this->assertArrayHasKey('total_income_per_minute', $summary);
+        $this->assertGreaterThan(0.0, $summary['total_income_per_minute']);
+        $this->assertGreaterThanOrEqual(1, $summary['owned_upgrades_count']);
+        $this->assertNotEmpty($summary['next_upgrade_key']);
+    }
 }

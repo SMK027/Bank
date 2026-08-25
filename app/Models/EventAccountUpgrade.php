@@ -35,6 +35,30 @@ class EventAccountUpgrade extends Model
             'income_per_hour' => 420.0,
             'description' => 'Des offres premium et un accueil exclusif maximisent les revenus.',
         ],
+        'sound_system' => [
+            'label' => 'Sono et éclairage live',
+            'cost' => 780.0,
+            'income_per_hour' => 620.0,
+            'description' => 'Une scène bien équipée favorise les retours, les artistes et les ventes de boissons.',
+        ],
+        'sponsor_wall' => [
+            'label' => 'Mur de sponsors',
+            'cost' => 1100.0,
+            'income_per_hour' => 930.0,
+            'description' => 'Des partenariats crédibles ajoutent des ressources et une visibilité massive.',
+        ],
+        'main_stage' => [
+            'label' => 'Scène principale',
+            'cost' => 1500.0,
+            'income_per_hour' => 1380.0,
+            'description' => 'Un grand espace de concert attire plus de public et transforme l’événement en attraction.',
+        ],
+        'food_court' => [
+            'label' => 'Cour de restauration',
+            'cost' => 1900.0,
+            'income_per_hour' => 1820.0,
+            'description' => 'Une zone gastronomie complète multiplie les achats et la durée de présence sur site.',
+        ],
     ];
 
     public static function getDefinitions(): array
@@ -64,6 +88,34 @@ class EventAccountUpgrade extends Model
     public static function getIncomePerMinute(float $incomePerHour): float
     {
         return round($incomePerHour / 60.0, 6);
+    }
+
+    public static function getTotalSpentForOwned(float $baseCost, int $ownedQuantity): float
+    {
+        $total = 0.0;
+        for ($i = 0; $i < $ownedQuantity; $i++) {
+            $total += self::getCostForNextUnit($baseCost, $i);
+        }
+
+        return round($total, 2);
+    }
+
+    public static function getPrestigeTier(float $totalIncomePerMinute): string
+    {
+        if ($totalIncomePerMinute >= 40.0) {
+            return 'Événement légendaire';
+        }
+        if ($totalIncomePerMinute >= 20.0) {
+            return 'Événement premium';
+        }
+        if ($totalIncomePerMinute >= 8.0) {
+            return 'Événement populaire';
+        }
+        if ($totalIncomePerMinute >= 2.0) {
+            return 'Bons débuts';
+        }
+
+        return 'Démarrage';
     }
 
     public function getShopState(int $accountId): array
@@ -97,10 +149,45 @@ class EventAccountUpgrade extends Model
                 'total_income_per_hour' => $owned * $incomePerHour,
                 'total_income_per_minute' => $owned * $incomePerMinute,
                 'next_cost' => $nextCost,
+                'total_spent' => self::getTotalSpentForOwned($baseCost, $owned),
             ];
         }
 
         return $shop;
+    }
+
+    public function getEventEconomySummary(int $accountId): array
+    {
+        $shop = $this->getShopState($accountId);
+        $totalIncomePerMinute = 0.0;
+        $ownedUpgradesCount = 0;
+        $totalSpent = 0.0;
+        $nextUpgrade = null;
+
+        foreach ($shop as $upgrade) {
+            $totalIncomePerMinute += (float) ($upgrade['total_income_per_minute'] ?? 0.0);
+            $ownedUpgradesCount += (int) ($upgrade['owned'] ?? 0);
+            $totalSpent += (float) ($upgrade['total_spent'] ?? 0.0);
+
+            if ($nextUpgrade === null && ((int) ($upgrade['owned'] ?? 0)) < 3) {
+                $nextUpgrade = $upgrade;
+            }
+        }
+
+        if ($nextUpgrade === null) {
+            $nextUpgrade = end($shop) ?: null;
+        }
+
+        return [
+            'total_income_per_minute' => round($totalIncomePerMinute, 4),
+            'total_income_per_hour' => round($totalIncomePerMinute * 60.0, 2),
+            'owned_upgrades_count' => $ownedUpgradesCount,
+            'total_spent' => round($totalSpent, 2),
+            'prestige_tier' => self::getPrestigeTier($totalIncomePerMinute),
+            'next_upgrade_key' => $nextUpgrade['key'] ?? null,
+            'next_upgrade_label' => $nextUpgrade['label'] ?? null,
+            'next_upgrade_cost' => (float) ($nextUpgrade['next_cost'] ?? 0.0),
+        ];
     }
 
     public function isPassiveIncomePaused(int $accountId): bool

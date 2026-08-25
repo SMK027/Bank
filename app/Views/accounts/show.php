@@ -266,6 +266,7 @@
 <?php 
     $eventUpgradeShop = (new \App\Models\EventAccountUpgrade())->getShopState((int) $account['id']);
     $eventPassiveIncome = (new \App\Models\EventAccountUpgrade())->getPassiveIncome((int) $account['id']);
+    $eventEconomySummary = (new \App\Models\EventAccountUpgrade())->getEventEconomySummary((int) $account['id']);
 ?>
 <div class="card mb-3" style="border-left:4px solid #0f766e;background:linear-gradient(135deg, rgba(15,118,110,0.08), rgba(16,185,129,0.04));">
     <div class="card-header" style="background:transparent;border-bottom:1px solid rgba(15,118,110,0.15);">
@@ -281,6 +282,25 @@
                 <div class="stat-value text-success">+<?= fmt_amount_smart($eventPassiveIncome) ?>/min</div>
                 <div class="stat-label">Revenu passif</div>
             </div>
+            <div class="stat-card" style="border-left:3px solid #0f766e;">
+                <div class="stat-value text-success"><?= e($eventEconomySummary['prestige_tier']) ?></div>
+                <div class="stat-label">Niveau de prestige</div>
+            </div>
+            <div class="stat-card" style="border-left:3px solid #0f766e;">
+                <div class="stat-value text-success"><?= (int) $eventEconomySummary['owned_upgrades_count'] ?></div>
+                <div class="stat-label">Améliorations possédées</div>
+            </div>
+        </div>
+
+        <div class="alert alert-light" style="margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+            <div>
+                <strong>Prochaine étape :</strong>
+                <?= e($eventEconomySummary['next_upgrade_label'] ?? 'Aucune amélioration supplémentaire disponible') ?>
+                <?php if (!empty($eventEconomySummary['next_upgrade_cost'])): ?>
+                    pour <?= fmt_amount_smart((float) $eventEconomySummary['next_upgrade_cost']) ?>.
+                <?php endif; ?>
+            </div>
+            <div class="text-success"><strong>Investissement total :</strong> <?= fmt_amount_smart((float) $eventEconomySummary['total_spent']) ?></div>
         </div>
 
         <?php $passiveIncomePaused = (new \App\Models\EventAccountUpgrade())->isPassiveIncomePaused((int) $account['id']); ?>
