@@ -871,6 +871,12 @@ class TransactionController extends Controller
             return false;
         }
 
+        if (!Account::manualOperationsAllowed((string) ($account['type'] ?? ''))) {
+            $this->setFlash('danger', 'Les opérations manuelles sont désactivées sur les comptes événementiels.');
+            $this->redirect($redirect);
+            return false;
+        }
+
         $reason = Account::operationBlockedReason($account);
         if ($reason !== null) {
             $this->setFlash('danger', $reason);

@@ -177,9 +177,14 @@ class Account extends Model
      * Indique si un type de compte peut être associé à une carte bancaire.
      * Les comptes d'épargne sont exclus.
      */
+    public static function manualOperationsAllowed(string $type): bool
+    {
+        return !self::isEventType($type);
+    }
+
     public static function typeAllowsCard(string $type): bool
     {
-        return !in_array($type, ['savings', 'vault'], true);
+        return !in_array($type, ['savings', 'vault', 'event'], true);
     }
 
     // ── Suspension TPE d'un compte professionnel ─────────────────────────────

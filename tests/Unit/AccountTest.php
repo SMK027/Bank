@@ -165,8 +165,7 @@ class AccountTest extends TestCase
     {
         $types = Account::getAllowedTypes(false, true);
         $keys = array_keys($types);
-        // Pro ne peut créer que pro + épargne
-        $this->assertSame(['pro', 'savings'], $keys);
+        $this->assertSame(['pro', 'vault', 'savings', 'event'], $keys);
         $this->assertArrayNotHasKey('standard', $types);
         $this->assertArrayNotHasKey('joint', $types);
         $this->assertArrayNotHasKey('online', $types);
@@ -178,5 +177,11 @@ class AccountTest extends TestCase
         $types = Account::getAllowedTypes(true, true);
         $this->assertArrayNotHasKey('pro', $types);
         $this->assertArrayHasKey('savings', $types);
+    }
+
+    public function testEventAccountsDoNotAllowCardsOrManualOperations(): void
+    {
+        $this->assertFalse(Account::typeAllowsCard('event'));
+        $this->assertFalse(Account::manualOperationsAllowed('event'));
     }
 }

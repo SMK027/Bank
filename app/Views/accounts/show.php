@@ -575,6 +575,15 @@
                 Les crédits dépassant ce plafond sont bloqués.
             </div>
             <?php endif; ?>
+            <?php if (($account['type'] ?? '') === 'event'): ?>
+            <div class="alert alert-warning" style="margin-bottom:1rem;display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+                <i class="bi bi-slash-circle" style="font-size:1.2rem;"></i>
+                <div>
+                    <strong>Opérations manuelles désactivées.</strong>
+                    Les comptes événementiels ne peuvent ni recevoir de carte bancaire ni de chéquier, ni accepter d'opérations manuelles de débit/crédit.
+                </div>
+            </div>
+            <?php else: ?>
             <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/transactions"
                   id="transaction-form"
                   data-balance="<?= e((string) $balance) ?>"
