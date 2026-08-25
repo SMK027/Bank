@@ -352,7 +352,11 @@
                         <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-upgrades/buy" style="margin-top:0.85rem;">
                             <?= csrf_field() ?>
                             <input type="hidden" name="upgrade_key" value="<?= e($upgrade['key']) ?>">
-                            <button type="submit" class="btn btn-sm btn-primary" style="width:100%;">
+                            <div style="display:flex;gap:0.5rem;align-items:center;">
+                                <label for="qty_<?= e($upgrade['key']) ?>" style="font-size:0.8rem;color:var(--text-muted);margin:0;">Qté</label>
+                                <input id="qty_<?= e($upgrade['key']) ?>" type="number" name="quantity" min="1" max="99" value="1" class="form-control form-control-sm" style="max-width:80px;">
+                            </div>
+                            <button type="submit" class="btn btn-sm btn-primary" style="width:100%;margin-top:0.75rem;">
                                 <i class="bi bi-cart-plus"></i> Acheter
                             </button>
                         </form>

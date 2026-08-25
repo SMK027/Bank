@@ -259,13 +259,21 @@ class AccountController extends Controller
         }
 
         $upgradeKey = trim((string) ($_POST['upgrade_key'] ?? ''));
-        if ($upgradeKey === '' || !$this->eventAccountUpgradeModel->buyUpgrade($accountId, $upgradeKey, 1)) {
-            $this->setFlash('danger', 'Achats impossible : fonds insuffisants, amélioration invalide, ou versement automatique suspendu.');
+        $quantity = isset($_POST['quantity']) ? (int) $_POST['quantity'] : 1;
+        $quantity = max(1, min(99, $quantity));
+
+        if ($upgradeKey === '' || !$this->eventAccountUpgradeModel->buyUpgrade($accountId, $upgradeKey, $quantity)) {
+            $this->setFlash('danger', 'Achat impossible : fonds insuffisants, amélioration invalide, quantité non valide, ou versement automatique suspendu.');
             $this->redirect('/accounts/' . $accountId);
             return;
         }
 
-        $this->setFlash('success', 'Amélioration ajoutée avec succès !');
+        $label = EventAccountUpgrade::UPGRADES[$upgradeKey]['label'] ?? 'amélioration';
+        $this->setFlash('success', sprintf(
+            '%s ajoutée%s avec succès !',
+            $label,
+            $quantity > 1 ? ' (x' . $quantity . ')' : ''
+        ));
         $this->redirect('/accounts/' . $accountId);
     }
 

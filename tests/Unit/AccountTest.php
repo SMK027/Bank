@@ -278,6 +278,31 @@ class AccountTest extends TestCase
         $this->assertNotEmpty($summary['next_upgrade_key']);
     }
 
+    public function testEventUpgradeCanBeBoughtInBulk(): void
+    {
+        $id = $this->account->createAccount(
+            1,
+            'Festival local',
+            'EUR',
+            0.0,
+            'event',
+            null,
+            false,
+            [
+                'title' => 'Festival local',
+                'start_at' => date('Y-m-d H:i:s', time() - 3600),
+                'end_at' => date('Y-m-d H:i:s', time() + 3600),
+            ]
+        );
+
+        $upgradeModel = new EventAccountUpgrade();
+        $this->assertTrue($upgradeModel->buyUpgrade($id, 'ticket_booth', 3));
+
+        $shop = $upgradeModel->getShopState($id);
+        $this->assertSame(3, (int) $shop['ticket_booth']['owned']);
+        $this->assertGreaterThan(0.0, $shop['ticket_booth']['total_income_per_minute']);
+    }
+
     public function testEventLeaderboardRanksAccountsByPerformance(): void
     {
         $firstId = $this->account->createAccount(
