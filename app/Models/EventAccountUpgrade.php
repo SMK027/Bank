@@ -418,7 +418,7 @@ class EventAccountUpgrade extends Model
 
     public function getPassiveIncome(int $accountId): float
     {
-        $total = 0.0;
+        $total = 25.0;
         foreach ($this->getShopState($accountId) as $upgrade) {
             $total += (float) ($upgrade['total_income_per_minute'] ?? 0.0);
         }
@@ -428,7 +428,7 @@ class EventAccountUpgrade extends Model
             $total *= (1.0 - $reduction);
         }
 
-        return round($total, 4);
+        return round(max(25.0, $total), 4);
     }
 
     public function creditPassiveIncomeForAccount(int $accountId): float

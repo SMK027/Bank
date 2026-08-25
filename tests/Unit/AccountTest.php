@@ -207,14 +207,14 @@ class AccountTest extends TestCase
         $this->assertEquals(500.0, $this->account->getBalance($id));
 
         $upgradeModel = new EventAccountUpgrade();
-        $this->assertSame(0.0, $upgradeModel->getPassiveIncome($id));
+        $this->assertEqualsWithDelta(25.0, $upgradeModel->getPassiveIncome($id), 0.001);
 
         $initialCost = $upgradeModel->getShopState($id)['ticket_booth']['cost'];
         $this->assertEqualsWithDelta(80.0, $initialCost, 0.001);
 
         $this->assertTrue($upgradeModel->buyUpgrade($id, 'ticket_booth', 1));
-        $this->assertGreaterThan(0.0, $upgradeModel->getPassiveIncome($id));
-        $this->assertEqualsWithDelta(0.5, $upgradeModel->getPassiveIncome($id), 0.001);
+        $this->assertGreaterThan(25.0, $upgradeModel->getPassiveIncome($id));
+        $this->assertEqualsWithDelta(25.5, $upgradeModel->getPassiveIncome($id), 0.001);
 
         $nextCost = $upgradeModel->getShopState($id)['ticket_booth']['cost'];
         $this->assertGreaterThan($initialCost, $nextCost);
@@ -248,6 +248,27 @@ class AccountTest extends TestCase
         $compensation = $upgradeModel->resumePassiveIncome($id);
         $this->assertGreaterThanOrEqual(0.0, $compensation);
         $this->assertFalse($upgradeModel->isPassiveIncomePaused($id));
+    }
+
+    public function testEventAlwaysHasMinimumPassiveIncome(): void
+    {
+        $id = $this->account->createAccount(
+            1,
+            'Festival local',
+            'EUR',
+            0.0,
+            'event',
+            null,
+            false,
+            [
+                'title' => 'Festival local',
+                'start_at' => date('Y-m-d H:i:s', time() - 3600),
+                'end_at' => date('Y-m-d H:i:s', time() + 3600),
+            ]
+        );
+
+        $upgradeModel = new EventAccountUpgrade();
+        $this->assertEqualsWithDelta(25.0, $upgradeModel->getPassiveIncome($id), 0.001);
     }
 
     public function testEventEconomySummaryProvidesProgressionMetrics(): void
