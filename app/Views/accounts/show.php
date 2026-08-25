@@ -349,12 +349,19 @@
                             <span><strong><?= fmt_amount_smart((float) $upgrade['cost']) ?></strong> / achat</span>
                             <span class="text-success">+<?= fmt_amount_smart((float) $upgrade['income_per_minute']) ?> / min</span>
                         </div>
-                        <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-upgrades/buy" style="margin-top:0.85rem;">
+                        <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-upgrades/buy" style="margin-top:0.85rem;"
+                              data-upgrade-form="<?= e($upgrade['key']) ?>"
+                              data-base-cost="<?= (float) $upgrade['cost'] ?>"
+                              data-owned="<?= (int) $upgrade['owned'] ?>"
+                              data-growth="0.65">
                             <?= csrf_field() ?>
                             <input type="hidden" name="upgrade_key" value="<?= e($upgrade['key']) ?>">
                             <div style="display:flex;gap:0.5rem;align-items:center;">
                                 <label for="qty_<?= e($upgrade['key']) ?>" style="font-size:0.8rem;color:var(--text-muted);margin:0;">Qté</label>
-                                <input id="qty_<?= e($upgrade['key']) ?>" type="number" name="quantity" min="1" max="99" value="1" class="form-control form-control-sm" style="max-width:80px;">
+                                <input id="qty_<?= e($upgrade['key']) ?>" type="number" name="quantity" min="1" max="99" value="1" class="form-control form-control-sm event-upgrade-qty" style="max-width:80px;" data-upgrade-key="<?= e($upgrade['key']) ?>">
+                            </div>
+                            <div class="event-upgrade-total" data-upgrade-key="<?= e($upgrade['key']) ?>" style="margin-top:0.6rem;font-size:0.82rem;color:var(--text-muted);">
+                                Total estimé : <strong><?= fmt_amount_smart((float) $upgrade['cost']) ?></strong>
                             </div>
                             <button type="submit" class="btn btn-sm btn-primary" style="width:100%;margin-top:0.75rem;">
                                 <i class="bi bi-cart-plus"></i> Acheter
@@ -367,6 +374,52 @@
     </div>
 </div>
 <?php endif; ?>
+
+<script>
+(function computeUpgradeCost(baseCost, ownedQuantity, qty) {
+    const growth = 0.65;
+    let total = 0;
+    for (let i = 0; i < qty; i++) {
+        const nextOwned = ownedQuantity + i;
+        const unitCost = baseCost * (1 + (nextOwned * growth));
+        total += unitCost;
+    }
+    return total;
+}
+
+function attachUpgradeTotalCalculation() {
+    const qtyInputs = document.querySelectorAll('.event-upgrade-qty');
+    qtyInputs.forEach((input) => {
+        const key = input.dataset.upgradeKey;
+        const form = input.closest('form[data-upgrade-form]');
+        if (!form || !key) {
+            return;
+        }
+
+        const baseCost = Number(form.dataset.baseCost || 0);
+        const owned = Number(form.dataset.owned || 0);
+        const totalLabel = document.querySelector('.event-upgrade-total[data-upgrade-key="' + key + '"]');
+
+        const update = () => {
+            const qty = Math.max(1, Math.min(99, Number(input.value || 1)));
+            const total = computeUpgradeCost(baseCost, owned, qty);
+            if (totalLabel) {
+                totalLabel.innerHTML = 'Total estimé : <strong>' + new Intl.NumberFormat('fr-FR', {
+                    style: 'currency',
+                    currency: 'EUR',
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                }).format(total) + '</strong>';
+            }
+        };
+
+        input.addEventListener('input', update);
+        update();
+    });
+}
+
+document.addEventListener('DOMContentLoaded', attachUpgradeTotalCalculation);
+</script>
 
 <?php if ($isOwner && empty($account['type'])): ?>
 <div class="alert alert-warning" style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
