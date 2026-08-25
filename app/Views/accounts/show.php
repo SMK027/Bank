@@ -364,7 +364,7 @@
 
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;">
             <?php foreach ($eventUpgradeShop as $upgrade): ?>
-                <div class="card" style="border:1px solid rgba(15,118,110,0.2);background:rgba(255,255,255,0.7);">
+                <div class="card event-upgrade-card" style="border:1px solid rgba(15,118,110,0.2);background:rgba(255,255,255,0.7);">
                     <div class="card-body" style="padding:1rem;">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.75rem;">
                             <div>
@@ -447,6 +447,66 @@
     </div>
 </div>
 <?php endif; ?>
+
+<style>
+@media (max-width: 767px) {
+    .account-show-page .stats-grid {
+        grid-template-columns: 1fr !important;
+        gap: 0.75rem !important;
+    }
+
+    .account-show-page .card-body {
+        padding: 0.8rem !important;
+    }
+
+    .account-show-page .event-upgrade-card .card-body {
+        padding: 0.75rem !important;
+    }
+
+    .account-show-page .event-upgrade-card .card-body > div,
+    .account-show-page .event-upgrade-card .card-body > form {
+        display: block !important;
+    }
+
+    .account-show-page .event-upgrade-card .card-body > div:first-child {
+        margin-bottom: 0.5rem;
+    }
+
+    .account-show-page .event-upgrade-card .btn,
+    .account-show-page .event-upgrade-card form .btn {
+        width: 100%;
+    }
+
+    .account-show-page .event-upgrade-card form {
+        gap: 0.5rem;
+    }
+
+    .account-show-page .event-upgrade-card form > div {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+
+    .account-show-page .event-upgrade-card .form-control,
+    .account-show-page .event-upgrade-card .form-control-sm {
+        min-height: 2.5rem;
+    }
+
+    .account-show-page .modal-dialog {
+        margin: 0.75rem;
+    }
+
+    .account-show-page .modal-body,
+    .account-show-page .modal-footer {
+        padding: 0.9rem;
+    }
+
+    .account-show-page .alert {
+        padding: 0.75rem !important;
+    }
+}
+</style>
 
 <script>
 function computeUpgradeCost(baseCost, ownedQuantity, qty) {
