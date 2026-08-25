@@ -214,6 +214,16 @@ class TestDatabase
                 updated_at        TEXT
             );
 
+            CREATE TABLE IF NOT EXISTS event_schedules (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                title      TEXT     NOT NULL,
+                start_at   TEXT     NOT NULL,
+                end_at     TEXT     NOT NULL,
+                created_by INTEGER  NOT NULL DEFAULT 0,
+                created_at TEXT,
+                updated_at TEXT
+            );
+
             CREATE TABLE IF NOT EXISTS payment_cards (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id     INTEGER NOT NULL DEFAULT 0,

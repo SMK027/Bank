@@ -1,6 +1,7 @@
 <?php
 /** @var array $events */
 /** @var array|null $active */
+/** @var array|null $editEvent */
 ?>
 <div class="page-header">
     <div>
@@ -25,6 +26,35 @@
 <div class="alert alert-warning" style="margin-bottom:1rem;">
     <i class="bi bi-pause-circle"></i>
     Aucun événement actif actuellement. L'ouverture de comptes événementiels est fermée.
+</div>
+<?php endif; ?>
+
+<?php if ($editEvent): ?>
+<div class="card" style="max-width:760px;margin:0 auto 1.5rem;">
+    <div class="card-header"><h3><i class="bi bi-pencil-square"></i> Modifier l'événement</h3></div>
+    <div class="card-body">
+        <form method="POST" action="/moderation/events/<?= (int) $editEvent['id'] ?>/update" style="display:grid;gap:0.75rem;">
+            <?= csrf_field() ?>
+            <div class="form-group">
+                <label for="edit_title" class="form-label">Titre</label>
+                <input type="text" id="edit_title" name="title" class="form-control" maxlength="180" required value="<?= e($editEvent['title']) ?>">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="edit_start_at" class="form-label">Début</label>
+                    <input type="text" id="edit_start_at" name="start_at" class="form-control" required value="<?= e((new DateTime($editEvent['start_at']))->format('d/m/Y H:i')) ?>">
+                </div>
+                <div class="form-group">
+                    <label for="edit_end_at" class="form-label">Fin</label>
+                    <input type="text" id="edit_end_at" name="end_at" class="form-control" required value="<?= e((new DateTime($editEvent['end_at']))->format('d/m/Y H:i')) ?>">
+                </div>
+            </div>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-circle"></i> Enregistrer</button>
+                <a href="/moderation/events" class="btn btn-outline"><i class="bi bi-x-circle"></i> Annuler</a>
+            </div>
+        </form>
+    </div>
 </div>
 <?php endif; ?>
 
@@ -82,7 +112,7 @@
                             <td><strong><?= e($event['title']) ?></strong></td>
                             <td><?= e((new DateTime($event['start_at']))->format('d/m/Y H:i')) ?></td>
                             <td><?= e((new DateTime($event['end_at']))->format('d/m/Y H:i')) ?></td>
-                            <td>
+                            <td style="white-space:nowrap;">
                                 <?php if ($status === 'Actif'): ?>
                                     <span class="badge bg-success">Actif</span>
                                 <?php elseif ($status === 'À venir'): ?>
@@ -90,6 +120,9 @@
                                 <?php else: ?>
                                     <span class="badge bg-secondary">Terminé</span>
                                 <?php endif; ?>
+                                <a href="/moderation/events?edit=<?= (int) $event['id'] ?>" class="btn btn-outline btn-xs" style="margin-left:0.5rem;">
+                                    <i class="bi bi-pencil-square"></i> Modifier
+                                </a>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -111,6 +144,10 @@
     if (window.flatpickr) {
         flatpickr('#start_at', opts);
         flatpickr('#end_at', opts);
+        if (document.getElementById('edit_start_at')) {
+            flatpickr('#edit_start_at', opts);
+            flatpickr('#edit_end_at', opts);
+        }
     }
 })();
 </script>

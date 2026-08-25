@@ -194,6 +194,7 @@ $router->get('/moderation/features', ModerationController::class, 'features');
 $router->post('/moderation/features/{key}/toggle', ModerationController::class, 'toggleFeature');
 $router->get('/moderation/events', ModerationController::class, 'events');
 $router->post('/moderation/events', ModerationController::class, 'createEvent');
+$router->post('/moderation/events/{id}/update', ModerationController::class, 'updateEvent');
 
 // --- Superviseurs ---
 $router->get('/moderation/supervisors',                 SupervisorController::class, 'index');

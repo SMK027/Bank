@@ -3148,13 +3148,17 @@ class ModerationController extends Controller
     {
         $this->requireModerator();
 
+        $selectedId = isset($_GET['edit']) ? (int) $_GET['edit'] : null;
+        $editEvent = $selectedId ? $this->eventScheduleModel->find($selectedId) : null;
+
         $events = $this->eventScheduleModel->findUpcoming(100);
         $active = $this->eventScheduleModel->findActiveAt();
 
         $this->render('moderation/events', [
-            'title'  => 'Modération — Événements',
-            'events' => $events,
-            'active' => $active,
+            'title'    => 'Modération — Événements',
+            'events'   => $events,
+            'active'   => $active,
+            'editEvent' => $editEvent,
         ]);
     }
 
@@ -3207,6 +3211,69 @@ class ModerationController extends Controller
 
         $this->setFlash('success', 'Événement planifié : « ' . e($title) . ' » du '
             . $start->format('d/m/Y H:i') . ' au ' . $end->format('d/m/Y H:i') . '.');
+        $this->redirect('/moderation/events');
+    }
+
+    /**
+     * Met à jour un événement planifié (POST).
+     */
+    public function updateEvent(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $eventId = (int) $id;
+        $event = $this->eventScheduleModel->find($eventId);
+        if (!$event) {
+            $this->setFlash('danger', 'Événement introuvable.');
+            $this->redirect('/moderation/events');
+            return;
+        }
+
+        $data = $this->getPostData(['title', 'start_at', 'end_at']);
+        $title = trim((string) ($data['title'] ?? ''));
+        if ($title === '') {
+            $this->setFlash('danger', 'Le titre de l\'événement est obligatoire.');
+            $this->redirect('/moderation/events?edit=' . $eventId);
+            return;
+        }
+
+        $start = parse_datetime_input((string) ($data['start_at'] ?? ''));
+        $end   = parse_datetime_input((string) ($data['end_at'] ?? ''));
+        if (!$start || !$end) {
+            $this->setFlash('danger', 'Les dates début/fin sont invalides (format attendu : jj/mm/aaaa hh:mm).');
+            $this->redirect('/moderation/events?edit=' . $eventId);
+            return;
+        }
+        if ($end <= $start) {
+            $this->setFlash('danger', 'La date de fin doit être postérieure à la date de début.');
+            $this->redirect('/moderation/events?edit=' . $eventId);
+            return;
+        }
+
+        $startAt = $start->format('Y-m-d H:i:s');
+        $endAt = $end->format('Y-m-d H:i:s');
+
+        if ($this->eventScheduleModel->hasOverlap($startAt, $endAt, $eventId)) {
+            $this->setFlash('danger', 'Un autre événement chevauche déjà cette plage. Merci de choisir une période non contradictoire.');
+            $this->redirect('/moderation/events?edit=' . $eventId);
+            return;
+        }
+
+        $updated = $this->eventScheduleModel->updateEvent($eventId, $title, $startAt, $endAt);
+        if (!$updated) {
+            $this->setFlash('danger', 'La modification de l\'événement a échoué.');
+            $this->redirect('/moderation/events');
+            return;
+        }
+
+        AuditLog::log(
+            $this->getCurrentUserId(),
+            AuditLog::ACTION_EVENT_SCHEDULE_CREATE,
+            ['event_id' => $eventId, 'title' => $title, 'start_at' => $startAt, 'end_at' => $endAt, 'updated' => true]
+        );
+
+        $this->setFlash('success', 'Événement mis à jour : « ' . e($title) . ' ».');
         $this->redirect('/moderation/events');
     }
 }
