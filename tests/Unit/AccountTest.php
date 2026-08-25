@@ -302,6 +302,34 @@ class AccountTest extends TestCase
         $this->assertGreaterThan((float) $shop['ticket_booth']['total_income_per_minute'], (float) $updated['ticket_booth']['total_income_per_minute']);
     }
 
+    public function testEventUpgradeCanLevelUpInBulk(): void
+    {
+        $id = $this->account->createAccount(
+            1,
+            'Festival local',
+            'EUR',
+            0.0,
+            'event',
+            null,
+            false,
+            [
+                'title' => 'Festival local',
+                'start_at' => date('Y-m-d H:i:s', time() - 3600),
+                'end_at' => date('Y-m-d H:i:s', time() + 3600),
+            ]
+        );
+
+        $upgradeModel = new EventAccountUpgrade();
+        $tx = new Transaction();
+        $tx->addTransaction($id, 'income', 1000.0, 'Capital', 'Funding de test');
+
+        $this->assertTrue($upgradeModel->buyUpgrade($id, 'ticket_booth', 1));
+        $this->assertTrue($upgradeModel->upgradeLevel($id, 'ticket_booth', 3));
+
+        $updated = $upgradeModel->getShopState($id);
+        $this->assertSame(4, (int) $updated['ticket_booth']['level']);
+    }
+
     public function testEventUpgradeFailureReasonIdentifiesRootCause(): void
     {
         $id = $this->account->createAccount(

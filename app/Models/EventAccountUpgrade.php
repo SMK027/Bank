@@ -529,7 +529,7 @@ class EventAccountUpgrade extends Model
         return $count;
     }
 
-    public function getUpgradeLevelFailureReason(int $accountId, string $key): ?string
+    public function getUpgradeLevelFailureReason(int $accountId, string $key, int $levelCount = 1): ?string
     {
         if (!isset(self::UPGRADES[$key])) {
             return 'Amélioration inconnue.';
@@ -546,12 +546,17 @@ class EventAccountUpgrade extends Model
 
         $purchase = $this->findOneBy(['account_id' => $accountId, 'upgrade_key' => $key]);
         $currentLevel = (int) ($purchase['level'] ?? 1);
-        $cost = self::getLevelUpgradeCost($key, $currentLevel);
+        $cost = 0.0;
+        $levelCount = max(1, (int) $levelCount);
+        for ($i = 0; $i < $levelCount; $i++) {
+            $cost += self::getLevelUpgradeCost($key, $currentLevel + $i);
+        }
+
         $balance = (float) (new Account())->getBalance($accountId);
         $overdraftLimit = $this->getEventOverdraftLimit($accountId);
         if (($balance - $cost) < -$overdraftLimit) {
             return sprintf(
-                'Fonds insuffisants : solde %.2f €, coût du niveau %.2f €, découvert autorisé %.2f €.',
+                'Fonds insuffisants : solde %.2f €, coût total %.2f €, découvert autorisé %.2f €.',
                 $balance,
                 $cost,
                 $overdraftLimit
@@ -561,12 +566,13 @@ class EventAccountUpgrade extends Model
         return null;
     }
 
-    public function upgradeLevel(int $accountId, string $key): bool
+    public function upgradeLevel(int $accountId, string $key, int $levelCount = 1): bool
     {
         if (!isset(self::UPGRADES[$key])) {
             return false;
         }
 
+        $levelCount = max(1, (int) $levelCount);
         $account = (new Account())->find($accountId);
         if (!$account || !Account::isEventType((string) ($account['type'] ?? ''))) {
             return false;
@@ -578,17 +584,21 @@ class EventAccountUpgrade extends Model
 
         $purchase = $this->findOneBy(['account_id' => $accountId, 'upgrade_key' => $key]);
         $currentLevel = (int) ($purchase['level'] ?? 1);
-        $cost = self::getLevelUpgradeCost($key, $currentLevel);
+        $totalCost = 0.0;
+        for ($i = 0; $i < $levelCount; $i++) {
+            $totalCost += self::getLevelUpgradeCost($key, $currentLevel + $i);
+        }
+
         $balance = (float) (new Account())->getBalance($accountId);
         $overdraftLimit = $this->getEventOverdraftLimit($accountId);
-        if (($balance - $cost) < -$overdraftLimit) {
+        if (($balance - $totalCost) < -$overdraftLimit) {
             return false;
         }
 
         $pdo = $this->getPdo();
         $pdo->beginTransaction();
         try {
-            $newLevel = $currentLevel + 1;
+            $newLevel = $currentLevel + $levelCount;
             if ($purchase) {
                 $this->update((int) $purchase['id'], ['level' => $newLevel]);
             } else {
@@ -604,9 +614,9 @@ class EventAccountUpgrade extends Model
                 'account_id' => $accountId,
                 'user_id' => (int) $account['user_id'],
                 'type' => 'expense',
-                'amount' => $cost,
+                'amount' => $totalCost,
                 'category' => 'Équipement événementiel',
-                'comment' => 'Amélioration de niveau : ' . self::UPGRADES[$key]['label'],
+                'comment' => 'Amélioration de niveau : ' . self::UPGRADES[$key]['label'] . ($levelCount > 1 ? ' x' . $levelCount : ''),
                 'scheduled_at' => null,
                 'created_at' => date('Y-m-d H:i:s'),
                 'updated_at' => date('Y-m-d H:i:s'),

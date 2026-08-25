@@ -404,13 +404,42 @@
                                 <i class="bi bi-cart-plus"></i> Acheter
                             </button>
                         </form>
-                        <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-upgrades/level" style="margin-top:0.5rem;">
-                            <?= csrf_field() ?>
-                            <input type="hidden" name="upgrade_key" value="<?= e($upgrade['key']) ?>">
-                            <button type="submit" class="btn btn-sm btn-outline-success" style="width:100%;">
-                                <i class="bi bi-arrow-up-circle"></i> Niveau +1
-                            </button>
-                        </form>
+                        <button type="button" class="btn btn-sm btn-outline-success level-up-trigger" data-bs-toggle="modal" data-bs-target="#level-up-modal-<?= e($upgrade['key']) ?>" style="width:100%;margin-top:0.5rem;">
+                            <i class="bi bi-arrow-up-circle"></i> Améliorer le niveau
+                        </button>
+
+                        <div class="modal fade" id="level-up-modal-<?= e($upgrade['key']) ?>" tabindex="-1" aria-labelledby="level-up-modal-label-<?= e($upgrade['key']) ?>" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content">
+                                    <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-upgrades/level">
+                                        <?= csrf_field() ?>
+                                        <input type="hidden" name="upgrade_key" value="<?= e($upgrade['key']) ?>">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="level-up-modal-label-<?= e($upgrade['key']) ?>">Améliorer : <?= e($upgrade['label']) ?></h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="mb-3">
+                                                <label for="level_count_<?= e($upgrade['key']) ?>" class="form-label">Nombre de niveaux</label>
+                                                <input id="level_count_<?= e($upgrade['key']) ?>" type="number" name="level_count" min="1" max="20" value="1" class="form-control level-count-input" data-upgrade-key="<?= e($upgrade['key']) ?>" data-current-level="<?= (int) $upgrade['level'] ?>" data-base-cost="<?= (float) (
+                                                    \App\Models\EventAccountUpgrade::UPGRADES[$upgrade['key']]['cost'] ?? 0.0
+                                                ) ?>">
+                                            </div>
+                                            <div class="alert alert-light mb-0 small">
+                                                <strong>Coût total estimé :</strong>
+                                                <span class="level-up-total-price" data-upgrade-key="<?= e($upgrade['key']) ?>"><?= fmt_amount_smart((float) $upgrade['next_level_cost']) ?></span>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Annuler</button>
+                                            <button type="submit" class="btn btn-success btn-sm">
+                                                <i class="bi bi-arrow-up-circle"></i> Confirmer
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -473,7 +502,36 @@ function attachUpgradeTotalCalculation() {
     });
 }
 
-document.addEventListener('DOMContentLoaded', attachUpgradeTotalCalculation);
+function attachLevelUpgradeCalculation() {
+    const inputs = document.querySelectorAll('.level-count-input');
+    inputs.forEach((input) => {
+        const key = input.dataset.upgradeKey;
+        const output = document.querySelector('.level-up-total-price[data-upgrade-key="' + key + '"]');
+        if (!output || !key) {
+            return;
+        }
+
+        const update = () => {
+            const currentLevel = Number(input.dataset.currentLevel || 1);
+            const baseCost = Number(input.dataset.baseCost || 0);
+            const levelCount = Math.max(1, Math.min(20, Number(input.value || 1)));
+            let total = 0;
+            for (let i = 0; i < levelCount; i++) {
+                const level = currentLevel + i;
+                total += baseCost * (1 + (level * 0.85));
+            }
+            output.textContent = formatCurrency(total);
+        };
+
+        input.addEventListener('input', update);
+        update();
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    attachUpgradeTotalCalculation();
+    attachLevelUpgradeCalculation();
+});
 </script>
 
 <?php if ($isOwner && empty($account['type'])): ?>

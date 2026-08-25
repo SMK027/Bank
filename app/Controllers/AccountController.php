@@ -375,20 +375,21 @@ class AccountController extends Controller
         }
 
         $upgradeKey = trim((string) ($_POST['upgrade_key'] ?? ''));
+        $levelCount = max(1, (int) ($_POST['level_count'] ?? 1));
         if ($upgradeKey === '') {
             $this->setFlash('danger', 'Amélioration de niveau invalide.');
             $this->redirect('/accounts/' . $accountId);
             return;
         }
 
-        $failureReason = $this->eventAccountUpgradeModel->getUpgradeLevelFailureReason($accountId, $upgradeKey);
+        $failureReason = $this->eventAccountUpgradeModel->getUpgradeLevelFailureReason($accountId, $upgradeKey, $levelCount);
         if ($failureReason !== null) {
             $this->setFlash('danger', $failureReason);
             $this->redirect('/accounts/' . $accountId);
             return;
         }
 
-        if (!$this->eventAccountUpgradeModel->upgradeLevel($accountId, $upgradeKey)) {
+        if (!$this->eventAccountUpgradeModel->upgradeLevel($accountId, $upgradeKey, $levelCount)) {
             $this->setFlash('danger', 'Amélioration de niveau impossible : erreur non identifiée.');
             $this->redirect('/accounts/' . $accountId);
             return;
