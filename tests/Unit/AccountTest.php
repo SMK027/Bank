@@ -302,6 +302,34 @@ class AccountTest extends TestCase
         $this->assertGreaterThan((float) $shop['ticket_booth']['total_income_per_minute'], (float) $updated['ticket_booth']['total_income_per_minute']);
     }
 
+    public function testEventUpgradeFailureReasonIdentifiesRootCause(): void
+    {
+        $id = $this->account->createAccount(
+            1,
+            'Festival local',
+            'EUR',
+            0.0,
+            'event',
+            null,
+            false,
+            [
+                'title' => 'Festival local',
+                'start_at' => date('Y-m-d H:i:s', time() - 3600),
+                'end_at' => date('Y-m-d H:i:s', time() + 3600),
+            ]
+        );
+
+        $upgradeModel = new EventAccountUpgrade();
+        $this->assertTrue($upgradeModel->buyUpgrade($id, 'ticket_booth', 1));
+        $this->assertTrue($upgradeModel->pausePassiveIncome($id));
+
+        $reason = $upgradeModel->getUpgradeLevelFailureReason($id, 'ticket_booth');
+        $this->assertNotNull($reason);
+        $this->assertStringContainsString('versement automatique', strtolower($reason));
+
+        $this->assertFalse($upgradeModel->upgradeLevel($id, 'ticket_booth'));
+    }
+
     public function testEventEconomySummaryProvidesProgressionMetrics(): void
     {
         $id = $this->account->createAccount(

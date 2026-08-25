@@ -529,6 +529,38 @@ class EventAccountUpgrade extends Model
         return $count;
     }
 
+    public function getUpgradeLevelFailureReason(int $accountId, string $key): ?string
+    {
+        if (!isset(self::UPGRADES[$key])) {
+            return 'Amélioration inconnue.';
+        }
+
+        $account = (new Account())->find($accountId);
+        if (!$account || !Account::isEventType((string) ($account['type'] ?? ''))) {
+            return 'Ce compte n’est pas un compte événementiel.';
+        }
+
+        if ($this->isPassiveIncomePaused($accountId)) {
+            return 'Le versement automatique est suspendu. Réactivez-le avant d’améliorer une installation.';
+        }
+
+        $purchase = $this->findOneBy(['account_id' => $accountId, 'upgrade_key' => $key]);
+        $currentLevel = (int) ($purchase['level'] ?? 1);
+        $cost = self::getLevelUpgradeCost($key, $currentLevel);
+        $balance = (float) (new Account())->getBalance($accountId);
+        $overdraftLimit = $this->getEventOverdraftLimit($accountId);
+        if (($balance - $cost) < -$overdraftLimit) {
+            return sprintf(
+                'Fonds insuffisants : solde %.2f €, coût du niveau %.2f €, découvert autorisé %.2f €.',
+                $balance,
+                $cost,
+                $overdraftLimit
+            );
+        }
+
+        return null;
+    }
+
     public function upgradeLevel(int $accountId, string $key): bool
     {
         if (!isset(self::UPGRADES[$key])) {
