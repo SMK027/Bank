@@ -2123,8 +2123,9 @@
                             $txIsTpe              = \App\Models\Transaction::isModerationOnly($t);
                             $txIsAlreadySplit     = isset($__splitTxIds[(int) $t['id']]);
                             $txAge                = time() - strtotime($t['created_at']);
-                            $txEditable  = !$txIsLinked && !$txIsTpe && ($isModerator || $txAge <= 7 * 86400);
-                            $txDeletable = $txEditable && ($isModerator || !$txIsLinkedToDeferred);
+                            $isEventAccount       = (($account['type'] ?? '') === 'event');
+                            $txEditable  = !$isEventAccount && !$txIsLinked && !$txIsTpe && ($isModerator || $txAge <= 7 * 86400);
+                            $txDeletable = !$isEventAccount && $txEditable && ($isModerator || !$txIsLinkedToDeferred);
                             $txHasScheduled = !empty($t['scheduled_at']);
                         ?>
                             <tr data-type="<?= e($t['type']) ?>"

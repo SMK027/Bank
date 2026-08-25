@@ -319,6 +319,13 @@ class TransactionController extends Controller
             return;
         }
 
+        $account = $this->accountModel->find($accId);
+        if (($account['type'] ?? '') === 'event') {
+            $this->setFlash('danger', 'La suppression et la modification des opérations sont désactivées sur les comptes événementiels.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
         if (!$this->ensureEventAccountOperational($accId, '/accounts/' . $accountId)) {
             return;
         }
@@ -398,6 +405,13 @@ class TransactionController extends Controller
         if (!$this->isModerator() && !$this->accountModel->hasAccess($accId, $userId)) {
             $this->setFlash('danger', 'Accès refusé.');
             $this->redirect('/dashboard');
+            return;
+        }
+
+        $account = $this->accountModel->find($accId);
+        if (($account['type'] ?? '') === 'event') {
+            $this->setFlash('danger', 'La suppression et la modification des opérations sont désactivées sur les comptes événementiels.');
+            $this->redirect('/accounts/' . $accountId);
             return;
         }
 
