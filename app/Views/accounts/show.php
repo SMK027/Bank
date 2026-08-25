@@ -346,7 +346,10 @@
                             <span class="badge" style="background:#0f766e;color:#fff;">x<?= (int) $upgrade['owned'] ?></span>
                         </div>
                         <div style="margin-top:0.75rem;display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;">
-                            <span><strong><?= fmt_amount_smart((float) $upgrade['cost']) ?></strong> / achat</span>
+                            <span>
+                                <strong class="event-upgrade-unit-price" data-upgrade-key="<?= e($upgrade['key']) ?>"><?= fmt_amount_smart((float) $upgrade['cost']) ?></strong>
+                                <span> / achat</span>
+                            </span>
                             <span class="text-success">+<?= fmt_amount_smart((float) $upgrade['income_per_minute']) ?> / min</span>
                         </div>
                         <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-upgrades/buy" style="margin-top:0.85rem;"
@@ -387,6 +390,15 @@
     return total;
 }
 
+function formatCurrency(value) {
+    return new Intl.NumberFormat('fr-FR', {
+        style: 'currency',
+        currency: 'EUR',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(value);
+}
+
 function attachUpgradeTotalCalculation() {
     const qtyInputs = document.querySelectorAll('.event-upgrade-qty');
     qtyInputs.forEach((input) => {
@@ -398,18 +410,20 @@ function attachUpgradeTotalCalculation() {
 
         const baseCost = Number(form.dataset.baseCost || 0);
         const owned = Number(form.dataset.owned || 0);
+        const unitPriceLabel = document.querySelector('.event-upgrade-unit-price[data-upgrade-key="' + key + '"]');
         const totalLabel = document.querySelector('.event-upgrade-total[data-upgrade-key="' + key + '"]');
 
         const update = () => {
             const qty = Math.max(1, Math.min(99, Number(input.value || 1)));
+            const unitCost = baseCost * (1 + ((owned + (qty - 1)) * 0.65));
             const total = computeUpgradeCost(baseCost, owned, qty);
+
+            if (unitPriceLabel) {
+                unitPriceLabel.textContent = formatCurrency(unitCost);
+            }
+
             if (totalLabel) {
-                totalLabel.innerHTML = 'Total estimé : <strong>' + new Intl.NumberFormat('fr-FR', {
-                    style: 'currency',
-                    currency: 'EUR',
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                }).format(total) + '</strong>';
+                totalLabel.innerHTML = 'Total estimé : <strong>' + formatCurrency(total) + '</strong>';
             }
         };
 
