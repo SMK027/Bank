@@ -190,6 +190,58 @@ class EventAccountUpgrade extends Model
         ];
     }
 
+    public function getLeaderboard(int $limit = 10): array
+    {
+        $accounts = (new Account())->findBy(['type' => 'event']);
+        $rows = [];
+
+        foreach ($accounts as $account) {
+            $accountId = (int) ($account['id'] ?? 0);
+            if ($accountId <= 0) {
+                continue;
+            }
+
+            $summary = $this->getEventEconomySummary($accountId);
+            $rows[] = [
+                'account_id' => $accountId,
+                'name' => (string) ($account['name'] ?? 'Compte événementiel'),
+                'user_id' => (int) ($account['user_id'] ?? 0),
+                'event_title' => (string) ($account['event_title'] ?? $account['name'] ?? 'Événement'),
+                'income_per_minute' => (float) ($summary['total_income_per_minute'] ?? 0.0),
+                'income_per_hour' => (float) ($summary['total_income_per_hour'] ?? 0.0),
+                'prestige_tier' => (string) ($summary['prestige_tier'] ?? 'Démarrage'),
+                'owned_upgrades_count' => (int) ($summary['owned_upgrades_count'] ?? 0),
+                'total_spent' => (float) ($summary['total_spent'] ?? 0.0),
+            ];
+        }
+
+        usort(
+            $rows,
+            static fn(array $a, array $b): int =>
+                ($b['income_per_minute'] <=> $a['income_per_minute'])
+                ?: ($b['total_spent'] <=> $a['total_spent'])
+                ?: ($b['owned_upgrades_count'] <=> $a['owned_upgrades_count'])
+        );
+
+        $ranked = [];
+        foreach ($rows as $index => $row) {
+            $ranked[] = [
+                'rank' => $index + 1,
+                'account_id' => $row['account_id'],
+                'name' => $row['name'],
+                'user_id' => $row['user_id'],
+                'event_title' => $row['event_title'],
+                'income_per_minute' => round($row['income_per_minute'], 4),
+                'income_per_hour' => round($row['income_per_hour'], 2),
+                'prestige_tier' => $row['prestige_tier'],
+                'owned_upgrades_count' => $row['owned_upgrades_count'],
+                'total_spent' => round($row['total_spent'], 2),
+            ];
+        }
+
+        return array_slice($ranked, 0, max(1, (int) $limit));
+    }
+
     public function isPassiveIncomePaused(int $accountId): bool
     {
         $account = (new Account())->find($accountId);

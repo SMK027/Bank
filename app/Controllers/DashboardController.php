@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Core\Controller;
 use App\Core\Session;
 use App\Models\Account;
+use App\Models\EventAccountUpgrade;
 use App\Models\Transaction;
 use App\Models\User;
 
@@ -64,6 +65,7 @@ class DashboardController extends Controller
 
         $user    = (new User())->find($userId);
         $isMinor = User::isMinorFromDate($user['birth_date'] ?? null);
+        $eventLeaderboard = (new EventAccountUpgrade())->getLeaderboard(10);
 
         $this->render('dashboard/index', [
             'title'            => 'Tableau de bord',
@@ -72,6 +74,7 @@ class DashboardController extends Controller
             'sharedAccounts'   => $sharedAccounts,
             'totalBalance'     => $totalBalance,
             'isMinor'          => $isMinor,
+            'eventLeaderboard' => $eventLeaderboard,
         ]);
     }
 }

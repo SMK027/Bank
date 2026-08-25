@@ -122,6 +122,50 @@ $eventAccountsCount = count($ownEventAccounts) + count($internalEventAccounts) +
     </div>
 <?php endif; ?>
 
+<?php if (!empty($eventLeaderboard)): ?>
+    <h2 class="mt-3 mb-2" style="color:#0f766e;">
+        <i class="bi bi-trophy"></i> Classement des comptes événementiels
+    </h2>
+    <div class="card mb-3" style="border-left:4px solid #0f766e; background:rgba(15,118,110,0.05);">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-sm" style="margin-bottom:0;">
+                    <thead>
+                        <tr>
+                            <th>Rang</th>
+                            <th>Compte</th>
+                            <th>Prestige</th>
+                            <th>Revenu / min</th>
+                            <th>Améliorations</th>
+                            <th>Investissement</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($eventLeaderboard as $entry): ?>
+                            <tr>
+                                <td>
+                                    <?php if ($entry['rank'] === 1): ?>
+                                        <span class="badge" style="background:#fbbf24;color:#1f2937;">#1</span>
+                                    <?php else: ?>
+                                        #<?= (int) $entry['rank'] ?>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <strong><?= e($entry['name']) ?></strong>
+                                </td>
+                                <td><?= e($entry['prestige_tier']) ?></td>
+                                <td class="text-success"><?= fmt_amount_smart((float) $entry['income_per_minute']) ?> €/min</td>
+                                <td><?= (int) $entry['owned_upgrades_count'] ?></td>
+                                <td><?= fmt_amount_smart((float) $entry['total_spent']) ?> €</td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
+
 <?php if ($eventAccountsCount > 0): ?>
     <h2 class="mt-3 mb-2" style="color:#0f766e;">
         <i class="bi bi-calendar2-week"></i> Comptes événementiels

@@ -277,4 +277,47 @@ class AccountTest extends TestCase
         $this->assertGreaterThanOrEqual(1, $summary['owned_upgrades_count']);
         $this->assertNotEmpty($summary['next_upgrade_key']);
     }
+
+    public function testEventLeaderboardRanksAccountsByPerformance(): void
+    {
+        $firstId = $this->account->createAccount(
+            1,
+            'Festival A',
+            'EUR',
+            0.0,
+            'event',
+            null,
+            false,
+            [
+                'title' => 'Festival A',
+                'start_at' => date('Y-m-d H:i:s', time() - 3600),
+                'end_at' => date('Y-m-d H:i:s', time() + 3600),
+            ]
+        );
+
+        $secondId = $this->account->createAccount(
+            1,
+            'Festival B',
+            'EUR',
+            0.0,
+            'event',
+            null,
+            false,
+            [
+                'title' => 'Festival B',
+                'start_at' => date('Y-m-d H:i:s', time() - 3600),
+                'end_at' => date('Y-m-d H:i:s', time() + 3600),
+            ]
+        );
+
+        $upgradeModel = new EventAccountUpgrade();
+        $this->assertTrue($upgradeModel->buyUpgrade($firstId, 'ticket_booth', 2));
+        $this->assertTrue($upgradeModel->buyUpgrade($secondId, 'food_stall', 1));
+
+        $leaderboard = $upgradeModel->getLeaderboard(10);
+        $this->assertNotEmpty($leaderboard);
+        $this->assertSame('Festival B', $leaderboard[0]['name']);
+        $this->assertSame(1, $leaderboard[0]['rank']);
+        $this->assertTrue($leaderboard[0]['income_per_minute'] >= $leaderboard[1]['income_per_minute']);
+    }
 }
