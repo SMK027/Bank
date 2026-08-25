@@ -404,7 +404,7 @@
                                 <i class="bi bi-cart-plus"></i> Acheter
                             </button>
                         </form>
-                        <button type="button" class="btn btn-sm btn-outline-success level-up-trigger" data-bs-toggle="modal" data-bs-target="#level-up-modal-<?= e($upgrade['key']) ?>" style="width:100%;margin-top:0.5rem;">
+                        <button type="button" class="btn btn-sm btn-outline-success level-up-trigger" data-modal-target="#level-up-modal-<?= e($upgrade['key']) ?>" style="width:100%;margin-top:0.5rem;">
                             <i class="bi bi-arrow-up-circle"></i> Améliorer le niveau
                         </button>
 
@@ -529,6 +529,28 @@ function attachLevelUpgradeCalculation() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.level-up-trigger').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const target = button.dataset.modalTarget;
+            if (!target) {
+                return;
+            }
+
+            const modal = document.querySelector(target);
+            if (!modal) {
+                return;
+            }
+
+            if (window.bootstrap && bootstrap.Modal) {
+                const modalInstance = bootstrap.Modal.getOrCreateInstance(modal);
+                modalInstance.show();
+            } else {
+                modal.classList.add('show');
+                modal.style.display = 'block';
+            }
+        });
+    });
+
     attachUpgradeTotalCalculation();
     attachLevelUpgradeCalculation();
 });
