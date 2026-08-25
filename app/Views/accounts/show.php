@@ -408,7 +408,7 @@
                             <i class="bi bi-arrow-up-circle"></i> Améliorer le niveau
                         </button>
 
-                        <div class="modal fade" id="level-up-modal-<?= e($upgrade['key']) ?>" tabindex="-1" aria-labelledby="level-up-modal-label-<?= e($upgrade['key']) ?>" aria-hidden="true">
+                        <div class="modal fade d-none" id="level-up-modal-<?= e($upgrade['key']) ?>" tabindex="-1" aria-labelledby="level-up-modal-label-<?= e($upgrade['key']) ?>" aria-hidden="true" style="display:none;">
                             <div class="modal-dialog modal-dialog-centered">
                                 <div class="modal-content">
                                     <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-upgrades/level">
@@ -449,7 +449,7 @@
 <?php endif; ?>
 
 <script>
-(function computeUpgradeCost(baseCost, ownedQuantity, qty) {
+function computeUpgradeCost(baseCost, ownedQuantity, qty) {
     const growth = 0.65;
     let total = 0;
     for (let i = 0; i < qty; i++) {
@@ -485,11 +485,11 @@ function attachUpgradeTotalCalculation() {
 
         const update = () => {
             const qty = Math.max(1, Math.min(99, Number(input.value || 1)));
-            const unitCost = baseCost * (1 + ((owned + (qty - 1)) * 0.65));
+            const currentUnitCost = baseCost * (1 + ((owned + (qty - 1)) * 0.65));
             const total = computeUpgradeCost(baseCost, owned, qty);
 
             if (unitPriceLabel) {
-                unitPriceLabel.textContent = formatCurrency(unitCost);
+                unitPriceLabel.textContent = formatCurrency(currentUnitCost);
             }
 
             if (totalLabel) {
@@ -498,6 +498,7 @@ function attachUpgradeTotalCalculation() {
         };
 
         input.addEventListener('input', update);
+        input.addEventListener('change', update);
         update();
     });
 }
@@ -524,29 +525,58 @@ function attachLevelUpgradeCalculation() {
         };
 
         input.addEventListener('input', update);
+        input.addEventListener('change', update);
         update();
     });
 }
 
+function openUpgradeModal(targetSelector) {
+    const modal = document.querySelector(targetSelector);
+    if (!modal) {
+        return;
+    }
+
+    modal.classList.remove('d-none');
+    modal.style.display = 'block';
+    modal.setAttribute('aria-hidden', 'false');
+
+    if (window.bootstrap && bootstrap.Modal) {
+        const modalInstance = bootstrap.Modal.getOrCreateInstance(modal);
+        modalInstance.show();
+    } else {
+        modal.classList.add('show');
+        modal.style.display = 'block';
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.level-up-trigger').forEach(function (button) {
-        button.addEventListener('click', function () {
+        button.addEventListener('click', function (event) {
+            event.preventDefault();
             const target = button.dataset.modalTarget;
             if (!target) {
                 return;
             }
+            openUpgradeModal(target);
+        });
+    });
 
-            const modal = document.querySelector(target);
+    document.querySelectorAll('[data-bs-dismiss="modal"]').forEach(function (closeButton) {
+        closeButton.addEventListener('click', function () {
+            const modal = closeButton.closest('.modal');
             if (!modal) {
                 return;
             }
-
             if (window.bootstrap && bootstrap.Modal) {
-                const modalInstance = bootstrap.Modal.getOrCreateInstance(modal);
-                modalInstance.show();
+                const modalInstance = bootstrap.Modal.getInstance(modal);
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
             } else {
-                modal.classList.add('show');
-                modal.style.display = 'block';
+                modal.classList.remove('show');
+                modal.classList.add('d-none');
+                modal.style.display = 'none';
+                modal.setAttribute('aria-hidden', 'true');
             }
         });
     });
