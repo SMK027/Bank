@@ -219,4 +219,34 @@ class AccountTest extends TestCase
         $nextCost = $upgradeModel->getShopState($id)['ticket_booth']['cost'];
         $this->assertGreaterThan($initialCost, $nextCost);
     }
+
+    public function testEventPassiveIncomeCanBePausedAndResumedWithCompensation(): void
+    {
+        $id = $this->account->createAccount(
+            1,
+            'Festival local',
+            'EUR',
+            0.0,
+            'event',
+            null,
+            false,
+            [
+                'title' => 'Festival local',
+                'start_at' => date('Y-m-d H:i:s', time() - 3600),
+                'end_at' => date('Y-m-d H:i:s', time() + 3600),
+            ]
+        );
+
+        $upgradeModel = new EventAccountUpgrade();
+        $this->assertTrue($upgradeModel->buyUpgrade($id, 'ticket_booth', 1));
+        $this->assertFalse($upgradeModel->isPassiveIncomePaused($id));
+
+        $this->assertTrue($upgradeModel->pausePassiveIncome($id));
+        $this->assertTrue($upgradeModel->isPassiveIncomePaused($id));
+        $this->assertFalse($upgradeModel->buyUpgrade($id, 'food_stall', 1));
+
+        $compensation = $upgradeModel->resumePassiveIncome($id);
+        $this->assertGreaterThanOrEqual(0.0, $compensation);
+        $this->assertFalse($upgradeModel->isPassiveIncomePaused($id));
+    }
 }

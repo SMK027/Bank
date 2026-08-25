@@ -103,6 +103,71 @@ class EventAccountUpgrade extends Model
         return $shop;
     }
 
+    public function isPassiveIncomePaused(int $accountId): bool
+    {
+        $account = (new Account())->find($accountId);
+        if (!$account || !Account::isEventType((string) ($account['type'] ?? ''))) {
+            return false;
+        }
+
+        return !empty($account['passive_income_paused_at']);
+    }
+
+    public function pausePassiveIncome(int $accountId): bool
+    {
+        $account = (new Account())->find($accountId);
+        if (!$account || !Account::isEventType((string) ($account['type'] ?? ''))) {
+            return false;
+        }
+
+        if (!empty($account['passive_income_paused_at'])) {
+            return true;
+        }
+
+        (new Account())->update($accountId, [
+            'passive_income_paused_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        return true;
+    }
+
+    public function resumePassiveIncome(int $accountId): float
+    {
+        $account = (new Account())->find($accountId);
+        if (!$account || !Account::isEventType((string) ($account['type'] ?? ''))) {
+            return 0.0;
+        }
+
+        if (empty($account['passive_income_paused_at'])) {
+            return 0.0;
+        }
+
+        $pausedAt = strtotime((string) $account['passive_income_paused_at']);
+        $now = time();
+        $pausedSeconds = max(0, $now - $pausedAt);
+        $perMinute = $this->getPassiveIncome($accountId);
+        $compensation = round(($pausedSeconds / 60.0) * $perMinute, 2);
+
+        (new Account())->update($accountId, [
+            'passive_income_paused_at' => null,
+            'passive_income_last_reactivated_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        if ($compensation > 0.0) {
+            $tx = new \App\Models\Transaction();
+            $tx->addTransaction(
+                $accountId,
+                'income',
+                $compensation,
+                'Revenu passif',
+                'Réactivation du versement automatique — compensation cumulée',
+                0
+            );
+        }
+
+        return $compensation;
+    }
+
     public function getPassiveIncome(int $accountId): float
     {
         $total = 0.0;
@@ -119,7 +184,7 @@ class EventAccountUpgrade extends Model
             return 0.0;
         }
 
-        if (!Account::isOperationalNow($account)) {
+        if (!Account::isOperationalNow($account) || $this->isPassiveIncomePaused($accountId)) {
             return 0.0;
         }
 
@@ -186,6 +251,10 @@ class EventAccountUpgrade extends Model
 
         $account = (new Account())->find($accountId);
         if (!$account || !Account::isEventType((string) ($account['type'] ?? ''))) {
+            return false;
+        }
+
+        if ($this->isPassiveIncomePaused($accountId)) {
             return false;
         }
 

@@ -283,6 +283,35 @@
             </div>
         </div>
 
+        <?php $passiveIncomePaused = (new \App\Models\EventAccountUpgrade())->isPassiveIncomePaused((int) $account['id']); ?>
+        <?php if ($passiveIncomePaused): ?>
+            <div class="alert alert-warning" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+                <div>
+                    <strong>Versement automatique suspendu.</strong>
+                    Il a été arrêté le <?= e((new DateTime((string) $account['passive_income_paused_at']))->format('d/m/Y à H\hi')) ?>.
+                </div>
+                <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-passive-income/resume">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="bi bi-play-circle"></i> Réactiver le versement
+                    </button>
+                </form>
+            </div>
+        <?php else: ?>
+            <div class="alert alert-info" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+                <div>
+                    <strong>Versement automatique actif.</strong>
+                    Les revenus passifs sont versés automatiquement chaque minute pendant l’événement.
+                </div>
+                <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-passive-income/pause">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="btn btn-outline-warning btn-sm">
+                        <i class="bi bi-pause-circle"></i> Suspendre le versement
+                    </button>
+                </form>
+            </div>
+        <?php endif; ?>
+
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;">
             <?php foreach ($eventUpgradeShop as $upgrade): ?>
                 <div class="card" style="border:1px solid rgba(15,118,110,0.2);background:rgba(255,255,255,0.7);">

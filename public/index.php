@@ -144,6 +144,8 @@ $router->post('/accounts/{id}/toggle-hidden', AccountController::class, 'toggleH
 
 // --- Transactions ---
 $router->post('/accounts/{accountId}/transactions', TransactionController::class, 'create');
+$router->post('/accounts/{accountId}/event-passive-income/pause', AccountController::class, 'pauseEventPassiveIncome');
+$router->post('/accounts/{accountId}/event-passive-income/resume', AccountController::class, 'resumeEventPassiveIncome');
 $router->post('/accounts/{accountId}/event-upgrades/buy', AccountController::class, 'buyEventUpgrade');
 $router->post('/accounts/{accountId}/transactions/{transactionId}/edit', TransactionController::class, 'editTransaction');
 $router->post('/accounts/{accountId}/transactions/{transactionId}/delete', TransactionController::class, 'deleteTransaction');

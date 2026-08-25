@@ -174,6 +174,65 @@ class AccountController extends Controller
         $this->redirect('/dashboard');
     }
 
+    public function pauseEventPassiveIncome(string $accountId): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+        $accountId = (int) $accountId;
+        $userId = $this->getCurrentUserId();
+
+        $account = $this->accountModel->find($accountId);
+        if (!$account || !$this->accountModel->isOwner($accountId, $userId)) {
+            $this->setFlash('danger', 'Vous ne pouvez pas modifier ce compte.');
+            $this->redirect('/dashboard');
+            return;
+        }
+
+        if (($account['type'] ?? '') !== 'event') {
+            $this->setFlash('danger', 'Cette action n’est disponible que pour les comptes événementiels.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        if ($this->eventAccountUpgradeModel->pausePassiveIncome($accountId)) {
+            $this->setFlash('success', 'Le versement automatique des revenus passifs a été suspendu.');
+        } else {
+            $this->setFlash('info', 'Le versement automatique des revenus passifs est déjà suspendu.');
+        }
+
+        $this->redirect('/accounts/' . $accountId);
+    }
+
+    public function resumeEventPassiveIncome(string $accountId): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+        $accountId = (int) $accountId;
+        $userId = $this->getCurrentUserId();
+
+        $account = $this->accountModel->find($accountId);
+        if (!$account || !$this->accountModel->isOwner($accountId, $userId)) {
+            $this->setFlash('danger', 'Vous ne pouvez pas modifier ce compte.');
+            $this->redirect('/dashboard');
+            return;
+        }
+
+        if (($account['type'] ?? '') !== 'event') {
+            $this->setFlash('danger', 'Cette action n’est disponible que pour les comptes événementiels.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $compensation = $this->eventAccountUpgradeModel->resumePassiveIncome($accountId);
+        if ($compensation > 0.0) {
+            $this->setFlash('success', sprintf('Versement automatique réactivé. Un crédit de %.2f € a été ajouté pour compenser la pause.', $compensation));
+        } else {
+            $this->setFlash('success', 'Versement automatique réactivé.');
+        }
+
+        $this->redirect('/accounts/' . $accountId);
+    }
+
     public function buyEventUpgrade(string $accountId): void
     {
         $this->requireAuth();
@@ -193,9 +252,15 @@ class AccountController extends Controller
             return;
         }
 
+        if ($this->eventAccountUpgradeModel->isPassiveIncomePaused($accountId)) {
+            $this->setFlash('danger', 'Le versement automatique est suspendu. Réactivez-le avant d’acheter de nouvelles améliorations.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
         $upgradeKey = trim((string) ($_POST['upgrade_key'] ?? ''));
         if ($upgradeKey === '' || !$this->eventAccountUpgradeModel->buyUpgrade($accountId, $upgradeKey, 1)) {
-            $this->setFlash('danger', 'Achats impossible : fonds insuffisants ou amélioration invalide.');
+            $this->setFlash('danger', 'Achats impossible : fonds insuffisants, amélioration invalide, ou versement automatique suspendu.');
             $this->redirect('/accounts/' . $accountId);
             return;
         }
