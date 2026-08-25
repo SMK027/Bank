@@ -263,6 +263,56 @@
         Ce compte reste utilisable jusqu'à la fin de l'événement puis devient définitivement non opérationnel (non reconductible).
     </div>
 </div>
+<?php 
+    $eventUpgradeShop = (new \App\Models\EventAccountUpgrade())->getShopState((int) $account['id']);
+    $eventPassiveIncome = (new \App\Models\EventAccountUpgrade())->getPassiveIncome((int) $account['id']);
+?>
+<div class="card mb-3" style="border-left:4px solid #0f766e;background:linear-gradient(135deg, rgba(15,118,110,0.08), rgba(16,185,129,0.04));">
+    <div class="card-header" style="background:transparent;border-bottom:1px solid rgba(15,118,110,0.15);">
+        <h3 style="margin:0;"><i class="bi bi-graph-up-arrow"></i> Économie du compte événementiel</h3>
+    </div>
+    <div class="card-body">
+        <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:1rem;">
+            <div class="stat-card" style="border-left:3px solid #0f766e;">
+                <div class="stat-value text-success">+<?= fmt_amount_smart(500.0) ?></div>
+                <div class="stat-label">Versement d’ouverture</div>
+            </div>
+            <div class="stat-card" style="border-left:3px solid #0f766e;">
+                <div class="stat-value text-success">+<?= fmt_amount_smart($eventPassiveIncome) ?>/h</div>
+                <div class="stat-label">Revenu passif</div>
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;">
+            <?php foreach ($eventUpgradeShop as $upgrade): ?>
+                <div class="card" style="border:1px solid rgba(15,118,110,0.2);background:rgba(255,255,255,0.7);">
+                    <div class="card-body" style="padding:1rem;">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.75rem;">
+                            <div>
+                                <strong><?= e($upgrade['label']) ?></strong>
+                                <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem;">
+                                    <?= e($upgrade['description']) ?>
+                                </div>
+                            </div>
+                            <span class="badge" style="background:#0f766e;color:#fff;">x<?= (int) $upgrade['owned'] ?></span>
+                        </div>
+                        <div style="margin-top:0.75rem;display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                            <span><strong><?= fmt_amount_smart((float) $upgrade['cost']) ?></strong> / achat</span>
+                            <span class="text-success">+<?= fmt_amount_smart((float) $upgrade['income_per_hour']) ?> / h</span>
+                        </div>
+                        <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-upgrades/buy" style="margin-top:0.85rem;">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="upgrade_key" value="<?= e($upgrade['key']) ?>">
+                            <button type="submit" class="btn btn-sm btn-primary" style="width:100%;">
+                                <i class="bi bi-cart-plus"></i> Acheter
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</div>
 <?php endif; ?>
 
 <?php if ($isOwner && empty($account['type'])): ?>

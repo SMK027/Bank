@@ -318,7 +318,21 @@ class Account extends Model
             $row['event_end_at']   = (string) ($eventWindow['end_at'] ?? '');
         }
 
-        return $this->create($row);
+        $accountId = $this->create($row);
+        if (self::isEventType($type)) {
+            $transaction = new Transaction();
+            $transaction->addTransaction(
+                $accountId,
+                'income',
+                500.0,
+                'Vente',
+                'Versement d’ouverture du compte événementiel',
+                $userId,
+                null
+            );
+        }
+
+        return $accountId;
     }
 
     /**

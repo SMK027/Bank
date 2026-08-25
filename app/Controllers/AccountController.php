@@ -13,6 +13,7 @@ use App\Models\DeferredDebit;
 use App\Models\Transaction;
 use App\Models\AccountAccess;
 use App\Models\DirectDebit;
+use App\Models\EventAccountUpgrade;
 use App\Models\EventSchedule;
 use App\Models\Guardianship;
 use App\Models\Mandate;
@@ -42,6 +43,7 @@ class AccountController extends Controller
     private Checkbook $checkbookModel;
     private Check $checkModel;
     private EventSchedule $eventScheduleModel;
+    private EventAccountUpgrade $eventAccountUpgradeModel;
 
     public function __construct()
     {
@@ -58,6 +60,7 @@ class AccountController extends Controller
         $this->loanModel              = new Loan();
         $this->cardModel              = new PaymentCard();
         $this->eventScheduleModel     = new EventSchedule();
+        $this->eventAccountUpgradeModel = new EventAccountUpgrade();
     }
 
     public function createForm(): void
@@ -169,6 +172,36 @@ class AccountController extends Controller
         AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_ACCOUNT_CREATE, ['name' => $data['name'], 'type' => $type], targetAccountId: $accountId);
         $this->setFlash('success', 'Compte bancaire créé avec succès !');
         $this->redirect('/dashboard');
+    }
+
+    public function buyEventUpgrade(string $accountId): void
+    {
+        $this->requireAuth();
+        $accountId = (int) $accountId;
+        $userId = $this->getCurrentUserId();
+
+        $account = $this->accountModel->find($accountId);
+        if (!$account || !$this->accountModel->isOwner($accountId, $userId)) {
+            $this->setFlash('danger', 'Vous ne pouvez pas acheter d’amélioration pour ce compte.');
+            $this->redirect('/dashboard');
+            return;
+        }
+
+        if (($account['type'] ?? '') !== 'event') {
+            $this->setFlash('danger', 'Cette action n’est disponible que pour les comptes événementiels.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $upgradeKey = trim((string) ($_POST['upgrade_key'] ?? ''));
+        if ($upgradeKey === '' || !$this->eventAccountUpgradeModel->buyUpgrade($accountId, $upgradeKey, 1)) {
+            $this->setFlash('danger', 'Achats impossible : fonds insuffisants ou amélioration invalide.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $this->setFlash('success', 'Amélioration ajoutée avec succès !');
+        $this->redirect('/accounts/' . $accountId);
     }
 
     public function show(string $id): void

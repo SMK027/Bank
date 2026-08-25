@@ -9,6 +9,7 @@ use App\Core\Database;
 use App\Models\Account;
 use App\Models\Transaction;
 use App\Models\AccountAccess;
+use App\Models\EventAccountUpgrade;
 use App\Models\User;
 use Tests\TestDatabase;
 
@@ -183,5 +184,30 @@ class AccountTest extends TestCase
     {
         $this->assertFalse(Account::typeAllowsCard('event'));
         $this->assertFalse(Account::manualOperationsAllowed('event'));
+    }
+
+    public function testEventAccountStartsWithStarterCashAndUpgradeIncome(): void
+    {
+        $id = $this->account->createAccount(
+            1,
+            'Festival local',
+            'EUR',
+            0.0,
+            'event',
+            null,
+            false,
+            [
+                'title' => 'Festival local',
+                'start_at' => date('Y-m-d H:i:s', time() - 3600),
+                'end_at' => date('Y-m-d H:i:s', time() + 3600),
+            ]
+        );
+
+        $this->assertEquals(500.0, $this->account->getBalance($id));
+
+        $upgradeModel = new EventAccountUpgrade();
+        $this->assertSame(0.0, $upgradeModel->getPassiveIncome($id));
+        $this->assertTrue($upgradeModel->buyUpgrade($id, 'ticket_booth', 1));
+        $this->assertGreaterThan(0.0, $upgradeModel->getPassiveIncome($id));
     }
 }
