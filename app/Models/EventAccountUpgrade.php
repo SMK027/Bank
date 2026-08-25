@@ -68,7 +68,7 @@ class EventAccountUpgrade extends Model
 
     public static function getPriceGrowth(): float
     {
-        return 0.65;
+        return 0.45;
     }
 
     public static function getCostForNextUnit(float $baseCost, int $ownedQuantity): float
@@ -116,6 +116,115 @@ class EventAccountUpgrade extends Model
         }
 
         return 'Démarrage';
+    }
+
+    public function getEventOverdraftLimit(int $accountId): float
+    {
+        $account = (new Account())->find($accountId);
+        if (!$account || !Account::isEventType((string) ($account['type'] ?? ''))) {
+            return 0.0;
+        }
+
+        $limit = (float) ($account['event_overdraft_limit'] ?? 0.0);
+        return max(0.0, min(15000.0, $limit));
+    }
+
+    public function getEventOverdraftUnlockCost(): float
+    {
+        return 2000.0;
+    }
+
+    public function getEventOverdraftUpgradeCost(float $currentLimit): float
+    {
+        $base = 300.0 + ($currentLimit * 0.18);
+        return round(max(300.0, $base), 2);
+    }
+
+    public function unlockEventOverdraft(int $accountId): bool
+    {
+        $account = (new Account())->find($accountId);
+        if (!$account || !Account::isEventType((string) ($account['type'] ?? ''))) {
+            return false;
+        }
+
+        if ((float) ($account['event_overdraft_limit'] ?? 0.0) > 0.0) {
+            return true;
+        }
+
+        $balance = (new Account())->getBalance($accountId);
+        $unlockCost = $this->getEventOverdraftUnlockCost();
+        if ($balance < $unlockCost) {
+            return false;
+        }
+
+        (new Account())->update($accountId, ['event_overdraft_limit' => 200.0]);
+
+        $tx = new \App\Models\Transaction();
+        $tx->addTransaction(
+            $accountId,
+            'expense',
+            $unlockCost,
+            'Découvert',
+            'Activation de l’autorisation de découvert événementiel',
+            0
+        );
+
+        return true;
+    }
+
+    public function upgradeEventOverdraftLimit(int $accountId, float $steps = 1.0): bool
+    {
+        $account = (new Account())->find($accountId);
+        if (!$account || !Account::isEventType((string) ($account['type'] ?? ''))) {
+            return false;
+        }
+
+        $currentLimit = $this->getEventOverdraftLimit($accountId);
+        if ($currentLimit <= 0.0) {
+            return false;
+        }
+
+        $steps = max(1.0, min(10.0, $steps));
+        $targetLimit = min(15000.0, $currentLimit + (200.0 * $steps));
+        $cost = $this->getEventOverdraftUpgradeCost($currentLimit) * $steps;
+
+        $balance = (new Account())->getBalance($accountId);
+        if ($balance < $cost) {
+            return false;
+        }
+
+        (new Account())->update($accountId, ['event_overdraft_limit' => $targetLimit]);
+
+        $tx = new \App\Models\Transaction();
+        $tx->addTransaction(
+            $accountId,
+            'expense',
+            round($cost, 2),
+            'Découvert',
+            'Amélioration du découvert événementiel',
+            0
+        );
+
+        return true;
+    }
+
+    public function getIncomeReductionFromOverdraft(int $accountId): float
+    {
+        $limit = $this->getEventOverdraftLimit($accountId);
+        if ($limit <= 0.0) {
+            return 0.0;
+        }
+
+        $balance = (new Account())->getBalance($accountId);
+        if ($balance >= 0.0) {
+            return 0.0;
+        }
+
+        $debt = min(abs($balance), $limit);
+        $ratio = $debt / $limit;
+        $reduction = 0.10 + ($ratio * 0.15);
+
+        return round(min(0.25, max(0.10, $reduction)), 4);
     }
 
     public function getShopState(int $accountId): array
@@ -313,6 +422,12 @@ class EventAccountUpgrade extends Model
         foreach ($this->getShopState($accountId) as $upgrade) {
             $total += (float) ($upgrade['total_income_per_minute'] ?? 0.0);
         }
+
+        $reduction = $this->getIncomeReductionFromOverdraft($accountId);
+        if ($reduction > 0.0) {
+            $total *= (1.0 - $reduction);
+        }
+
         return round($total, 4);
     }
 
@@ -403,7 +518,8 @@ class EventAccountUpgrade extends Model
         $ownedBefore = (int) ($purchase['quantity'] ?? 0);
         $totalCost = self::getTotalCostForQuantity((float) $definition['cost'], $ownedBefore, $qty);
         $balance = (float) (new Account())->getBalance($accountId);
-        if ($balance < $totalCost) {
+        $overdraftLimit = $this->getEventOverdraftLimit($accountId);
+        if (($balance - $totalCost) < -$overdraftLimit) {
             return false;
         }
 

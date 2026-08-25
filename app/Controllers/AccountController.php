@@ -174,6 +174,78 @@ class AccountController extends Controller
         $this->redirect('/dashboard');
     }
 
+    public function unlockEventOverdraft(string $accountId): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+        $accountId = (int) $accountId;
+        $userId = $this->getCurrentUserId();
+
+        $account = $this->accountModel->find($accountId);
+        if (!$account || !$this->accountModel->isOwner($accountId, $userId)) {
+            $this->setFlash('danger', 'Vous ne pouvez pas modifier ce compte.');
+            $this->redirect('/dashboard');
+            return;
+        }
+
+        if (($account['type'] ?? '') !== 'event') {
+            $this->setFlash('danger', 'Cette action n’est disponible que pour les comptes événementiels.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        if ($this->eventAccountUpgradeModel->getEventOverdraftLimit($accountId) > 0.0) {
+            $this->setFlash('info', 'L’autorisation de découvert est déjà activée.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        if ($this->eventAccountUpgradeModel->unlockEventOverdraft($accountId)) {
+            $this->setFlash('success', 'Découvert événementiel activé : limite initiale de 200 € mise en place.');
+        } else {
+            $this->setFlash('danger', 'Activation impossible : solde insuffisant pour payer les 2000 € d’ouverture.');
+        }
+
+        $this->redirect('/accounts/' . $accountId);
+    }
+
+    public function upgradeEventOverdraft(string $accountId): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+        $accountId = (int) $accountId;
+        $userId = $this->getCurrentUserId();
+
+        $account = $this->accountModel->find($accountId);
+        if (!$account || !$this->accountModel->isOwner($accountId, $userId)) {
+            $this->setFlash('danger', 'Vous ne pouvez pas modifier ce compte.');
+            $this->redirect('/dashboard');
+            return;
+        }
+
+        if (($account['type'] ?? '') !== 'event') {
+            $this->setFlash('danger', 'Cette action n’est disponible que pour les comptes événementiels.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $currentLimit = $this->eventAccountUpgradeModel->getEventOverdraftLimit($accountId);
+        if ($currentLimit <= 0.0) {
+            $this->setFlash('danger', 'Activez d’abord le découvert événementiel avant de le renforcer.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        if ($this->eventAccountUpgradeModel->upgradeEventOverdraftLimit($accountId, 1.0)) {
+            $newLimit = $this->eventAccountUpgradeModel->getEventOverdraftLimit($accountId);
+            $this->setFlash('success', sprintf('Découvert renforcé : limite portée à %.2f €.', $newLimit));
+        } else {
+            $this->setFlash('danger', 'Amélioration impossible : fonds insuffisants ou limite maximale atteinte.');
+        }
+
+        $this->redirect('/accounts/' . $accountId);
+    }
+
     public function pauseEventPassiveIncome(string $accountId): void
     {
         $this->requireAuth();

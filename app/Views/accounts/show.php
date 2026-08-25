@@ -303,6 +303,36 @@
             <div class="text-success"><strong>Investissement total :</strong> <?= fmt_amount_smart((float) $eventEconomySummary['total_spent']) ?></div>
         </div>
 
+        <?php $eventOverdraftLimit = (new \App\Models\EventAccountUpgrade())->getEventOverdraftLimit((int) $account['id']); ?>
+        <div class="alert alert-secondary" style="margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+            <div>
+                <strong>Découvert événementiel :</strong>
+                <?php if ($eventOverdraftLimit > 0): ?>
+                    <?= fmt_amount_smart((float) $eventOverdraftLimit) ?> de marge autorisée (max. -15000 €).
+                <?php else: ?>
+                    Non activé. Déblocage possible pour 2000 € puis limite initiale de 200 €.
+                <?php endif; ?>
+                <?php if ($eventOverdraftLimit > 0): ?>
+                    <span class="text-warning">Réduction des revenus : <?= round((new \App\Models\EventAccountUpgrade())->getIncomeReductionFromOverdraft((int) $account['id']) * 100, 0) ?>%.</span>
+                <?php endif; ?>
+            </div>
+            <?php if ($eventOverdraftLimit <= 0): ?>
+                <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-overdraft/unlock">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="btn btn-warning btn-sm">
+                        <i class="bi bi-shield-check"></i> Débloquer pour 2000 €
+                    </button>
+                </form>
+            <?php else: ?>
+                <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-overdraft/upgrade">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="btn btn-outline-warning btn-sm">
+                        <i class="bi bi-arrow-up-circle"></i> Améliorer le découvert
+                    </button>
+                </form>
+            <?php endif; ?>
+        </div>
+
         <?php $passiveIncomePaused = (new \App\Models\EventAccountUpgrade())->isPassiveIncomePaused((int) $account['id']); ?>
         <?php if ($passiveIncomePaused): ?>
             <div class="alert alert-warning" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">

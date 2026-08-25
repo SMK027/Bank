@@ -303,6 +303,40 @@ class AccountTest extends TestCase
         $this->assertGreaterThan(0.0, $shop['ticket_booth']['total_income_per_minute']);
     }
 
+    public function testEventEarlyGameAndOverdraftUnlockAreBalanced(): void
+    {
+        $id = $this->account->createAccount(
+            1,
+            'Festival local',
+            'EUR',
+            0.0,
+            'event',
+            null,
+            false,
+            [
+                'title' => 'Festival local',
+                'start_at' => date('Y-m-d H:i:s', time() - 3600),
+                'end_at' => date('Y-m-d H:i:s', time() + 3600),
+            ]
+        );
+
+        $upgradeModel = new EventAccountUpgrade();
+        $this->assertLessThan(0.65, EventAccountUpgrade::getPriceGrowth());
+        $this->assertSame(0.0, $upgradeModel->getEventOverdraftLimit($id));
+        $this->assertFalse($upgradeModel->unlockEventOverdraft($id));
+
+        $tx = new Transaction();
+        $tx->addTransaction($id, 'income', 2000.0, 'Capital', 'Test de démarrage');
+
+        $this->assertTrue($upgradeModel->unlockEventOverdraft($id));
+        $this->assertEqualsWithDelta(200.0, $upgradeModel->getEventOverdraftLimit($id), 0.001);
+
+        $tx->addTransaction($id, 'expense', 2500.0, 'Dépense', 'Solde négatif de test');
+        $reduction = $upgradeModel->getIncomeReductionFromOverdraft($id);
+        $this->assertGreaterThanOrEqual(0.10, $reduction);
+        $this->assertLessThanOrEqual(0.25, $reduction);
+    }
+
     public function testEventLeaderboardRanksAccountsByPerformance(): void
     {
         $firstId = $this->account->createAccount(

@@ -71,6 +71,7 @@ class TestDatabase
                 event_title TEXT    DEFAULT NULL,
                 event_start_at TEXT DEFAULT NULL,
                 event_end_at TEXT DEFAULT NULL,
+                event_overdraft_limit REAL NOT NULL DEFAULT 0,
                 passive_income_paused_at TEXT DEFAULT NULL,
                 passive_income_last_reactivated_at TEXT DEFAULT NULL,
                 disabled_at TEXT    DEFAULT NULL,

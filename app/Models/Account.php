@@ -325,6 +325,7 @@ class Account extends Model
 
         $accountId = $this->create($row);
         if (self::isEventType($type)) {
+            $this->update($accountId, ['event_overdraft_limit' => 0.0]);
             $transaction = new Transaction();
             $transaction->addTransaction(
                 $accountId,
