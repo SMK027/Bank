@@ -925,6 +925,7 @@
                 <?php endif; ?>
             })();
             </script>
+            <?php endif; // fin du bloc compte événementiel ?>
             <?php endif; // fin du bloc conditionnel compte non désactivé (ou modérateur) ?>
             <?php endif; // fin vault/standard ?>
         </div>
