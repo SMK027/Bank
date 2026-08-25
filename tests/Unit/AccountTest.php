@@ -214,7 +214,7 @@ class AccountTest extends TestCase
 
         $this->assertTrue($upgradeModel->buyUpgrade($id, 'ticket_booth', 1));
         $this->assertGreaterThan(0.0, $upgradeModel->getPassiveIncome($id));
-        $this->assertEqualsWithDelta(0.2, $upgradeModel->getPassiveIncome($id), 0.001);
+        $this->assertEqualsWithDelta(0.5, $upgradeModel->getPassiveIncome($id), 0.001);
 
         $nextCost = $upgradeModel->getShopState($id)['ticket_booth']['cost'];
         $this->assertGreaterThan($initialCost, $nextCost);

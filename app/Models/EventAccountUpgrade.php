@@ -14,25 +14,25 @@ class EventAccountUpgrade extends Model
         'ticket_booth' => [
             'label' => 'Stand de billets',
             'cost' => 80.0,
-            'income_per_hour' => 12.0,
+            'income_per_hour' => 30.0,
             'description' => 'Un stand simple mais efficace pour vendre plus de billets sur place.',
         ],
         'food_stall' => [
             'label' => 'Food truck',
             'cost' => 180.0,
-            'income_per_hour' => 30.0,
+            'income_per_hour' => 90.0,
             'description' => 'Le public dépense davantage avec des options de restauration premium.',
         ],
         'merchandising' => [
             'label' => 'Boutique merch',
             'cost' => 320.0,
-            'income_per_hour' => 58.0,
+            'income_per_hour' => 210.0,
             'description' => 'Des articles à la vente augmentent fortement le panier moyen du public.',
         ],
         'vip_zone' => [
             'label' => 'Zone VIP',
             'cost' => 520.0,
-            'income_per_hour' => 110.0,
+            'income_per_hour' => 420.0,
             'description' => 'Des offres premium et un accueil exclusif maximisent les revenus.',
         ],
     ];
