@@ -42,6 +42,25 @@ class EventAccountUpgrade extends Model
         return self::UPGRADES;
     }
 
+    public static function getPriceGrowth(): float
+    {
+        return 0.65;
+    }
+
+    public static function getCostForNextUnit(float $baseCost, int $ownedQuantity): float
+    {
+        return round($baseCost * (1.0 + ($ownedQuantity * self::getPriceGrowth())), 2);
+    }
+
+    public static function getTotalCostForQuantity(float $baseCost, int $ownedQuantity, int $quantity): float
+    {
+        $total = 0.0;
+        for ($i = 0; $i < $quantity; $i++) {
+            $total += self::getCostForNextUnit($baseCost, $ownedQuantity + $i);
+        }
+        return round($total, 2);
+    }
+
     public static function getIncomePerMinute(float $incomePerHour): float
     {
         return round($incomePerHour / 60.0, 6);
@@ -63,19 +82,21 @@ class EventAccountUpgrade extends Model
         $shop = [];
         foreach (self::UPGRADES as $key => $definition) {
             $owned = (int) ($ownedByKey[$key] ?? 0);
+            $baseCost = (float) $definition['cost'];
             $incomePerHour = (float) $definition['income_per_hour'];
             $incomePerMinute = self::getIncomePerMinute($incomePerHour);
+            $nextCost = self::getCostForNextUnit($baseCost, $owned);
             $shop[$key] = [
                 'key' => $key,
                 'label' => $definition['label'],
                 'description' => $definition['description'],
-                'cost' => (float) $definition['cost'],
+                'cost' => $nextCost,
                 'income_per_hour' => $incomePerHour,
                 'income_per_minute' => $incomePerMinute,
                 'owned' => $owned,
                 'total_income_per_hour' => $owned * $incomePerHour,
                 'total_income_per_minute' => $owned * $incomePerMinute,
-                'next_cost' => (float) $definition['cost'],
+                'next_cost' => $nextCost,
             ];
         }
 
@@ -170,7 +191,9 @@ class EventAccountUpgrade extends Model
 
         $qty = max(1, (int) $quantity);
         $definition = self::UPGRADES[$key];
-        $totalCost = (float) $definition['cost'] * $qty;
+        $purchase = $this->findOneBy(['account_id' => $accountId, 'upgrade_key' => $key]);
+        $ownedBefore = (int) ($purchase['quantity'] ?? 0);
+        $totalCost = self::getTotalCostForQuantity((float) $definition['cost'], $ownedBefore, $qty);
         $balance = (float) (new Account())->getBalance($accountId);
         if ($balance < $totalCost) {
             return false;
@@ -179,8 +202,7 @@ class EventAccountUpgrade extends Model
         $pdo = $this->getPdo();
         $pdo->beginTransaction();
         try {
-            $purchase = $this->findOneBy(['account_id' => $accountId, 'upgrade_key' => $key]);
-            $newQuantity = $qty + ((int) ($purchase['quantity'] ?? 0));
+            $newQuantity = $qty + $ownedBefore;
 
             if ($purchase) {
                 $this->update((int) $purchase['id'], ['quantity' => $newQuantity]);
