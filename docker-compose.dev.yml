@@ -37,6 +37,22 @@ services:
       - "8025:8025"  # Interface web Mailpit
     restart: unless-stopped
 
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: bankapp_phpmyadmin
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8084:80"
+    environment:
+      - PMA_HOST=db
+      - PMA_PORT=3306
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootsecret}
+      - PMA_USER=${DB_USERNAME:-bankapp}
+      - PMA_PASSWORD=${DB_PASSWORD:-bankapp_secret}
+    restart: unless-stopped
+
   db:
     image: mariadb:11
     container_name: bankapp_db
