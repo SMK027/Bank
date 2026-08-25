@@ -750,7 +750,20 @@ foreach ($ddGroups as $groupDebits) {
 }
 
 /* ─────────────────────────────────────────────────────────────────
-   6. Rétro-compatibilité : transactions planifiées sans virement
+   6. Versement des revenus passifs des comptes événementiels
+   ───────────────────────────────────────────────────────────────── */
+$eventUpgradeModel = new \App\Models\EventAccountUpgrade();
+$passiveIncomeCount = $eventUpgradeModel->processAllPassiveIncome();
+if ($passiveIncomeCount > 0) {
+    echo sprintf(
+        "[%s] Versement des revenus passifs : %d compte(s) événementiel(s) crédité(s) cette minute.\n",
+        date('Y-m-d H:i:s'),
+        $passiveIncomeCount
+    );
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   7. Rétro-compatibilité : transactions planifiées sans virement
    ───────────────────────────────────────────────────────────────── */
 // Collecter les IDs de transactions déjà traitées via les virements et prélèvements
 $processedTxIds = [];

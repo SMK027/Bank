@@ -278,7 +278,7 @@
                 <div class="stat-label">Versement d’ouverture</div>
             </div>
             <div class="stat-card" style="border-left:3px solid #0f766e;">
-                <div class="stat-value text-success">+<?= fmt_amount_smart($eventPassiveIncome) ?>/h</div>
+                <div class="stat-value text-success">+<?= fmt_amount_smart($eventPassiveIncome) ?>/min</div>
                 <div class="stat-label">Revenu passif</div>
             </div>
         </div>
@@ -298,7 +298,7 @@
                         </div>
                         <div style="margin-top:0.75rem;display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;">
                             <span><strong><?= fmt_amount_smart((float) $upgrade['cost']) ?></strong> / achat</span>
-                            <span class="text-success">+<?= fmt_amount_smart((float) $upgrade['income_per_hour']) ?> / h</span>
+                            <span class="text-success">+<?= fmt_amount_smart((float) $upgrade['income_per_minute']) ?> / min</span>
                         </div>
                         <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-upgrades/buy" style="margin-top:0.85rem;">
                             <?= csrf_field() ?>

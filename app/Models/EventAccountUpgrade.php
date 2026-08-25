@@ -42,6 +42,11 @@ class EventAccountUpgrade extends Model
         return self::UPGRADES;
     }
 
+    public static function getIncomePerMinute(float $incomePerHour): float
+    {
+        return round($incomePerHour / 60.0, 6);
+    }
+
     public function getShopState(int $accountId): array
     {
         $account = (new Account())->find($accountId);
@@ -58,14 +63,18 @@ class EventAccountUpgrade extends Model
         $shop = [];
         foreach (self::UPGRADES as $key => $definition) {
             $owned = (int) ($ownedByKey[$key] ?? 0);
+            $incomePerHour = (float) $definition['income_per_hour'];
+            $incomePerMinute = self::getIncomePerMinute($incomePerHour);
             $shop[$key] = [
                 'key' => $key,
                 'label' => $definition['label'],
                 'description' => $definition['description'],
                 'cost' => (float) $definition['cost'],
-                'income_per_hour' => (float) $definition['income_per_hour'],
+                'income_per_hour' => $incomePerHour,
+                'income_per_minute' => $incomePerMinute,
                 'owned' => $owned,
-                'total_income_per_hour' => $owned * (float) $definition['income_per_hour'],
+                'total_income_per_hour' => $owned * $incomePerHour,
+                'total_income_per_minute' => $owned * $incomePerMinute,
                 'next_cost' => (float) $definition['cost'],
             ];
         }
@@ -77,9 +86,75 @@ class EventAccountUpgrade extends Model
     {
         $total = 0.0;
         foreach ($this->getShopState($accountId) as $upgrade) {
-            $total += (float) ($upgrade['total_income_per_hour'] ?? 0.0);
+            $total += (float) ($upgrade['total_income_per_minute'] ?? 0.0);
         }
-        return round($total, 2);
+        return round($total, 4);
+    }
+
+    public function creditPassiveIncomeForAccount(int $accountId): float
+    {
+        $account = (new Account())->find($accountId);
+        if (!$account || !Account::isEventType((string) ($account['type'] ?? ''))) {
+            return 0.0;
+        }
+
+        if (!Account::isOperationalNow($account)) {
+            return 0.0;
+        }
+
+        $amount = $this->getPassiveIncome($accountId);
+        if ($amount <= 0.0) {
+            return 0.0;
+        }
+
+        $pdo = $this->getPdo();
+        $stmt = $pdo->prepare(
+            "SELECT created_at
+               FROM transactions
+               WHERE account_id = ?
+                 AND type = 'income'
+                 AND category = 'Revenu passif'
+               ORDER BY created_at DESC
+               LIMIT 1"
+        );
+        $stmt->execute([$accountId]);
+        $lastCredit = $stmt->fetch(\PDO::FETCH_ASSOC);
+        if ($lastCredit && !empty($lastCredit['created_at'])) {
+            $lastTimestamp = strtotime((string) $lastCredit['created_at']);
+            if ($lastTimestamp !== false && (time() - $lastTimestamp) < 60) {
+                return 0.0;
+            }
+        }
+
+        $tx = new \App\Models\Transaction();
+        $tx->addTransaction(
+            $accountId,
+            'income',
+            round($amount, 2),
+            'Revenu passif',
+            'Versement automatique — revenu passif (1 min)',
+            0
+        );
+
+        return round($amount, 2);
+    }
+
+    public function processAllPassiveIncome(): int
+    {
+        $count = 0;
+        $accounts = (new Account())->findBy(['type' => 'event']);
+        foreach ($accounts as $account) {
+            $accountId = (int) ($account['id'] ?? 0);
+            if ($accountId <= 0) {
+                continue;
+            }
+
+            if ($this->creditPassiveIncomeForAccount($accountId) > 0.0) {
+                $count++;
+            }
+        }
+
+        return $count;
     }
 
     public function buyUpgrade(int $accountId, string $key, int $quantity = 1): bool
