@@ -180,10 +180,11 @@ class AccountTest extends TestCase
         $this->assertArrayHasKey('savings', $types);
     }
 
-    public function testEventAccountsDoNotAllowCardsOrManualOperations(): void
+    public function testEventAccountsDoNotAllowCardsManualOperationsOrBudgeting(): void
     {
         $this->assertFalse(Account::typeAllowsCard('event'));
         $this->assertFalse(Account::manualOperationsAllowed('event'));
+        $this->assertFalse(Account::typeAllowsBudget('event'));
     }
 
     public function testEventAccountStartsWithStarterCashAndUpgradeIncome(): void

@@ -187,6 +187,11 @@ class Account extends Model
         return !in_array($type, ['savings', 'vault', 'event'], true);
     }
 
+    public static function typeAllowsBudget(string $type): bool
+    {
+        return $type !== 'event';
+    }
+
     // ── Suspension TPE d'un compte professionnel ─────────────────────────────
 
     /**

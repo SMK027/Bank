@@ -2186,7 +2186,7 @@
                                     <?= $t['type'] === 'income' ? '+' : '-' ?><?= fmt_amount_smart((float) $t['amount']) ?>
                                 </td>
                                 <td style="white-space:nowrap;">
-                                    <?php if ($t['type'] === 'expense' && !$txIsTpe && empty($t['pending'])): ?>
+                                    <?php if (($account['type'] ?? '') !== 'event' && $t['type'] === 'expense' && !$txIsTpe && empty($t['pending'])): ?>
                                     <button type="button"
                                             class="btn btn-outline btn-sm"
                                             style="padding:0.15rem 0.4rem;font-size:0.82rem;<?= $txIsAlreadySplit ? 'opacity:0.45;' : '' ?>"
@@ -2200,7 +2200,7 @@
                                         <i class="bi bi-<?= $txIsAlreadySplit ? 'people-fill' : 'people' ?>"></i>
                                     </button>
                                     <?php endif; ?>
-                                    <?php if ($t['type'] === 'expense' && !$txIsTpe): ?>
+                                    <?php if (($account['type'] ?? '') !== 'event' && $t['type'] === 'expense' && !$txIsTpe): ?>
                                     <form method="POST"
                                           action="/accounts/<?= (int) $account['id'] ?>/transactions/<?= (int) $t['id'] ?>/toggle-budget-exclusion"
                                           style="display:inline;">

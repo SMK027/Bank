@@ -510,6 +510,13 @@ class TransactionController extends Controller
             return;
         }
 
+        $account = $this->accountModel->find($accId);
+        if (($account['type'] ?? '') === 'event') {
+            $this->setFlash('danger', 'Le système de budget est désactivé sur les comptes événementiels.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
         if (!$this->ensureEventAccountOperational($accId, '/accounts/' . $accountId)) {
             return;
         }

@@ -61,6 +61,13 @@ class ExpenseSplitController extends Controller
             return;
         }
 
+        $account = $this->accountModel->find($accId);
+        if (($account['type'] ?? '') === 'event') {
+            $this->setFlash('danger', 'La répartition de dépenses est désactivée sur les comptes événementiels.');
+            $this->redirect("/accounts/{$accId}");
+            return;
+        }
+
         $tx = $this->transactionModel->find($txId);
         if (!$tx || (int) $tx['account_id'] !== $accId) {
             $this->setFlash('danger', 'Transaction introuvable.');

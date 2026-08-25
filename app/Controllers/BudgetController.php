@@ -31,7 +31,12 @@ class BudgetController extends Controller
         $accountModel  = new Account();
         $data          = $accountModel->getAccessibleAccounts($userId);
         $ownAccountIds = array_column(
-            array_filter($data['own'], fn($a) => empty($a['internal']) && empty($a['disabled_at'])),
+            array_filter(
+                $data['own'],
+                fn($a) => empty($a['internal'])
+                    && empty($a['disabled_at'])
+                    && Account::typeAllowsBudget((string) ($a['type'] ?? ''))
+            ),
             'id'
         );
 
