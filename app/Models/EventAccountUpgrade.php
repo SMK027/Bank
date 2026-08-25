@@ -90,6 +90,28 @@ class EventAccountUpgrade extends Model
         return round($incomePerHour / 60.0, 6);
     }
 
+    public static function getLevelMultiplier(int $level): float
+    {
+        $level = max(1, $level);
+        return round(1.0 + (($level - 1) * 0.6), 4);
+    }
+
+    public static function getUpgradeIncomeForLevel(float $incomePerHour, int $level): float
+    {
+        return round(self::getIncomePerMinute($incomePerHour) * self::getLevelMultiplier($level), 6);
+    }
+
+    public static function getLevelUpgradeCost(string $upgradeKey, int $currentLevel): float
+    {
+        if (!isset(self::UPGRADES[$upgradeKey])) {
+            return 0.0;
+        }
+
+        $baseCost = (float) self::UPGRADES[$upgradeKey]['cost'];
+        $level = max(1, $currentLevel);
+        return round($baseCost * (1.0 + ($level * 0.85)), 2);
+    }
+
     public static function getTotalSpentForOwned(float $baseCost, int $ownedQuantity): float
     {
         $total = 0.0;
@@ -236,26 +258,36 @@ class EventAccountUpgrade extends Model
 
         $rows = $this->findBy(['account_id' => $accountId]);
         $ownedByKey = [];
+        $levelByKey = [];
         foreach ($rows as $row) {
-            $ownedByKey[(string) $row['upgrade_key']] = (int) ($row['quantity'] ?? 0);
+            $key = (string) ($row['upgrade_key'] ?? '');
+            if ($key === '') {
+                continue;
+            }
+            $ownedByKey[$key] = (int) ($row['quantity'] ?? 0);
+            $levelByKey[$key] = max(1, (int) ($row['level'] ?? 1));
         }
 
         $shop = [];
         foreach (self::UPGRADES as $key => $definition) {
             $owned = (int) ($ownedByKey[$key] ?? 0);
+            $level = (int) ($levelByKey[$key] ?? 1);
             $baseCost = (float) $definition['cost'];
             $incomePerHour = (float) $definition['income_per_hour'];
-            $incomePerMinute = self::getIncomePerMinute($incomePerHour);
+            $incomePerMinute = self::getUpgradeIncomeForLevel($incomePerHour, $level);
             $nextCost = self::getCostForNextUnit($baseCost, $owned);
+            $nextLevelCost = self::getLevelUpgradeCost($key, $level);
             $shop[$key] = [
                 'key' => $key,
                 'label' => $definition['label'],
                 'description' => $definition['description'],
                 'cost' => $nextCost,
+                'level' => $level,
+                'next_level_cost' => $nextLevelCost,
                 'income_per_hour' => $incomePerHour,
                 'income_per_minute' => $incomePerMinute,
                 'owned' => $owned,
-                'total_income_per_hour' => $owned * $incomePerHour,
+                'total_income_per_hour' => $owned * ($incomePerHour * self::getLevelMultiplier($level)),
                 'total_income_per_minute' => $owned * $incomePerMinute,
                 'next_cost' => $nextCost,
                 'total_spent' => self::getTotalSpentForOwned($baseCost, $owned),
@@ -497,6 +529,65 @@ class EventAccountUpgrade extends Model
         return $count;
     }
 
+    public function upgradeLevel(int $accountId, string $key): bool
+    {
+        if (!isset(self::UPGRADES[$key])) {
+            return false;
+        }
+
+        $account = (new Account())->find($accountId);
+        if (!$account || !Account::isEventType((string) ($account['type'] ?? ''))) {
+            return false;
+        }
+
+        if ($this->isPassiveIncomePaused($accountId)) {
+            return false;
+        }
+
+        $purchase = $this->findOneBy(['account_id' => $accountId, 'upgrade_key' => $key]);
+        $currentLevel = (int) ($purchase['level'] ?? 1);
+        $cost = self::getLevelUpgradeCost($key, $currentLevel);
+        $balance = (float) (new Account())->getBalance($accountId);
+        $overdraftLimit = $this->getEventOverdraftLimit($accountId);
+        if (($balance - $cost) < -$overdraftLimit) {
+            return false;
+        }
+
+        $pdo = $this->getPdo();
+        $pdo->beginTransaction();
+        try {
+            $newLevel = $currentLevel + 1;
+            if ($purchase) {
+                $this->update((int) $purchase['id'], ['level' => $newLevel]);
+            } else {
+                $this->create([
+                    'account_id' => $accountId,
+                    'upgrade_key' => $key,
+                    'quantity' => 0,
+                    'level' => $newLevel,
+                ]);
+            }
+
+            (new Transaction())->create([
+                'account_id' => $accountId,
+                'user_id' => (int) $account['user_id'],
+                'type' => 'expense',
+                'amount' => $cost,
+                'category' => 'Équipement événementiel',
+                'comment' => 'Amélioration de niveau : ' . self::UPGRADES[$key]['label'],
+                'scheduled_at' => null,
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+
+            $pdo->commit();
+            return true;
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            return false;
+        }
+    }
+
     public function buyUpgrade(int $accountId, string $key, int $quantity = 1): bool
     {
         if (!isset(self::UPGRADES[$key])) {
@@ -516,6 +607,7 @@ class EventAccountUpgrade extends Model
         $definition = self::UPGRADES[$key];
         $purchase = $this->findOneBy(['account_id' => $accountId, 'upgrade_key' => $key]);
         $ownedBefore = (int) ($purchase['quantity'] ?? 0);
+        $currentLevel = (int) ($purchase['level'] ?? 1);
         $totalCost = self::getTotalCostForQuantity((float) $definition['cost'], $ownedBefore, $qty);
         $balance = (float) (new Account())->getBalance($accountId);
         $overdraftLimit = $this->getEventOverdraftLimit($accountId);
@@ -529,12 +621,16 @@ class EventAccountUpgrade extends Model
             $newQuantity = $qty + $ownedBefore;
 
             if ($purchase) {
-                $this->update((int) $purchase['id'], ['quantity' => $newQuantity]);
+                $this->update((int) $purchase['id'], [
+                    'quantity' => $newQuantity,
+                    'level' => max(1, $currentLevel),
+                ]);
             } else {
                 $this->create([
                     'account_id' => $accountId,
                     'upgrade_key' => $key,
                     'quantity' => $newQuantity,
+                    'level' => 1,
                 ]);
             }
 

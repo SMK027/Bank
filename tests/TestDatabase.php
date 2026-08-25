@@ -246,6 +246,7 @@ class TestDatabase
                 account_id  INTEGER NOT NULL DEFAULT 0,
                 upgrade_key TEXT    NOT NULL,
                 quantity    INTEGER NOT NULL DEFAULT 0,
+                level       INTEGER NOT NULL DEFAULT 1,
                 created_at  TEXT,
                 updated_at  TEXT
             );

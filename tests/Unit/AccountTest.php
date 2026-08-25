@@ -271,6 +271,37 @@ class AccountTest extends TestCase
         $this->assertEqualsWithDelta(25.0, $upgradeModel->getPassiveIncome($id), 0.001);
     }
 
+    public function testEventUpgradeLevelAffectsIncomeAndCosts(): void
+    {
+        $id = $this->account->createAccount(
+            1,
+            'Festival local',
+            'EUR',
+            0.0,
+            'event',
+            null,
+            false,
+            [
+                'title' => 'Festival local',
+                'start_at' => date('Y-m-d H:i:s', time() - 3600),
+                'end_at' => date('Y-m-d H:i:s', time() + 3600),
+            ]
+        );
+
+        $upgradeModel = new EventAccountUpgrade();
+        $this->assertTrue($upgradeModel->buyUpgrade($id, 'ticket_booth', 2));
+
+        $shop = $upgradeModel->getShopState($id);
+        $this->assertSame(1, (int) $shop['ticket_booth']['level']);
+        $this->assertEqualsWithDelta(1.0, (float) $shop['ticket_booth']['total_income_per_minute'], 0.001);
+        $this->assertGreaterThan(0.0, (float) $shop['ticket_booth']['next_level_cost']);
+
+        $this->assertTrue($upgradeModel->upgradeLevel($id, 'ticket_booth'));
+        $updated = $upgradeModel->getShopState($id);
+        $this->assertSame(2, (int) $updated['ticket_booth']['level']);
+        $this->assertGreaterThan((float) $shop['ticket_booth']['total_income_per_minute'], (float) $updated['ticket_booth']['total_income_per_minute']);
+    }
+
     public function testEventEconomySummaryProvidesProgressionMetrics(): void
     {
         $id = $this->account->createAccount(

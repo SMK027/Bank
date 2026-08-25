@@ -349,6 +349,43 @@ class AccountController extends Controller
         $this->redirect('/accounts/' . $accountId);
     }
 
+    public function upgradeEventUpgradeLevel(string $accountId): void
+    {
+        $this->requireAuth();
+        $accountId = (int) $accountId;
+        $userId = $this->getCurrentUserId();
+
+        $account = $this->accountModel->find($accountId);
+        if (!$account || !$this->accountModel->isOwner($accountId, $userId)) {
+            $this->setFlash('danger', 'Vous ne pouvez pas améliorer ce compte.');
+            $this->redirect('/dashboard');
+            return;
+        }
+
+        if (($account['type'] ?? '') !== 'event') {
+            $this->setFlash('danger', 'Cette action n’est disponible que pour les comptes événementiels.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        if ($this->eventAccountUpgradeModel->isPassiveIncomePaused($accountId)) {
+            $this->setFlash('danger', 'Le versement automatique est suspendu. Réactivez-le avant d’améliorer une installation.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $upgradeKey = trim((string) ($_POST['upgrade_key'] ?? ''));
+        if ($upgradeKey === '' || !$this->eventAccountUpgradeModel->upgradeLevel($accountId, $upgradeKey)) {
+            $this->setFlash('danger', 'Amélioration de niveau impossible : fonds insuffisants, amélioration invalide, ou limites dépassées.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $label = EventAccountUpgrade::UPGRADES[$upgradeKey]['label'] ?? 'amélioration';
+        $this->setFlash('success', 'Niveau de ' . $label . ' amélioré avec succès.');
+        $this->redirect('/accounts/' . $accountId);
+    }
+
     public function show(string $id): void
     {
         $this->requireAuth();

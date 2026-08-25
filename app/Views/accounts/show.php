@@ -382,6 +382,10 @@
                             </span>
                             <span class="text-success">+<?= fmt_amount_smart((float) $upgrade['income_per_minute']) ?> / min</span>
                         </div>
+                        <div style="margin-top:0.6rem;display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                            <span class="badge bg-light text-dark">Niveau <?= (int) $upgrade['level'] ?></span>
+                            <span class="text-muted" style="font-size:0.8rem;">Amélioration : <?= fmt_amount_smart((float) $upgrade['next_level_cost']) ?></span>
+                        </div>
                         <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-upgrades/buy" style="margin-top:0.85rem;"
                               data-upgrade-form="<?= e($upgrade['key']) ?>"
                               data-base-cost="<?= (float) $upgrade['cost'] ?>"
@@ -398,6 +402,13 @@
                             </div>
                             <button type="submit" class="btn btn-sm btn-primary" style="width:100%;margin-top:0.75rem;">
                                 <i class="bi bi-cart-plus"></i> Acheter
+                            </button>
+                        </form>
+                        <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-upgrades/level" style="margin-top:0.5rem;">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="upgrade_key" value="<?= e($upgrade['key']) ?>">
+                            <button type="submit" class="btn btn-sm btn-outline-success" style="width:100%;">
+                                <i class="bi bi-arrow-up-circle"></i> Niveau +1
                             </button>
                         </form>
                     </div>
