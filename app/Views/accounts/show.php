@@ -276,22 +276,26 @@
         <h3 style="margin:0;"><i class="bi bi-graph-up-arrow"></i> Économie du compte événementiel</h3>
     </div>
     <div class="card-body">
-        <div class="stats-grid event-summary-grid" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-bottom:1rem;">
-            <div class="stat-card" style="border-left:3px solid #0f766e;">
-                <div class="stat-value text-success">+<?= fmt_amount_smart(500.0) ?></div>
-                <div class="stat-label">Versement d’ouverture</div>
+        <div class="event-kpi-grid">
+            <div class="event-kpi-card event-kpi-card--accent">
+                <span class="event-kpi-card__label">Versement d’ouverture</span>
+                <strong class="event-kpi-card__value">+<?= fmt_amount_smart(500.0) ?></strong>
+                <span class="event-kpi-card__hint">Crédit initial automatique</span>
             </div>
-            <div class="stat-card" style="border-left:3px solid #0f766e;">
-                <div class="stat-value text-success">+<?= fmt_amount_smart($eventPassiveIncome) ?>/min</div>
-                <div class="stat-label">Revenu passif</div>
+            <div class="event-kpi-card">
+                <span class="event-kpi-card__label">Revenu passif</span>
+                <strong class="event-kpi-card__value">+<?= fmt_amount_smart($eventPassiveIncome) ?>/min</strong>
+                <span class="event-kpi-card__hint">Versé chaque minute</span>
             </div>
-            <div class="stat-card" style="border-left:3px solid #0f766e;">
-                <div class="stat-value text-success"><?= e($eventEconomySummary['prestige_tier']) ?></div>
-                <div class="stat-label">Niveau de prestige</div>
+            <div class="event-kpi-card">
+                <span class="event-kpi-card__label">Prestige</span>
+                <strong class="event-kpi-card__value"><?= e($eventEconomySummary['prestige_tier']) ?></strong>
+                <span class="event-kpi-card__hint">Niveau actuel de progression</span>
             </div>
-            <div class="stat-card" style="border-left:3px solid #0f766e;">
-                <div class="stat-value text-success"><?= (int) $eventEconomySummary['owned_upgrades_count'] ?></div>
-                <div class="stat-label">Améliorations possédées</div>
+            <div class="event-kpi-card">
+                <span class="event-kpi-card__label">Améliorations</span>
+                <strong class="event-kpi-card__value"><?= (int) $eventEconomySummary['owned_upgrades_count'] ?></strong>
+                <span class="event-kpi-card__hint">Objets déjà achetés</span>
             </div>
         </div>
 
@@ -506,8 +510,53 @@
         color:var(--text-muted);
     }
 
-    .event-summary-grid {
-        gap:0.9rem;
+    .event-kpi-grid {
+        display:grid;
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+        gap:0.85rem;
+        margin-bottom:1rem;
+    }
+
+    .event-kpi-card {
+        position:relative;
+        overflow:hidden;
+        padding:0.9rem;
+        border-radius:18px;
+        border:1px solid rgba(15,118,110,0.12);
+        background:linear-gradient(180deg, rgba(255,255,255,0.98), rgba(243,250,249,0.96));
+        box-shadow:0 10px 24px rgba(15,23,42,0.05);
+        min-width:0;
+    }
+
+    .event-kpi-card--accent {
+        border-color:rgba(15,118,110,0.24);
+        background:linear-gradient(135deg, rgba(15,118,110,0.12), rgba(255,255,255,0.98));
+    }
+
+    .event-kpi-card__label {
+        display:block;
+        font-size:0.72rem;
+        font-weight:800;
+        letter-spacing:0.08em;
+        text-transform:uppercase;
+        color:#0f766e;
+        margin-bottom:0.45rem;
+    }
+
+    .event-kpi-card__value {
+        display:block;
+        font-size:1.45rem;
+        line-height:1.05;
+        color:#1d4ed8;
+        word-break:break-word;
+    }
+
+    .event-kpi-card__hint {
+        display:block;
+        margin-top:0.45rem;
+        font-size:0.78rem;
+        line-height:1.35;
+        color:var(--text-muted);
     }
 
     .event-summary-strip,
@@ -640,6 +689,14 @@
     .account-show-page .stats-grid {
         grid-template-columns: 1fr !important;
         gap: 0.75rem !important;
+    }
+
+    .event-kpi-grid {
+        grid-template-columns:1fr;
+    }
+
+    .event-kpi-card__value {
+        font-size:1.25rem;
     }
 
     .event-summary-strip,
