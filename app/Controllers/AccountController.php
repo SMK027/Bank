@@ -26,6 +26,7 @@ use App\Models\LoanInstallment;
 use App\Models\Check;
 use App\Models\Checkbook;
 use App\Models\OverdraftAuthorization;
+use App\Models\Supervisor;
 use App\Models\User;
 
 class AccountController extends Controller
