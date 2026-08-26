@@ -336,6 +336,8 @@
                             <i class="bi bi-shield-check"></i> Débloquer pour 2000 €
                         </button>
                     </form>
+                <?php elseif ($eventOverdraftLimit >= 15000): ?>
+                    <span class="badge" style="background:#0f766e;color:#fff;padding:0.65rem 0.85rem;white-space:normal;text-align:center;">Découvert maximum débloqué</span>
                 <?php else: ?>
                     <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-overdraft/upgrade">
                         <?= csrf_field() ?>
