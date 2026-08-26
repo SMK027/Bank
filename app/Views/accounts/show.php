@@ -426,38 +426,40 @@
                             <i class="bi bi-arrow-up-circle"></i> Améliorer le niveau
                         </button>
 
-                        <div class="modal fade d-none event-level-modal" id="level-up-modal-<?= e($upgrade['key']) ?>" tabindex="-1" aria-labelledby="level-up-modal-label-<?= e($upgrade['key']) ?>" aria-hidden="true" style="display:none;">
-                            <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable event-level-modal-dialog">
-                                <div class="modal-content event-level-modal-content">
-                                    <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-upgrades/level">
-                                        <?= csrf_field() ?>
-                                        <input type="hidden" name="upgrade_key" value="<?= e($upgrade['key']) ?>">
-                                        <div class="modal-header">
-                                            <h5 class="modal-title" id="level-up-modal-label-<?= e($upgrade['key']) ?>">Améliorer : <?= e($upgrade['label']) ?></h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
-                                        </div>
-                                        <div class="modal-body">
-                                            <div class="mb-3">
-                                                <label for="level_count_<?= e($upgrade['key']) ?>" class="form-label">Nombre de niveaux</label>
-                                                <input id="level_count_<?= e($upgrade['key']) ?>" type="number" name="level_count" min="1" max="20" value="1" class="form-control level-count-input" data-upgrade-key="<?= e($upgrade['key']) ?>" data-current-level="<?= (int) $upgrade['level'] ?>" data-base-cost="<?= (float) (
-                                                    \App\Models\EventAccountUpgrade::UPGRADES[$upgrade['key']]['cost'] ?? 0.0
-                                                ) ?>">
+                        <template id="level-up-template-<?= e($upgrade['key']) ?>">
+                            <div class="modal fade d-none event-level-modal" id="level-up-modal-<?= e($upgrade['key']) ?>" tabindex="-1" aria-labelledby="level-up-modal-label-<?= e($upgrade['key']) ?>" aria-hidden="true" style="display:none;">
+                                <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable event-level-modal-dialog">
+                                    <div class="modal-content event-level-modal-content">
+                                        <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-upgrades/level">
+                                            <?= csrf_field() ?>
+                                            <input type="hidden" name="upgrade_key" value="<?= e($upgrade['key']) ?>">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="level-up-modal-label-<?= e($upgrade['key']) ?>">Améliorer : <?= e($upgrade['label']) ?></h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
                                             </div>
-                                            <div class="alert alert-light mb-0 small">
-                                                <strong>Coût total estimé :</strong>
-                                                <span class="level-up-total-price" data-upgrade-key="<?= e($upgrade['key']) ?>"><?= fmt_amount_smart((float) $upgrade['next_level_cost']) ?></span>
+                                            <div class="modal-body">
+                                                <div class="mb-3">
+                                                    <label for="level_count_<?= e($upgrade['key']) ?>" class="form-label">Nombre de niveaux</label>
+                                                    <input id="level_count_<?= e($upgrade['key']) ?>" type="number" name="level_count" min="1" max="20" value="1" class="form-control level-count-input" data-upgrade-key="<?= e($upgrade['key']) ?>" data-current-level="<?= (int) $upgrade['level'] ?>" data-base-cost="<?= (float) (
+                                                        \App\Models\EventAccountUpgrade::UPGRADES[$upgrade['key']]['cost'] ?? 0.0
+                                                    ) ?>">
+                                                </div>
+                                                <div class="alert alert-light mb-0 small">
+                                                    <strong>Coût total estimé :</strong>
+                                                    <span class="level-up-total-price" data-upgrade-key="<?= e($upgrade['key']) ?>"><?= fmt_amount_smart((float) $upgrade['next_level_cost']) ?></span>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div class="modal-footer">
-                                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Annuler</button>
-                                            <button type="submit" class="btn btn-success btn-sm">
-                                                <i class="bi bi-arrow-up-circle"></i> Confirmer
-                                            </button>
-                                        </div>
-                                    </form>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Annuler</button>
+                                                <button type="submit" class="btn btn-success btn-sm">
+                                                    <i class="bi bi-arrow-up-circle"></i> Confirmer
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        </template>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -897,9 +899,17 @@ function attachLevelUpgradeCalculation() {
 }
 
 function openUpgradeModal(targetSelector) {
-    const modal = document.querySelector(targetSelector);
+    let modal = document.querySelector(targetSelector);
     if (!modal) {
-        return;
+        const templateSelector = targetSelector.replace('#level-up-modal-', '#level-up-template-');
+        const template = document.querySelector(templateSelector);
+        if (!template || !template.content) {
+            return;
+        }
+
+        modal = template.content.firstElementChild.cloneNode(true);
+        document.body.appendChild(modal);
+        attachLevelUpgradeCalculation();
     }
 
     modal.classList.remove('d-none');
@@ -920,17 +930,21 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    document.querySelectorAll('[data-bs-dismiss="modal"]').forEach(function (closeButton) {
-        closeButton.addEventListener('click', function () {
-            const modal = closeButton.closest('.modal');
-            if (!modal) {
-                return;
-            }
-            modal.classList.remove('is-open');
-            modal.classList.add('d-none');
-            modal.style.display = 'none';
-            modal.setAttribute('aria-hidden', 'true');
-        });
+    document.addEventListener('click', function (event) {
+        const closeButton = event.target.closest('[data-bs-dismiss="modal"]');
+        if (!closeButton) {
+            return;
+        }
+
+        const modal = closeButton.closest('.modal');
+        if (!modal) {
+            return;
+        }
+
+        modal.classList.remove('is-open');
+        modal.classList.add('d-none');
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
     });
 
     attachUpgradeTotalCalculation();
