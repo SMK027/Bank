@@ -43,6 +43,7 @@
  * @var array       $activeCheckbooks
  * @var array       $pendingChecks
  * @var bool        $eventDeveloperMode
+ * @var array       $eventDeveloperState
  */
 ?>
 <div class="account-show-page">
@@ -422,6 +423,16 @@
                 </div>
                 <span class="badge" style="background:#111827;color:#fff;">DEV</span>
             </div>
+            <?php if (!empty($eventDeveloperState['active']) && !empty($eventDeveloperState['revenue_multiplier'])): ?>
+                <div class="event-dev-panel__state">
+                    <strong>Bonus de revenus actif :</strong>
+                    <?= (($eventDeveloperState['revenue_percentage'] ?? 0.0) >= 0 ? '+' : '') ?><?= number_format((float) ($eventDeveloperState['revenue_percentage'] ?? 0.0), 2, ',', ' ') ?>%
+                    (x<?= number_format((float) ($eventDeveloperState['revenue_multiplier'] ?? 1.0), 2, ',', ' ') ?>)
+                    <?php if (!empty($eventDeveloperState['expires_at'])): ?>
+                        jusqu’au <?= e(date('d/m/Y à H\hi', (int) $eventDeveloperState['expires_at'])) ?>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
             <div class="event-dev-panel__grid">
                 <div class="event-dev-panel__item">
                     <span>Compte ID</span>
@@ -439,6 +450,42 @@
                     <span>Améliorations</span>
                     <strong><?= (int) $eventEconomySummary['owned_upgrades_count'] ?></strong>
                 </div>
+            </div>
+            <div class="event-dev-actions">
+                <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-developer-mode/overdraft" class="event-dev-form">
+                    <?= csrf_field() ?>
+                    <label class="form-label" for="dev_overdraft_limit">Découvert développeur</label>
+                    <div class="event-dev-form-row">
+                        <input id="dev_overdraft_limit" type="number" min="1" step="0.01" name="limit" class="form-control form-control-sm" value="<?= e((string) max(200.0, (float) $eventOverdraftLimit)) ?>">
+                        <button type="submit" class="btn btn-outline-dark btn-sm"><i class="bi bi-arrow-up-circle"></i> Appliquer</button>
+                    </div>
+                    <small class="text-muted">Permet d’aller au-delà de -15000 sans coût.</small>
+                </form>
+
+                <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-developer-mode/multiplier" class="event-dev-form">
+                    <?= csrf_field() ?>
+                    <label class="form-label">Multiplicateur de revenus temporaire</label>
+                    <div class="event-dev-form-row event-dev-form-row--compact">
+                        <input type="number" name="percentage" step="0.01" class="form-control form-control-sm" placeholder="%" value="20">
+                        <input type="number" name="duration_value" min="1" class="form-control form-control-sm" value="1">
+                        <select name="duration_unit" class="form-select form-select-sm">
+                            <option value="hour">Heure(s)</option>
+                            <option value="day">Jour(s)</option>
+                            <option value="minute">Minute(s)</option>
+                        </select>
+                    </div>
+                    <div class="event-dev-form-row">
+                        <button type="submit" class="btn btn-dark btn-sm"><i class="bi bi-lightning-charge"></i> Appliquer</button>
+                    </div>
+                    <small class="text-muted">Exemples: +20% pendant 1 heure, -15% pendant 3 jours.</small>
+                </form>
+
+                <?php if (!empty($eventDeveloperState['active']) && abs((float) ($eventDeveloperState['revenue_multiplier'] ?? 1.0) - 1.0) > 0.0001): ?>
+                <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-developer-mode/multiplier/clear" class="event-dev-form" style="margin-top:-0.25rem;">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="btn btn-outline-secondary btn-sm">Réinitialiser le bonus de revenus</button>
+                </form>
+                <?php endif; ?>
             </div>
         </div>
         <?php endif; ?>
@@ -730,6 +777,54 @@
         gap:0.75rem;
     }
 
+    .event-dev-panel__state {
+        padding:0.85rem 1rem;
+        margin:0.9rem 0;
+        border-radius:14px;
+        border:1px solid rgba(17,24,39,0.12);
+        background:rgba(17,24,39,0.04);
+        color:#111827;
+        line-height:1.45;
+    }
+
+    .event-dev-actions {
+        display:grid;
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+        gap:0.9rem;
+        margin-top:1rem;
+    }
+
+    .event-dev-form {
+        padding:0.9rem;
+        border-radius:14px;
+        border:1px solid rgba(17,24,39,0.08);
+        background:#fff;
+    }
+
+    .event-dev-form .form-label {
+        font-size:0.82rem;
+        font-weight:700;
+        margin-bottom:0.45rem;
+    }
+
+    .event-dev-form-row {
+        display:flex;
+        gap:0.5rem;
+        align-items:center;
+        flex-wrap:wrap;
+    }
+
+    .event-dev-form-row--compact > * {
+        flex:1 1 120px;
+        min-width:0;
+    }
+
+    .event-dev-form .text-muted {
+        display:block;
+        margin-top:0.45rem;
+        font-size:0.78rem;
+    }
+
     .event-dev-panel__item {
         padding:0.8rem;
         border-radius:14px;
@@ -953,6 +1048,20 @@
 
     .event-dev-panel__grid {
         grid-template-columns:1fr;
+    }
+
+    .event-dev-actions {
+        grid-template-columns:1fr;
+    }
+
+    .event-dev-form-row {
+        flex-direction:column;
+        align-items:stretch;
+    }
+
+    .event-dev-form-row--compact > * {
+        flex:1 1 auto;
+        width:100%;
     }
 
     .account-show-page .card-body {

@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Core\Session;
 use App\Core\Model;
 
 class EventAccountUpgrade extends Model
 {
     protected string $table = 'event_account_upgrades';
+
+    public const DEVELOPER_MODE_BYPASS_KEY = 'event.tycoon_dev_mode';
+    private const DEVELOPER_STATE_SESSION_KEY = 'event_tycoon_developer_state';
 
     public const UPGRADES = [
         'ticket_booth' => [
@@ -140,6 +144,124 @@ class EventAccountUpgrade extends Model
         return 'Démarrage';
     }
 
+    public function isDeveloperModeActive(): bool
+    {
+        return Supervisor::hasBypass(self::DEVELOPER_MODE_BYPASS_KEY);
+    }
+
+    public function getDeveloperState(int $accountId): array
+    {
+        $state = Session::get(self::DEVELOPER_STATE_SESSION_KEY, []);
+        if (!is_array($state)) {
+            return [
+                'active' => false,
+                'revenue_multiplier' => 1.0,
+                'revenue_percentage' => 0.0,
+                'label' => null,
+                'expires_at' => null,
+                'applied_by' => null,
+            ];
+        }
+
+        $entry = $state[(string) $accountId] ?? null;
+        if (!is_array($entry)) {
+            return [
+                'active' => false,
+                'revenue_multiplier' => 1.0,
+                'revenue_percentage' => 0.0,
+                'label' => null,
+                'expires_at' => null,
+                'applied_by' => null,
+            ];
+        }
+
+        $expiresAt = isset($entry['expires_at']) ? (int) $entry['expires_at'] : null;
+        if ($expiresAt !== null && $expiresAt > 0 && time() >= $expiresAt) {
+            unset($state[(string) $accountId]);
+            Session::set(self::DEVELOPER_STATE_SESSION_KEY, $state);
+            return [
+                'active' => false,
+                'revenue_multiplier' => 1.0,
+                'revenue_percentage' => 0.0,
+                'label' => null,
+                'expires_at' => null,
+                'applied_by' => null,
+            ];
+        }
+
+        $multiplier = max(0.0, (float) ($entry['revenue_multiplier'] ?? 1.0));
+
+        return [
+            'active' => $this->isDeveloperModeActive(),
+            'revenue_multiplier' => round($multiplier, 4),
+            'revenue_percentage' => round((($multiplier - 1.0) * 100.0), 2),
+            'label' => (string) ($entry['label'] ?? ''),
+            'expires_at' => $expiresAt,
+            'applied_by' => isset($entry['applied_by']) ? (int) $entry['applied_by'] : null,
+        ];
+    }
+
+    public function clearDeveloperState(int $accountId): void
+    {
+        $state = Session::get(self::DEVELOPER_STATE_SESSION_KEY, []);
+        if (!is_array($state)) {
+            return;
+        }
+
+        unset($state[(string) $accountId]);
+        Session::set(self::DEVELOPER_STATE_SESSION_KEY, $state);
+    }
+
+    public function setDeveloperRevenueMultiplier(int $accountId, float $percentage, int $durationValue, string $durationUnit, ?int $supervisorDbId = null): bool
+    {
+        $account = (new Account())->find($accountId);
+        if (!$account || !Account::isEventType((string) ($account['type'] ?? '')) || !$this->isDeveloperModeActive()) {
+            return false;
+        }
+
+        $durationValue = max(1, $durationValue);
+        $seconds = match (strtolower(trim($durationUnit))) {
+            'minute', 'minutes', 'min', 'mins' => $durationValue * 60,
+            'hour', 'hours', 'h' => $durationValue * 3600,
+            'day', 'days', 'j', 'jour', 'jours' => $durationValue * 86400,
+            default => 0,
+        };
+
+        if ($seconds <= 0) {
+            return false;
+        }
+
+        $multiplier = max(0.0, round(1.0 + ($percentage / 100.0), 4));
+        $expiresAt = time() + $seconds;
+        $state = Session::get(self::DEVELOPER_STATE_SESSION_KEY, []);
+        if (!is_array($state)) {
+            $state = [];
+        }
+
+        $state[(string) $accountId] = [
+            'revenue_multiplier' => $multiplier,
+            'label' => sprintf('%+.2f%% pendant %d %s', $percentage, $durationValue, $durationUnit),
+            'expires_at' => $expiresAt,
+            'applied_by' => $supervisorDbId,
+            'created_at' => time(),
+        ];
+
+        Session::set(self::DEVELOPER_STATE_SESSION_KEY, $state);
+        return true;
+    }
+
+    public function setDeveloperOverdraftLimit(int $accountId, float $limit): bool
+    {
+        $account = (new Account())->find($accountId);
+        if (!$account || !Account::isEventType((string) ($account['type'] ?? '')) || !$this->isDeveloperModeActive()) {
+            return false;
+        }
+
+        $limit = max(0.0, round($limit, 2));
+        (new Account())->update($accountId, ['event_overdraft_limit' => $limit]);
+        return true;
+    }
+
     public function getEventOverdraftLimit(int $accountId): float
     {
         $account = (new Account())->find($accountId);
@@ -148,6 +270,10 @@ class EventAccountUpgrade extends Model
         }
 
         $limit = (float) ($account['event_overdraft_limit'] ?? 0.0);
+        if ($this->isDeveloperModeActive()) {
+            return max(0.0, $limit);
+        }
+
         return max(0.0, min(15000.0, $limit));
     }
 
@@ -170,6 +296,11 @@ class EventAccountUpgrade extends Model
         }
 
         if ((float) ($account['event_overdraft_limit'] ?? 0.0) > 0.0) {
+            return true;
+        }
+
+        if ($this->isDeveloperModeActive()) {
+            (new Account())->update($accountId, ['event_overdraft_limit' => 200.0]);
             return true;
         }
 
@@ -202,30 +333,42 @@ class EventAccountUpgrade extends Model
         }
 
         $currentLimit = $this->getEventOverdraftLimit($accountId);
-        if ($currentLimit <= 0.0) {
+        if ($currentLimit <= 0.0 && !$this->isDeveloperModeActive()) {
             return false;
         }
 
-        $steps = max(1.0, min(10.0, $steps));
-        $targetLimit = min(15000.0, $currentLimit + (200.0 * $steps));
-        $cost = $this->getEventOverdraftUpgradeCost($currentLimit) * $steps;
+        if ($currentLimit <= 0.0 && $this->isDeveloperModeActive()) {
+            $currentLimit = 200.0;
+        }
 
-        $balance = (new Account())->getBalance($accountId);
-        if ($balance < $cost) {
-            return false;
+        $steps = max(1.0, min(10.0, $steps));
+        $targetLimit = $currentLimit + (200.0 * $steps);
+        if (!$this->isDeveloperModeActive()) {
+            $targetLimit = min(15000.0, $targetLimit);
+        }
+
+        $cost = $this->isDeveloperModeActive() ? 0.0 : ($this->getEventOverdraftUpgradeCost($currentLimit) * $steps);
+
+        if (!$this->isDeveloperModeActive()) {
+            $balance = (new Account())->getBalance($accountId);
+            if ($balance < $cost) {
+                return false;
+            }
         }
 
         (new Account())->update($accountId, ['event_overdraft_limit' => $targetLimit]);
 
-        $tx = new \App\Models\Transaction();
-        $tx->addTransaction(
-            $accountId,
-            'expense',
-            round($cost, 2),
-            'Découvert',
-            'Amélioration du découvert événementiel',
-            0
-        );
+        if ($cost > 0.0) {
+            $tx = new \App\Models\Transaction();
+            $tx->addTransaction(
+                $accountId,
+                'expense',
+                round($cost, 2),
+                'Découvert',
+                'Amélioration du découvert événementiel',
+                0
+            );
+        }
 
         return true;
     }
@@ -455,6 +598,11 @@ class EventAccountUpgrade extends Model
             $total += (float) ($upgrade['total_income_per_minute'] ?? 0.0);
         }
 
+        $devState = $this->getDeveloperState($accountId);
+        if (($devState['active'] ?? false) && (float) ($devState['revenue_multiplier'] ?? 1.0) !== 1.0) {
+            $total *= (float) $devState['revenue_multiplier'];
+        }
+
         $reduction = $this->getIncomeReductionFromOverdraft($accountId);
         if ($reduction > 0.0) {
             $total *= (1.0 - $reduction);
@@ -555,12 +703,14 @@ class EventAccountUpgrade extends Model
         $balance = (float) (new Account())->getBalance($accountId);
         $overdraftLimit = $this->getEventOverdraftLimit($accountId);
         if (($balance - $cost) < -$overdraftLimit) {
-            return sprintf(
-                'Fonds insuffisants : solde %.2f €, coût total %.2f €, découvert autorisé %.2f €.',
-                $balance,
-                $cost,
-                $overdraftLimit
-            );
+            if (!$this->isDeveloperModeActive()) {
+                return sprintf(
+                    'Fonds insuffisants : solde %.2f €, coût total %.2f €, découvert autorisé %.2f €.',
+                    $balance,
+                    $cost,
+                    $overdraftLimit
+                );
+            }
         }
 
         return null;
@@ -578,7 +728,7 @@ class EventAccountUpgrade extends Model
             return false;
         }
 
-        if ($this->isPassiveIncomePaused($accountId)) {
+        if ($this->isPassiveIncomePaused($accountId) && !$this->isDeveloperModeActive()) {
             return false;
         }
 
@@ -589,10 +739,14 @@ class EventAccountUpgrade extends Model
             $totalCost += self::getLevelUpgradeCost($key, $currentLevel + $i);
         }
 
-        $balance = (float) (new Account())->getBalance($accountId);
-        $overdraftLimit = $this->getEventOverdraftLimit($accountId);
-        if (($balance - $totalCost) < -$overdraftLimit) {
-            return false;
+        if (!$this->isDeveloperModeActive()) {
+            $balance = (float) (new Account())->getBalance($accountId);
+            $overdraftLimit = $this->getEventOverdraftLimit($accountId);
+            if (($balance - $totalCost) < -$overdraftLimit) {
+                return false;
+            }
+        } else {
+            $totalCost = 0.0;
         }
 
         $pdo = $this->getPdo();
@@ -610,17 +764,19 @@ class EventAccountUpgrade extends Model
                 ]);
             }
 
-            (new Transaction())->create([
-                'account_id' => $accountId,
-                'user_id' => (int) $account['user_id'],
-                'type' => 'expense',
-                'amount' => $totalCost,
-                'category' => 'Équipement événementiel',
-                'comment' => 'Amélioration de niveau : ' . self::UPGRADES[$key]['label'] . ($levelCount > 1 ? ' x' . $levelCount : ''),
-                'scheduled_at' => null,
-                'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s'),
-            ]);
+            if ($totalCost > 0.0) {
+                (new Transaction())->create([
+                    'account_id' => $accountId,
+                    'user_id' => (int) $account['user_id'],
+                    'type' => 'expense',
+                    'amount' => $totalCost,
+                    'category' => 'Équipement événementiel',
+                    'comment' => 'Amélioration de niveau : ' . self::UPGRADES[$key]['label'] . ($levelCount > 1 ? ' x' . $levelCount : ''),
+                    'scheduled_at' => null,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ]);
+            }
 
             $pdo->commit();
             return true;
@@ -641,7 +797,7 @@ class EventAccountUpgrade extends Model
             return false;
         }
 
-        if ($this->isPassiveIncomePaused($accountId)) {
+        if ($this->isPassiveIncomePaused($accountId) && !$this->isDeveloperModeActive()) {
             return false;
         }
 
@@ -651,10 +807,14 @@ class EventAccountUpgrade extends Model
         $ownedBefore = (int) ($purchase['quantity'] ?? 0);
         $currentLevel = (int) ($purchase['level'] ?? 1);
         $totalCost = self::getTotalCostForQuantity((float) $definition['cost'], $ownedBefore, $qty);
-        $balance = (float) (new Account())->getBalance($accountId);
-        $overdraftLimit = $this->getEventOverdraftLimit($accountId);
-        if (($balance - $totalCost) < -$overdraftLimit) {
-            return false;
+        if (!$this->isDeveloperModeActive()) {
+            $balance = (float) (new Account())->getBalance($accountId);
+            $overdraftLimit = $this->getEventOverdraftLimit($accountId);
+            if (($balance - $totalCost) < -$overdraftLimit) {
+                return false;
+            }
+        } else {
+            $totalCost = 0.0;
         }
 
         $pdo = $this->getPdo();
@@ -676,17 +836,19 @@ class EventAccountUpgrade extends Model
                 ]);
             }
 
-            (new Transaction())->create([
-                'account_id' => $accountId,
-                'user_id' => (int) $account['user_id'],
-                'type' => 'expense',
-                'amount' => $totalCost,
-                'category' => 'Équipement événementiel',
-                'comment' => 'Achat : ' . $definition['label'] . ($qty > 1 ? ' x' . $qty : ''),
-                'scheduled_at' => null,
-                'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s'),
-            ]);
+            if ($totalCost > 0.0) {
+                (new Transaction())->create([
+                    'account_id' => $accountId,
+                    'user_id' => (int) $account['user_id'],
+                    'type' => 'expense',
+                    'amount' => $totalCost,
+                    'category' => 'Équipement événementiel',
+                    'comment' => 'Achat : ' . $definition['label'] . ($qty > 1 ? ' x' . $qty : ''),
+                    'scheduled_at' => null,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ]);
+            }
 
             $pdo->commit();
             return true;

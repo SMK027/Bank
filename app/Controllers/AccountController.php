@@ -202,7 +202,10 @@ class AccountController extends Controller
         }
 
         if ($this->eventAccountUpgradeModel->unlockEventOverdraft($accountId)) {
-            $this->setFlash('success', 'Découvert événementiel activé : limite initiale de 200 € mise en place.');
+            $message = $this->eventAccountUpgradeModel->isDeveloperModeActive()
+                ? 'Découvert événementiel activé gratuitement en mode développeur : limite initiale de 200 € mise en place.'
+                : 'Découvert événementiel activé : limite initiale de 200 € mise en place.';
+            $this->setFlash('success', $message);
         } else {
             $this->setFlash('danger', 'Activation impossible : solde insuffisant pour payer les 2000 € d’ouverture.');
         }
@@ -231,7 +234,7 @@ class AccountController extends Controller
         }
 
         $currentLimit = $this->eventAccountUpgradeModel->getEventOverdraftLimit($accountId);
-        if ($currentLimit <= 0.0) {
+        if ($currentLimit <= 0.0 && !$this->eventAccountUpgradeModel->isDeveloperModeActive()) {
             $this->setFlash('danger', 'Activez d’abord le découvert événementiel avant de le renforcer.');
             $this->redirect('/accounts/' . $accountId);
             return;
@@ -239,11 +242,104 @@ class AccountController extends Controller
 
         if ($this->eventAccountUpgradeModel->upgradeEventOverdraftLimit($accountId, 1.0)) {
             $newLimit = $this->eventAccountUpgradeModel->getEventOverdraftLimit($accountId);
-            $this->setFlash('success', sprintf('Découvert renforcé : limite portée à %.2f €.', $newLimit));
+            $this->setFlash('success', $this->eventAccountUpgradeModel->isDeveloperModeActive()
+                ? sprintf('Découvert renforcé gratuitement en mode développeur : limite portée à %.2f €.', $newLimit)
+                : sprintf('Découvert renforcé : limite portée à %.2f €.', $newLimit));
         } else {
             $this->setFlash('danger', 'Amélioration impossible : fonds insuffisants ou limite maximale atteinte.');
         }
 
+        $this->redirect('/accounts/' . $accountId);
+    }
+
+    public function setEventTycoonDeveloperOverdraftLimit(string $accountId): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $accountId = (int) $accountId;
+        $account = $this->accountModel->find($accountId);
+        if (!$account || ($account['type'] ?? '') !== 'event') {
+            $this->setFlash('danger', 'Compte événementiel introuvable.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        if (!$this->eventAccountUpgradeModel->isDeveloperModeActive()) {
+            $this->setFlash('danger', 'Activez le mode développeur avant d’appliquer un ajustement technique.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $limit = isset($_POST['limit']) ? (float) $_POST['limit'] : 0.0;
+        if ($limit <= 0.0) {
+            $this->setFlash('danger', 'La limite doit être supérieure à zéro.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        if ($this->eventAccountUpgradeModel->setDeveloperOverdraftLimit($accountId, $limit)) {
+            $this->setFlash('success', sprintf('Découvert développeur appliqué : %.2f €.', $limit));
+        } else {
+            $this->setFlash('danger', 'Impossible d’appliquer la limite développeur.');
+        }
+
+        $this->redirect('/accounts/' . $accountId);
+    }
+
+    public function setEventTycoonDeveloperRevenueMultiplier(string $accountId): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $accountId = (int) $accountId;
+        $account = $this->accountModel->find($accountId);
+        if (!$account || ($account['type'] ?? '') !== 'event') {
+            $this->setFlash('danger', 'Compte événementiel introuvable.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        if (!$this->eventAccountUpgradeModel->isDeveloperModeActive()) {
+            $this->setFlash('danger', 'Activez le mode développeur avant d’appliquer un multiplicateur.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $percentage = isset($_POST['percentage']) ? (float) $_POST['percentage'] : 0.0;
+        $durationValue = isset($_POST['duration_value']) ? (int) $_POST['duration_value'] : 0;
+        $durationUnit = trim((string) ($_POST['duration_unit'] ?? 'hours'));
+
+        if ($durationValue <= 0) {
+            $this->setFlash('danger', 'La durée doit être supérieure à zéro.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        if ($this->eventAccountUpgradeModel->setDeveloperRevenueMultiplier($accountId, $percentage, $durationValue, $durationUnit, $this->getCurrentUserId())) {
+            $this->setFlash('success', sprintf('Multiplicateur de revenus appliqué : %+.2f%% pendant %d %s.', $percentage, $durationValue, $durationUnit));
+        } else {
+            $this->setFlash('danger', 'Impossible d’appliquer le multiplicateur développeur.');
+        }
+
+        $this->redirect('/accounts/' . $accountId);
+    }
+
+    public function clearEventTycoonDeveloperRevenueMultiplier(string $accountId): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $accountId = (int) $accountId;
+        $account = $this->accountModel->find($accountId);
+        if (!$account || ($account['type'] ?? '') !== 'event') {
+            $this->setFlash('danger', 'Compte événementiel introuvable.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $this->eventAccountUpgradeModel->clearDeveloperState($accountId);
+        $this->setFlash('success', 'Bonus de revenus développeur réinitialisé.');
         $this->redirect('/accounts/' . $accountId);
     }
 
@@ -335,6 +431,8 @@ class AccountController extends Controller
         $quantity = isset($_POST['quantity']) ? (int) $_POST['quantity'] : 1;
         $quantity = max(1, min(99, $quantity));
 
+        $developerMode = $this->eventAccountUpgradeModel->isDeveloperModeActive();
+
         if ($upgradeKey === '' || !$this->eventAccountUpgradeModel->buyUpgrade($accountId, $upgradeKey, $quantity)) {
             $this->setFlash('danger', 'Achat impossible : fonds insuffisants, amélioration invalide, quantité non valide, ou versement automatique suspendu.');
             $this->redirect('/accounts/' . $accountId);
@@ -343,7 +441,9 @@ class AccountController extends Controller
 
         $label = EventAccountUpgrade::UPGRADES[$upgradeKey]['label'] ?? 'amélioration';
         $this->setFlash('success', sprintf(
-            '%s ajoutée%s avec succès !',
+            $developerMode
+                ? '%s ajoutée%s gratuitement en mode développeur !'
+                : '%s ajoutée%s avec succès !',
             $label,
             $quantity > 1 ? ' (x' . $quantity . ')' : ''
         ));
@@ -390,6 +490,8 @@ class AccountController extends Controller
             return;
         }
 
+        $developerMode = $this->eventAccountUpgradeModel->isDeveloperModeActive();
+
         if (!$this->eventAccountUpgradeModel->upgradeLevel($accountId, $upgradeKey, $levelCount)) {
             $this->setFlash('danger', 'Amélioration de niveau impossible : erreur non identifiée.');
             $this->redirect('/accounts/' . $accountId);
@@ -397,7 +499,9 @@ class AccountController extends Controller
         }
 
         $label = EventAccountUpgrade::UPGRADES[$upgradeKey]['label'] ?? 'amélioration';
-        $this->setFlash('success', 'Niveau de ' . $label . ' amélioré avec succès.');
+        $this->setFlash('success', $developerMode
+            ? 'Niveau de ' . $label . ' amélioré gratuitement en mode développeur.'
+            : 'Niveau de ' . $label . ' amélioré avec succès.');
         $this->redirect('/accounts/' . $accountId);
     }
 
@@ -406,6 +510,8 @@ class AccountController extends Controller
         $this->requireModerator();
         $this->validateCSRF();
 
+        $accountId = (int) $accountId;
+        $this->eventAccountUpgradeModel->clearDeveloperState($accountId);
         Supervisor::consumeBypass(SupervisorController::EVENT_TYCOON_DEV_MODE_KEY);
 
         $this->setFlash('success', 'Mode développeur du tycoon désactivé.');
@@ -456,7 +562,8 @@ class AccountController extends Controller
         $hasPending    = abs($futureBalance - $balance) > 0.001;
         $isOwner = $this->accountModel->isOwner($accountId, $userId);
         $isModerator = $this->isModerator();
-        $eventDeveloperMode = $isModerator && Supervisor::hasBypass(SupervisorController::EVENT_TYCOON_DEV_MODE_KEY);
+        $eventDeveloperMode = $isModerator && $this->eventAccountUpgradeModel->isDeveloperModeActive();
+        $eventDeveloperState = $this->eventAccountUpgradeModel->getDeveloperState($accountId);
         $isFrozen    = $this->accountModel->isFrozen($accountId);
         $isDisabled  = $this->accountModel->isDisabled($accountId);
 
@@ -715,6 +822,7 @@ class AccountController extends Controller
             'isOwner'            => $isOwner,
             'isModerator'        => $isModerator,
             'eventDeveloperMode' => $eventDeveloperMode,
+            'eventDeveloperState' => $eventDeveloperState,
             'isFrozen'           => $isFrozen,
             'isDisabled'         => $isDisabled,
             'accesses'           => $accesses,
