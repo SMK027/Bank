@@ -256,11 +256,14 @@
 <?php endif; ?>
 
 <?php if (($account['type'] ?? '') === 'event' && empty($eventBlockedReason)): ?>
-<div class="alert" style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;background:rgba(15,118,110,0.12);border-left:4px solid #0f766e;">
-    <i class="bi bi-info-circle" style="font-size:1.2rem;color:#0f766e;"></i>
-    <div style="color:#0f766e;">
-        <strong>Compte événementiel actif.</strong>
-        Ce compte reste utilisable jusqu'à la fin de l'événement puis devient définitivement non opérationnel (non reconductible).
+<div class="event-economy-banner">
+    <div class="event-economy-banner__icon">
+        <i class="bi bi-calendar2-week"></i>
+    </div>
+    <div class="event-economy-banner__content">
+        <div class="event-economy-banner__eyebrow">Compte événementiel actif</div>
+        <h2>Tableau de bord événementiel</h2>
+        <p>Suivez la progression, les revenus passifs et les améliorations sans perdre le fil, même sur mobile.</p>
     </div>
 </div>
 <?php 
@@ -273,7 +276,7 @@
         <h3 style="margin:0;"><i class="bi bi-graph-up-arrow"></i> Économie du compte événementiel</h3>
     </div>
     <div class="card-body">
-        <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:1rem;">
+        <div class="stats-grid event-summary-grid" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-bottom:1rem;">
             <div class="stat-card" style="border-left:3px solid #0f766e;">
                 <div class="stat-value text-success">+<?= fmt_amount_smart(500.0) ?></div>
                 <div class="stat-label">Versement d’ouverture</div>
@@ -292,97 +295,108 @@
             </div>
         </div>
 
-        <div class="alert alert-light" style="margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
+        <div class="event-summary-strip">
             <div>
-                <strong>Prochaine étape :</strong>
-                <?= e($eventEconomySummary['next_upgrade_label'] ?? 'Aucune amélioration supplémentaire disponible') ?>
-                <?php if (!empty($eventEconomySummary['next_upgrade_cost'])): ?>
-                    pour <?= fmt_amount_smart((float) $eventEconomySummary['next_upgrade_cost']) ?>.
-                <?php endif; ?>
+                <div class="event-summary-strip__label">Prochaine étape</div>
+                <div class="event-summary-strip__value">
+                    <?= e($eventEconomySummary['next_upgrade_label'] ?? 'Aucune amélioration supplémentaire disponible') ?>
+                    <?php if (!empty($eventEconomySummary['next_upgrade_cost'])): ?>
+                        <span>pour <?= fmt_amount_smart((float) $eventEconomySummary['next_upgrade_cost']) ?></span>
+                    <?php endif; ?>
+                </div>
             </div>
-            <div class="text-success"><strong>Investissement total :</strong> <?= fmt_amount_smart((float) $eventEconomySummary['total_spent']) ?></div>
+            <div class="event-summary-strip__metric">
+                <span>Investissement total</span>
+                <strong><?= fmt_amount_smart((float) $eventEconomySummary['total_spent']) ?></strong>
+            </div>
         </div>
 
         <?php $eventOverdraftLimit = (new \App\Models\EventAccountUpgrade())->getEventOverdraftLimit((int) $account['id']); ?>
-        <div class="alert alert-secondary" style="margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;">
-            <div>
-                <strong>Découvert événementiel :</strong>
-                <?php if ($eventOverdraftLimit > 0): ?>
-                    <?= fmt_amount_smart((float) $eventOverdraftLimit) ?> de marge autorisée (max. -15000 €).
+        <div class="event-status-panel event-status-panel--overdraft">
+            <div class="event-status-panel__body">
+                <div class="event-status-panel__label">Découvert événementiel</div>
+                <div class="event-status-panel__text">
+                    <?php if ($eventOverdraftLimit > 0): ?>
+                        <?= fmt_amount_smart((float) $eventOverdraftLimit) ?> de marge autorisée (max. -15000 €).
+                        <span class="text-warning">Réduction des revenus : <?= round((new \App\Models\EventAccountUpgrade())->getIncomeReductionFromOverdraft((int) $account['id']) * 100, 0) ?>%.</span>
+                    <?php else: ?>
+                        Non activé. Déblocage possible pour 2000 € puis limite initiale de 200 €.
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="event-status-panel__action">
+                <?php if ($eventOverdraftLimit <= 0): ?>
+                    <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-overdraft/unlock">
+                        <?= csrf_field() ?>
+                        <button type="submit" class="btn btn-warning btn-sm">
+                            <i class="bi bi-shield-check"></i> Débloquer pour 2000 €
+                        </button>
+                    </form>
                 <?php else: ?>
-                    Non activé. Déblocage possible pour 2000 € puis limite initiale de 200 €.
-                <?php endif; ?>
-                <?php if ($eventOverdraftLimit > 0): ?>
-                    <span class="text-warning">Réduction des revenus : <?= round((new \App\Models\EventAccountUpgrade())->getIncomeReductionFromOverdraft((int) $account['id']) * 100, 0) ?>%.</span>
+                    <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-overdraft/upgrade">
+                        <?= csrf_field() ?>
+                        <button type="submit" class="btn btn-outline-warning btn-sm">
+                            <i class="bi bi-arrow-up-circle"></i> Améliorer le découvert
+                        </button>
+                    </form>
                 <?php endif; ?>
             </div>
-            <?php if ($eventOverdraftLimit <= 0): ?>
-                <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-overdraft/unlock">
-                    <?= csrf_field() ?>
-                    <button type="submit" class="btn btn-warning btn-sm">
-                        <i class="bi bi-shield-check"></i> Débloquer pour 2000 €
-                    </button>
-                </form>
-            <?php else: ?>
-                <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-overdraft/upgrade">
-                    <?= csrf_field() ?>
-                    <button type="submit" class="btn btn-outline-warning btn-sm">
-                        <i class="bi bi-arrow-up-circle"></i> Améliorer le découvert
-                    </button>
-                </form>
-            <?php endif; ?>
         </div>
 
         <?php $passiveIncomePaused = (new \App\Models\EventAccountUpgrade())->isPassiveIncomePaused((int) $account['id']); ?>
         <?php if ($passiveIncomePaused): ?>
-            <div class="alert alert-warning" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
-                <div>
-                    <strong>Versement automatique suspendu.</strong>
-                    Il a été arrêté le <?= e((new DateTime((string) $account['passive_income_paused_at']))->format('d/m/Y à H\hi')) ?>.
+            <div class="event-status-panel event-status-panel--paused">
+                <div class="event-status-panel__body">
+                    <div class="event-status-panel__label">Versement automatique suspendu</div>
+                    <div class="event-status-panel__text">Arrêté le <?= e((new DateTime((string) $account['passive_income_paused_at']))->format('d/m/Y à H\hi')) ?>.</div>
                 </div>
-                <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-passive-income/resume">
-                    <?= csrf_field() ?>
-                    <button type="submit" class="btn btn-success btn-sm">
-                        <i class="bi bi-play-circle"></i> Réactiver le versement
-                    </button>
-                </form>
+                <div class="event-status-panel__action">
+                    <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-passive-income/resume">
+                        <?= csrf_field() ?>
+                        <button type="submit" class="btn btn-success btn-sm">
+                            <i class="bi bi-play-circle"></i> Réactiver
+                        </button>
+                    </form>
+                </div>
             </div>
         <?php else: ?>
-            <div class="alert alert-info" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
-                <div>
-                    <strong>Versement automatique actif.</strong>
-                    Les revenus passifs sont versés automatiquement chaque minute pendant l’événement.
+            <div class="event-status-panel event-status-panel--active">
+                <div class="event-status-panel__body">
+                    <div class="event-status-panel__label">Versement automatique actif</div>
+                    <div class="event-status-panel__text">Les revenus passifs sont versés automatiquement chaque minute pendant l’événement.</div>
                 </div>
-                <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-passive-income/pause">
-                    <?= csrf_field() ?>
-                    <button type="submit" class="btn btn-outline-warning btn-sm">
-                        <i class="bi bi-pause-circle"></i> Suspendre le versement
-                    </button>
-                </form>
+                <div class="event-status-panel__action">
+                    <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-passive-income/pause">
+                        <?= csrf_field() ?>
+                        <button type="submit" class="btn btn-outline-warning btn-sm">
+                            <i class="bi bi-pause-circle"></i> Suspendre
+                        </button>
+                    </form>
+                </div>
             </div>
         <?php endif; ?>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;">
+        <div class="event-upgrade-grid">
             <?php foreach ($eventUpgradeShop as $upgrade): ?>
-                <div class="card event-upgrade-card" style="border:1px solid rgba(15,118,110,0.2);background:rgba(255,255,255,0.7);">
+                <div class="card event-upgrade-card" style="border:1px solid rgba(15,118,110,0.2);background:rgba(255,255,255,0.8);box-shadow:0 10px 25px rgba(15,118,110,0.08);">
                     <div class="card-body" style="padding:1rem;">
-                        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:0.75rem;">
-                            <div>
+                        <div class="event-upgrade-card__header">
+                            <div class="event-upgrade-card__title-block">
                                 <strong><?= e($upgrade['label']) ?></strong>
-                                <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem;">
+                                <div class="event-upgrade-card__description">
                                     <?= e($upgrade['description']) ?>
                                 </div>
                             </div>
-                            <span class="badge" style="background:#0f766e;color:#fff;">x<?= (int) $upgrade['owned'] ?></span>
+                            <span class="badge event-upgrade-card__owned">x<?= (int) $upgrade['owned'] ?></span>
                         </div>
-                        <div style="margin-top:0.75rem;display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;">
-                            <span>
+                        <div class="event-upgrade-card__pricing">
+                            <span class="event-upgrade-card__price-line">
                                 <strong class="event-upgrade-unit-price" data-upgrade-key="<?= e($upgrade['key']) ?>"><?= fmt_amount_smart((float) $upgrade['cost']) ?></strong>
                                 <span> / achat</span>
                             </span>
                             <span class="text-success">+<?= fmt_amount_smart((float) $upgrade['income_per_minute']) ?> / min</span>
                         </div>
-                        <div style="margin-top:0.6rem;display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                        <div class="event-upgrade-card__meta">
                             <span class="badge bg-light text-dark">Niveau <?= (int) $upgrade['level'] ?></span>
                             <span class="text-muted" style="font-size:0.8rem;">Amélioration : <?= fmt_amount_smart((float) $upgrade['next_level_cost']) ?></span>
                         </div>
@@ -393,7 +407,7 @@
                               data-growth="0.65">
                             <?= csrf_field() ?>
                             <input type="hidden" name="upgrade_key" value="<?= e($upgrade['key']) ?>">
-                            <div style="display:flex;gap:0.5rem;align-items:center;">
+                            <div class="event-upgrade-card__qty-row">
                                 <label for="qty_<?= e($upgrade['key']) ?>" style="font-size:0.8rem;color:var(--text-muted);margin:0;">Qté</label>
                                 <input id="qty_<?= e($upgrade['key']) ?>" type="number" name="quantity" min="1" max="99" value="1" class="form-control form-control-sm event-upgrade-qty" style="max-width:80px;" data-upgrade-key="<?= e($upgrade['key']) ?>">
                             </div>
@@ -409,8 +423,8 @@
                         </button>
 
                         <div class="modal fade d-none" id="level-up-modal-<?= e($upgrade['key']) ?>" tabindex="-1" aria-labelledby="level-up-modal-label-<?= e($upgrade['key']) ?>" aria-hidden="true" style="display:none;">
-                            <div class="modal-dialog modal-dialog-centered">
-                                <div class="modal-content">
+                            <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable event-level-modal-dialog">
+                                <div class="modal-content event-level-modal-content">
                                     <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-upgrades/level">
                                         <?= csrf_field() ?>
                                         <input type="hidden" name="upgrade_key" value="<?= e($upgrade['key']) ?>">
@@ -449,14 +463,204 @@
 <?php endif; ?>
 
 <style>
+    .event-economy-banner {
+        display:flex;
+        align-items:flex-start;
+        gap:1rem;
+        padding:1rem 1.1rem;
+        margin:0 0 1rem;
+        border:1px solid rgba(15,118,110,0.18);
+        border-radius:18px;
+        background:linear-gradient(135deg, rgba(15,118,110,0.14), rgba(255,255,255,0.88));
+        box-shadow:0 12px 28px rgba(15,118,110,0.08);
+    }
+
+    .event-economy-banner__icon {
+        width:3rem;
+        height:3rem;
+        border-radius:14px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        background:#0f766e;
+        color:#fff;
+        font-size:1.25rem;
+        flex:0 0 auto;
+    }
+
+    .event-economy-banner__content h2 {
+        margin:0.15rem 0 0;
+        font-size:1.15rem;
+    }
+
+    .event-economy-banner__eyebrow {
+        text-transform:uppercase;
+        letter-spacing:0.08em;
+        font-size:0.72rem;
+        font-weight:700;
+        color:#0f766e;
+    }
+
+    .event-economy-banner__content p {
+        margin:0.35rem 0 0;
+        color:var(--text-muted);
+    }
+
+    .event-summary-grid {
+        gap:0.9rem;
+    }
+
+    .event-summary-strip,
+    .event-status-panel {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:1rem;
+        padding:0.95rem 1rem;
+        margin-bottom:1rem;
+        border-radius:16px;
+        border:1px solid rgba(15,118,110,0.12);
+        background:#fff;
+        box-shadow:0 10px 24px rgba(15,23,42,0.05);
+    }
+
+    .event-summary-strip__label,
+    .event-status-panel__label {
+        font-size:0.76rem;
+        font-weight:700;
+        text-transform:uppercase;
+        letter-spacing:0.06em;
+        color:#0f766e;
+        margin-bottom:0.25rem;
+    }
+
+    .event-summary-strip__value,
+    .event-status-panel__text {
+        color:var(--text-color, #0f172a);
+    }
+
+    .event-summary-strip__metric {
+        display:flex;
+        flex-direction:column;
+        align-items:flex-end;
+        gap:0.1rem;
+        white-space:nowrap;
+    }
+
+    .event-status-panel--paused {
+        border-color:rgba(245,158,11,0.2);
+        background:linear-gradient(135deg, rgba(245,158,11,0.14), rgba(255,255,255,0.95));
+    }
+
+    .event-status-panel--active {
+        border-color:rgba(59,130,246,0.15);
+        background:linear-gradient(135deg, rgba(59,130,246,0.10), rgba(255,255,255,0.95));
+    }
+
+    .event-status-panel--overdraft {
+        border-color:rgba(245,158,11,0.18);
+        background:linear-gradient(135deg, rgba(245,158,11,0.10), rgba(255,255,255,0.95));
+    }
+
+    .event-status-panel__body {
+        min-width:0;
+    }
+
+    .event-status-panel__action form {
+        margin:0;
+    }
+
+    .event-upgrade-grid {
+        display:grid;
+        grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+        gap:1rem;
+    }
+
+    .event-upgrade-card {
+        border-radius:18px;
+        overflow:hidden;
+    }
+
+    .event-upgrade-card__header,
+    .event-upgrade-card__pricing,
+    .event-upgrade-card__meta,
+    .event-upgrade-card__qty-row {
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:0.75rem;
+        flex-wrap:wrap;
+    }
+
+    .event-upgrade-card__title-block {
+        min-width:0;
+        flex:1 1 auto;
+    }
+
+    .event-upgrade-card__description {
+        font-size:0.82rem;
+        color:var(--text-muted);
+        margin-top:0.25rem;
+        line-height:1.4;
+    }
+
+    .event-upgrade-card__owned {
+        background:#0f766e;
+        color:#fff;
+        flex:0 0 auto;
+    }
+
+    .event-upgrade-card__price-line {
+        display:inline-flex;
+        align-items:baseline;
+        gap:0.25rem;
+        flex-wrap:wrap;
+    }
+
+    .event-level-modal-dialog {
+        max-width:520px;
+    }
+
+    .event-level-modal-content {
+        border-radius:18px;
+    }
+
 @media (max-width: 767px) {
+    .event-economy-banner {
+        padding:0.85rem;
+        border-radius:16px;
+    }
+
+    .event-economy-banner__icon {
+        width:2.6rem;
+        height:2.6rem;
+        border-radius:12px;
+    }
+
     .account-show-page .stats-grid {
         grid-template-columns: 1fr !important;
         gap: 0.75rem !important;
     }
 
+    .event-summary-strip,
+    .event-status-panel {
+        flex-direction:column;
+        align-items:stretch;
+        padding:0.9rem;
+    }
+
+    .event-summary-strip__metric {
+        align-items:flex-start;
+        white-space:normal;
+    }
+
+    .event-upgrade-grid {
+        grid-template-columns:1fr;
+        gap:0.85rem;
+    }
+
     .account-show-page .card-body {
-        padding: 0.8rem !important;
+        padding: 0.85rem !important;
     }
 
     .account-show-page .event-upgrade-card .card-body {
@@ -490,16 +694,29 @@
 
     .account-show-page .event-upgrade-card .form-control,
     .account-show-page .event-upgrade-card .form-control-sm {
-        min-height: 2.5rem;
+        min-height: 2.65rem;
+        max-width:100% !important;
+        width:100%;
     }
 
-    .account-show-page .modal-dialog {
-        margin: 0.75rem;
+    .event-level-modal-dialog {
+        margin:0.75rem;
+        max-width: calc(100vw - 1.5rem);
     }
 
     .account-show-page .modal-body,
     .account-show-page .modal-footer {
         padding: 0.9rem;
+    }
+
+    .account-show-page .modal-footer {
+        display:flex;
+        flex-direction:column-reverse;
+        align-items:stretch;
+    }
+
+    .account-show-page .modal-footer .btn {
+        width:100%;
     }
 
     .account-show-page .alert {
