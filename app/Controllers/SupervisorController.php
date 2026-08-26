@@ -482,11 +482,14 @@ class SupervisorController extends Controller
                 null,
                 AuditLog::ACTION_SUPERVISOR_BYPASS_FAIL,
                 [
-                    'feature_key'        => $featureKey,
-                    'attempted_id'       => $supervisorId,
-                    'supervisor_db_id'    => (int) $supervisor['id'],
-                    'reason'             => 'unauthorized_feature',
-                    'ip'                 => $_SERVER['REMOTE_ADDR'] ?? '',
+                    'feature_key'       => $featureKey,
+                    'feature_label'     => $featureLabel,
+                    'attempted_id'      => $supervisorId,
+                    'supervisor_db_id'  => (int) $supervisor['id'],
+                    'supervisor_id'     => (string) ($supervisor['supervisor_id'] ?? $supervisorId),
+                    'name'              => trim(((string) ($supervisor['first_name'] ?? '')) . ' ' . ((string) ($supervisor['last_name'] ?? ''))),
+                    'reason'            => 'unauthorized_feature',
+                    'ip'                => $_SERVER['REMOTE_ADDR'] ?? '',
                 ]
             );
             $renderError('Echec authentification superviseur: fonctionnalité non autorisée');
