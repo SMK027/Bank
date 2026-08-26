@@ -53,4 +53,19 @@ class SupervisorHabilitation extends Model
     {
         return $this->findBy(['supervisor_id' => (string) $supervisorDbId], 'feature_key', 'ASC');
     }
+
+    public function syncAuthorizations(int $supervisorDbId, array $featureKeys): void
+    {
+        $featureKeys = array_values(array_unique(array_filter(array_map('strval', $featureKeys))));
+
+        foreach ($this->getAuthorizationsForSupervisor($supervisorDbId) as $authorization) {
+            if (!in_array($authorization['feature_key'], $featureKeys, true)) {
+                $this->delete((int) $authorization['id']);
+            }
+        }
+
+        foreach ($featureKeys as $featureKey) {
+            $this->grantAuthorization($supervisorDbId, $featureKey);
+        }
+    }
 }

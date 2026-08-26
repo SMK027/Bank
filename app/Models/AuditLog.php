@@ -144,6 +144,7 @@ class AuditLog extends Model
 
     // Superviseurs
     public const ACTION_SUPERVISOR_CREATE      = 'supervisor.create';
+    public const ACTION_SUPERVISOR_HABILITATION_UPDATE = 'supervisor.habilitation_update';
     public const ACTION_SUPERVISOR_TOGGLE      = 'supervisor.toggle';
     public const ACTION_SUPERVISOR_PIN_RESET   = 'supervisor.pin_reset';
     public const ACTION_SUPERVISOR_BYPASS      = 'supervisor.bypass';
@@ -225,6 +226,7 @@ class AuditLog extends Model
         'pos.refund'               => 'Remboursement partiel TPE',
         'feature_flag.toggle'      => 'Feature flag basculé',
         'supervisor.create'        => 'Superviseur créé',
+        'supervisor.habilitation_update' => 'Habilitations superviseur mises à jour',
         'supervisor.toggle'        => 'Superviseur activé/désactivé',
         'supervisor.pin_reset'     => 'PIN superviseur réinitialisé',
         'supervisor.bypass'        => 'Bypass superviseur accordé',

@@ -42,10 +42,17 @@ class SupervisorController extends Controller
         $this->requireModerator();
 
         $supervisors = $this->supervisorModel->findAll('created_at', 'DESC');
+        $assignableHabilitations = $this->getAssignableHabilitations();
+
+        foreach ($supervisors as &$supervisor) {
+            $supervisor['habilitations'] = $this->habilitationModel->getAuthorizationsForSupervisor((int) $supervisor['id']);
+        }
+        unset($supervisor);
 
         $this->render('moderation/supervisors/index', [
-            'title'       => 'Modération — Superviseurs',
-            'supervisors' => $supervisors,
+            'title'                  => 'Modération — Superviseurs',
+            'supervisors'             => $supervisors,
+            'assignableHabilitations'  => $assignableHabilitations,
         ]);
     }
 
@@ -56,7 +63,75 @@ class SupervisorController extends Controller
         $this->render('moderation/supervisors/form', [
             'title'      => 'Nouveau superviseur',
             'supervisor' => null,
+            'isEditMode' => false,
+            'currentHabilitations' => [],
+            'assignableHabilitations' => $this->getAssignableHabilitations(),
         ]);
+    }
+
+    public function editHabilitations(string $id): void
+    {
+        $this->requireModerator();
+
+        $supervisor = $this->supervisorModel->find((int) $id);
+        if (!$supervisor) {
+            $this->setFlash('danger', 'Superviseur introuvable.');
+            $this->redirect('/moderation/supervisors');
+            return;
+        }
+
+        $currentHabilitations = array_column(
+            $this->habilitationModel->getAuthorizationsForSupervisor((int) $id),
+            'feature_key'
+        );
+
+        $this->render('moderation/supervisors/form', [
+            'title'                  => 'Habilitations du superviseur',
+            'supervisor'             => $supervisor,
+            'isEditMode'             => true,
+            'currentHabilitations'   => $currentHabilitations,
+            'assignableHabilitations'=> $this->getAssignableHabilitations(),
+        ]);
+    }
+
+    public function updateHabilitations(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $supervisor = $this->supervisorModel->find((int) $id);
+        if (!$supervisor) {
+            $this->setFlash('danger', 'Superviseur introuvable.');
+            $this->redirect('/moderation/supervisors');
+            return;
+        }
+
+        $selected = $_POST['habilitations'] ?? [];
+        if (!is_array($selected)) {
+            $selected = [];
+        }
+
+        $allowedKeys = array_keys($this->getAssignableHabilitations());
+        $selected = array_values(array_intersect($allowedKeys, array_map('strval', $selected)));
+
+        $this->habilitationModel->syncAuthorizations((int) $id, $selected);
+
+        AuditLog::log(
+            (int) $this->getCurrentUserId(),
+            AuditLog::ACTION_SUPERVISOR_HABILITATION_UPDATE,
+            [
+                'supervisor_db_id' => (int) $id,
+                'supervisor_id'    => $supervisor['supervisor_id'],
+                'habilitations'    => $selected,
+            ]
+        );
+
+        $this->setFlash('success', sprintf(
+            'Habilitations de « %s %s » mises à jour.',
+            htmlspecialchars($supervisor['first_name']),
+            htmlspecialchars($supervisor['last_name'])
+        ));
+        $this->redirect('/moderation/supervisors');
     }
 
     /** Traitement création. */

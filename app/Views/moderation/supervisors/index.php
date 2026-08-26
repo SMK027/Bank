@@ -1,5 +1,6 @@
 <?php
 /** @var array $supervisors */
+/** @var array $assignableHabilitations */
 ?>
 <div class="page-header">
     <div>
@@ -65,6 +66,9 @@
                         </td>
                         <td class="text-small"><?= e(date('d/m/Y', strtotime($sv['created_at']))) ?></td>
                         <td style="text-align:right;white-space:nowrap;">
+                            <a href="/moderation/supervisors/<?= (int) $sv['id'] ?>/habilitations" class="btn btn-outline btn-sm" title="Modifier les habilitations">
+                                <i class="bi bi-sliders"></i> Habilitations
+                            </a>
                             <!-- Réinitialiser PIN -->
                             <form method="POST"
                                   action="/moderation/supervisors/<?= (int) $sv['id'] ?>/pin/reset"
