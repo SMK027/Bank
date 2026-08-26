@@ -675,6 +675,8 @@
     .event-level-modal-content {
         border-radius:18px;
         overflow:hidden;
+        background:#fff;
+        color:#111827;
     }
 
     .event-level-modal {
@@ -705,6 +707,8 @@
     .event-level-modal .modal-footer {
         padding-left:1rem;
         padding-right:1rem;
+        background:#fff;
+        color:#111827;
     }
 
     .event-level-modal .modal-body {
@@ -741,6 +745,27 @@
     .event-level-modal .level-up-estimate strong,
     .event-level-modal .level-up-estimate span {
         display:block;
+    }
+
+    .event-level-modal .form-label,
+    .event-level-modal .modal-title,
+    .event-level-modal .modal-body,
+    .event-level-modal .modal-footer,
+    .event-level-modal .modal-body strong,
+    .event-level-modal .modal-body span {
+        color:#111827;
+    }
+
+    .event-level-modal .btn-secondary {
+        background:#e5e7eb;
+        border-color:#e5e7eb;
+        color:#111827;
+    }
+
+    .event-level-modal .btn-secondary:hover {
+        background:#d1d5db;
+        border-color:#d1d5db;
+        color:#111827;
     }
 
 @media (max-width: 767px) {
