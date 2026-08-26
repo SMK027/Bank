@@ -537,13 +537,32 @@ class SupervisorController extends Controller
     }
 
     /**
-     * Habilitations actuellement proposées à la création d'un superviseur.
+     * Habilitations proposées aux superviseurs.
+     *
+     * Inclut toutes les fonctionnalités présentes sur /moderation/features
+     * (feature_flags), ainsi que les clés de bypass internes non pilotées
+     * par feature flag.
      */
     private function getAssignableHabilitations(): array
     {
-        return [
+        $habilitations = [
             self::ACCOUNT_CONTROL_STEPUP_KEY => 'Validation des opérations de modération',
             self::EVENT_TYCOON_DEV_MODE_KEY  => 'Mode développeur du tycoon événementiel',
         ];
+
+        foreach (FeatureFlag::getAllGrouped() as $flags) {
+            foreach ($flags as $flag) {
+                $key = (string) ($flag['flag_key'] ?? '');
+                if ($key === '') {
+                    continue;
+                }
+                $label = trim((string) ($flag['label'] ?? ''));
+                $habilitations[$key] = $label !== '' ? $label : $key;
+            }
+        }
+
+        asort($habilitations, SORT_NATURAL | SORT_FLAG_CASE);
+
+        return $habilitations;
     }
 }
