@@ -438,13 +438,13 @@
                                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
                                             </div>
                                             <div class="modal-body">
-                                                <div class="mb-3">
+                                                <div class="level-count-field mb-3">
                                                     <label for="level_count_<?= e($upgrade['key']) ?>" class="form-label">Nombre de niveaux</label>
                                                     <input id="level_count_<?= e($upgrade['key']) ?>" type="number" name="level_count" min="1" max="20" value="1" class="form-control level-count-input" data-upgrade-key="<?= e($upgrade['key']) ?>" data-current-level="<?= (int) $upgrade['level'] ?>" data-base-cost="<?= (float) (
                                                         \App\Models\EventAccountUpgrade::UPGRADES[$upgrade['key']]['cost'] ?? 0.0
                                                     ) ?>">
                                                 </div>
-                                                <div class="alert alert-light mb-0 small">
+                                                <div class="level-up-estimate alert alert-light mb-0 small">
                                                     <strong>Coût total estimé :</strong>
                                                     <span class="level-up-total-price" data-upgrade-key="<?= e($upgrade['key']) ?>"><?= fmt_amount_smart((float) $upgrade['next_level_cost']) ?></span>
                                                 </div>
@@ -674,6 +674,7 @@
 
     .event-level-modal-content {
         border-radius:18px;
+        overflow:hidden;
     }
 
     .event-level-modal {
@@ -697,6 +698,49 @@
         width:100%;
         max-width:520px;
         pointer-events:auto;
+    }
+
+    .event-level-modal .modal-header,
+    .event-level-modal .modal-body,
+    .event-level-modal .modal-footer {
+        padding-left:1rem;
+        padding-right:1rem;
+    }
+
+    .event-level-modal .modal-body {
+        display:flex;
+        flex-direction:column;
+        gap:0.85rem;
+    }
+
+    .event-level-modal .modal-body .mb-3 {
+        margin-bottom:0 !important;
+    }
+
+    .event-level-modal .level-count-field {
+        display:flex;
+        flex-direction:column;
+        gap:0.45rem;
+    }
+
+    .event-level-modal .level-count-input {
+        width:100%;
+        max-width:100%;
+        min-height:3rem;
+        font-size:1rem;
+    }
+
+    .event-level-modal .level-up-estimate {
+        border-radius:14px;
+        padding:0.85rem;
+        background:rgba(15,118,110,0.06);
+        border:1px solid rgba(15,118,110,0.12);
+        word-break:break-word;
+    }
+
+    .event-level-modal .level-up-estimate strong,
+    .event-level-modal .level-up-estimate span {
+        display:block;
     }
 
 @media (max-width: 767px) {
@@ -793,6 +837,14 @@
     .event-level-modal.is-open .modal-content {
         max-height: calc(100vh - 1.5rem);
         overflow:auto;
+    }
+
+    .event-level-modal .modal-footer {
+        gap:0.5rem;
+    }
+
+    .event-level-modal .modal-footer .btn {
+        min-height:2.75rem;
     }
 
     .account-show-page .modal-body,
