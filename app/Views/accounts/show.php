@@ -523,7 +523,7 @@
                             <input type="hidden" name="upgrade_key" value="<?= e($upgrade['key']) ?>">
                             <div class="event-upgrade-card__qty-row">
                                 <label for="qty_<?= e($upgrade['key']) ?>" style="font-size:0.8rem;color:var(--text-muted);margin:0;">Qté</label>
-                                <input id="qty_<?= e($upgrade['key']) ?>" type="number" name="quantity" min="1" max="99" value="1" class="form-control form-control-sm event-upgrade-qty" style="max-width:80px;" data-upgrade-key="<?= e($upgrade['key']) ?>">
+                                <input id="qty_<?= e($upgrade['key']) ?>" type="number" name="quantity" min="1" value="1" class="form-control form-control-sm event-upgrade-qty" style="max-width:80px;" data-upgrade-key="<?= e($upgrade['key']) ?>">
                             </div>
                             <div class="event-upgrade-total" data-upgrade-key="<?= e($upgrade['key']) ?>" style="margin-top:0.6rem;font-size:0.82rem;color:var(--text-muted);">
                                 Total estimé : <strong><?= fmt_amount_smart((float) $upgrade['cost']) ?></strong>
@@ -550,7 +550,7 @@
                                             <div class="modal-body">
                                                 <div class="level-count-field mb-3">
                                                     <label for="level_count_<?= e($upgrade['key']) ?>" class="form-label">Nombre de niveaux</label>
-                                                    <input id="level_count_<?= e($upgrade['key']) ?>" type="number" name="level_count" min="1" max="20" value="1" class="form-control level-count-input" data-upgrade-key="<?= e($upgrade['key']) ?>" data-current-level="<?= (int) $upgrade['level'] ?>" data-base-cost="<?= (float) (
+                                                    <input id="level_count_<?= e($upgrade['key']) ?>" type="number" name="level_count" min="1" value="1" class="form-control level-count-input" data-upgrade-key="<?= e($upgrade['key']) ?>" data-current-level="<?= (int) $upgrade['level'] ?>" data-base-cost="<?= (float) (
                                                         \App\Models\EventAccountUpgrade::UPGRADES[$upgrade['key']]['cost'] ?? 0.0
                                                     ) ?>">
                                                 </div>
@@ -1183,7 +1183,7 @@ function attachUpgradeTotalCalculation() {
         const totalLabel = document.querySelector('.event-upgrade-total[data-upgrade-key="' + key + '"]');
 
         const update = () => {
-            const qty = Math.max(1, Math.min(99, Number(input.value || 1)));
+            const qty = Math.max(1, Number(input.value || 1));
             const currentUnitCost = baseCost * (1 + ((owned + (qty - 1)) * 0.65));
             const total = computeUpgradeCost(baseCost, owned, qty);
 
@@ -1214,7 +1214,7 @@ function attachLevelUpgradeCalculation() {
         const update = () => {
             const currentLevel = Number(input.dataset.currentLevel || 1);
             const baseCost = Number(input.dataset.baseCost || 0);
-            const levelCount = Math.max(1, Math.min(20, Number(input.value || 1)));
+            const levelCount = Math.max(1, Number(input.value || 1));
             let total = 0;
             for (let i = 0; i < levelCount; i++) {
                 const level = currentLevel + i;

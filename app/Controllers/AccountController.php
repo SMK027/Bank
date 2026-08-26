@@ -429,7 +429,7 @@ class AccountController extends Controller
 
         $upgradeKey = trim((string) ($_POST['upgrade_key'] ?? ''));
         $quantity = isset($_POST['quantity']) ? (int) $_POST['quantity'] : 1;
-        $quantity = max(1, min(99, $quantity));
+        $quantity = max(1, $quantity);
 
         $developerMode = $this->eventAccountUpgradeModel->isDeveloperModeActive();
 
