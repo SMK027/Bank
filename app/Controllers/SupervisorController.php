@@ -20,6 +20,7 @@ use App\Models\Supervisor;
 class SupervisorController extends Controller
 {
     protected const ACCOUNT_CONTROL_STEPUP_KEY = 'moderation.account_control_stepup';
+    public const EVENT_TYCOON_DEV_MODE_KEY = 'event.tycoon_dev_mode';
 
     private Supervisor $supervisorModel;
 
@@ -208,6 +209,7 @@ class SupervisorController extends Controller
         $redirectUrl = trim($_GET['redirect'] ?? '/');
         $isStepUp    = $featureKey === self::ACCOUNT_CONTROL_STEPUP_KEY;
         $flag        = FeatureFlag::get($featureKey);
+        $featureLabel = $this->getBypassFeatureLabel($featureKey, $isStepUp, $flag);
 
         if ($isStepUp && !$this->canUseStepUpFlow()) {
             $this->setFlash('warning', 'Votre session modérateur n\'est plus active. Veuillez vous reconnecter.');
@@ -235,7 +237,7 @@ class SupervisorController extends Controller
         $this->render('supervisor/bypass_form', [
             'title'       => 'Authentification superviseur',
             'featureKey'  => $featureKey,
-            'featureLabel'=> $isStepUp ? 'Validation opération de modération' : ($flag['label'] ?? $featureKey),
+            'featureLabel'=> $featureLabel,
             'redirectUrl' => $redirectUrl,
             'isStepUp'    => $isStepUp,
             'error'       => null,
@@ -263,13 +265,14 @@ class SupervisorController extends Controller
         }
 
         $flag = FeatureFlag::get($featureKey);
+        $featureLabel = $this->getBypassFeatureLabel($featureKey, $isStepUp, $flag);
 
-        $renderError = function (string $msg) use ($featureKey, $flag, $redirectUrl, $isStepUp): void {
+        $renderError = function (string $msg) use ($featureKey, $featureLabel, $redirectUrl, $isStepUp): void {
             http_response_code(401);
             $this->render('supervisor/bypass_form', [
                 'title'        => 'Authentification superviseur',
                 'featureKey'   => $featureKey,
-                'featureLabel' => $isStepUp ? 'Validation opération de modération' : ($flag['label'] ?? $featureKey),
+                'featureLabel' => $featureLabel,
                 'redirectUrl'  => $redirectUrl,
                 'isStepUp'     => $isStepUp,
                 'error'        => $msg,
@@ -419,5 +422,18 @@ class SupervisorController extends Controller
         }
 
         return '/dashboard';
+    }
+
+    private function getBypassFeatureLabel(string $featureKey, bool $isStepUp, ?array $flag = null): string
+    {
+        if ($isStepUp) {
+            return 'Validation opération de modération';
+        }
+
+        if ($featureKey === self::EVENT_TYCOON_DEV_MODE_KEY) {
+            return 'Mode développeur du tycoon';
+        }
+
+        return $flag['label'] ?? $featureKey;
     }
 }

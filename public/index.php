@@ -150,6 +150,7 @@ $router->post('/accounts/{accountId}/event-passive-income/pause', AccountControl
 $router->post('/accounts/{accountId}/event-passive-income/resume', AccountController::class, 'resumeEventPassiveIncome');
 $router->post('/accounts/{accountId}/event-upgrades/buy', AccountController::class, 'buyEventUpgrade');
 $router->post('/accounts/{accountId}/event-upgrades/level', AccountController::class, 'upgradeEventUpgradeLevel');
+$router->post('/accounts/{accountId}/event-developer-mode/disable', AccountController::class, 'disableEventTycoonDeveloperMode');
 $router->post('/accounts/{accountId}/transactions/{transactionId}/edit', TransactionController::class, 'editTransaction');
 $router->post('/accounts/{accountId}/transactions/{transactionId}/delete', TransactionController::class, 'deleteTransaction');
 $router->post('/accounts/{accountId}/transactions/{transactionId}/toggle-budget-exclusion', TransactionController::class, 'toggleBudgetExclusion');

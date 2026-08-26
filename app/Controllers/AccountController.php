@@ -400,6 +400,17 @@ class AccountController extends Controller
         $this->redirect('/accounts/' . $accountId);
     }
 
+    public function disableEventTycoonDeveloperMode(string $accountId): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        Supervisor::consumeBypass(SupervisorController::EVENT_TYCOON_DEV_MODE_KEY);
+
+        $this->setFlash('success', 'Mode développeur du tycoon désactivé.');
+        $this->redirect('/accounts/' . $accountId);
+    }
+
     public function show(string $id): void
     {
         $this->requireAuth();
@@ -444,6 +455,7 @@ class AccountController extends Controller
         $hasPending    = abs($futureBalance - $balance) > 0.001;
         $isOwner = $this->accountModel->isOwner($accountId, $userId);
         $isModerator = $this->isModerator();
+        $eventDeveloperMode = $isModerator && Supervisor::hasBypass(SupervisorController::EVENT_TYCOON_DEV_MODE_KEY);
         $isFrozen    = $this->accountModel->isFrozen($accountId);
         $isDisabled  = $this->accountModel->isDisabled($accountId);
 
@@ -701,6 +713,7 @@ class AccountController extends Controller
             'totalExpenseFuture' => $totalExpenseFuture,
             'isOwner'            => $isOwner,
             'isModerator'        => $isModerator,
+            'eventDeveloperMode' => $eventDeveloperMode,
             'isFrozen'           => $isFrozen,
             'isDisabled'         => $isDisabled,
             'accesses'           => $accesses,

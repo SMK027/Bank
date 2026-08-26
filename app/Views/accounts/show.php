@@ -42,6 +42,7 @@
  * @var array       $posPayments
  * @var array       $activeCheckbooks
  * @var array       $pendingChecks
+ * @var bool        $eventDeveloperMode
  */
 ?>
 <div class="account-show-page">
@@ -270,12 +271,43 @@
     $eventUpgradeShop = (new \App\Models\EventAccountUpgrade())->getShopState((int) $account['id']);
     $eventPassiveIncome = (new \App\Models\EventAccountUpgrade())->getPassiveIncome((int) $account['id']);
     $eventEconomySummary = (new \App\Models\EventAccountUpgrade())->getEventEconomySummary((int) $account['id']);
+    $eventOverdraftLimit = (new \App\Models\EventAccountUpgrade())->getEventOverdraftLimit((int) $account['id']);
+    $eventDevModeBypassUrl = '/supervisor/bypass?feature=' . urlencode(\App\Controllers\SupervisorController::EVENT_TYCOON_DEV_MODE_KEY) . '&redirect=' . urlencode($_SERVER['REQUEST_URI'] ?? '/accounts/' . (int) $account['id']);
 ?>
 <div class="card mb-3" style="border-left:4px solid #0f766e;background:linear-gradient(135deg, rgba(15,118,110,0.08), rgba(16,185,129,0.04));">
     <div class="card-header" style="background:transparent;border-bottom:1px solid rgba(15,118,110,0.15);">
         <h3 style="margin:0;"><i class="bi bi-graph-up-arrow"></i> Économie du compte événementiel</h3>
     </div>
     <div class="card-body">
+        <?php if ($isModerator): ?>
+        <div class="event-dev-toolbar">
+            <div>
+                <div class="event-dev-toolbar__label">Mode développeur</div>
+                <div class="event-dev-toolbar__text">
+                    <?php if ($eventDeveloperMode): ?>
+                        Actif pour cette session modérateur.
+                    <?php else: ?>
+                        Authentification superviseur requise pour l’activer.
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="event-dev-toolbar__action">
+                <?php if ($eventDeveloperMode): ?>
+                    <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-developer-mode/disable">
+                        <?= csrf_field() ?>
+                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-slash-circle"></i> Quitter le mode développeur
+                        </button>
+                    </form>
+                <?php else: ?>
+                    <a href="<?= e($eventDevModeBypassUrl) ?>" class="btn btn-dark btn-sm">
+                        <i class="bi bi-shield-lock"></i> Activer le mode développeur
+                    </a>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <div class="event-kpi-grid">
             <div class="event-kpi-card event-kpi-card--accent">
                 <span class="event-kpi-card__label">Versement d’ouverture</span>
@@ -315,7 +347,6 @@
             </div>
         </div>
 
-        <?php $eventOverdraftLimit = (new \App\Models\EventAccountUpgrade())->getEventOverdraftLimit((int) $account['id']); ?>
         <div class="event-status-panel event-status-panel--overdraft">
             <div class="event-status-panel__body">
                 <div class="event-status-panel__label">Découvert événementiel</div>
@@ -380,6 +411,36 @@
                     </form>
                 </div>
             </div>
+        <?php endif; ?>
+
+        <?php if ($eventDeveloperMode): ?>
+        <div class="event-dev-panel">
+            <div class="event-dev-panel__header">
+                <div>
+                    <div class="event-dev-panel__eyebrow">Diagnostics tycoon</div>
+                    <strong>Vue technique réservée aux modérateurs</strong>
+                </div>
+                <span class="badge" style="background:#111827;color:#fff;">DEV</span>
+            </div>
+            <div class="event-dev-panel__grid">
+                <div class="event-dev-panel__item">
+                    <span>Compte ID</span>
+                    <strong><?= (int) $account['id'] ?></strong>
+                </div>
+                <div class="event-dev-panel__item">
+                    <span>Limit. découvert</span>
+                    <strong><?= fmt_amount_smart((float) $eventOverdraftLimit) ?></strong>
+                </div>
+                <div class="event-dev-panel__item">
+                    <span>Pause revenus</span>
+                    <strong><?= !empty($account['passive_income_paused_at']) ? e((string) $account['passive_income_paused_at']) : 'Non' ?></strong>
+                </div>
+                <div class="event-dev-panel__item">
+                    <span>Améliorations</span>
+                    <strong><?= (int) $eventEconomySummary['owned_upgrades_count'] ?></strong>
+                </div>
+            </div>
+        </div>
         <?php endif; ?>
 
         <div class="event-upgrade-grid">
@@ -623,6 +684,74 @@
         margin:0;
     }
 
+    .event-dev-toolbar,
+    .event-dev-panel {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:1rem;
+        margin-bottom:1rem;
+        padding:0.95rem 1rem;
+        border-radius:16px;
+        border:1px solid rgba(17,24,39,0.12);
+        background:linear-gradient(135deg, rgba(17,24,39,0.04), rgba(255,255,255,0.98));
+        box-shadow:0 10px 24px rgba(15,23,42,0.05);
+    }
+
+    .event-dev-toolbar__label,
+    .event-dev-panel__eyebrow {
+        font-size:0.72rem;
+        font-weight:800;
+        text-transform:uppercase;
+        letter-spacing:0.08em;
+        color:#111827;
+        margin-bottom:0.25rem;
+    }
+
+    .event-dev-toolbar__text {
+        color:var(--text-muted);
+    }
+
+    .event-dev-panel {
+        flex-direction:column;
+        align-items:stretch;
+    }
+
+    .event-dev-panel__header {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:0.75rem;
+    }
+
+    .event-dev-panel__grid {
+        display:grid;
+        grid-template-columns:repeat(2, minmax(0, 1fr));
+        gap:0.75rem;
+    }
+
+    .event-dev-panel__item {
+        padding:0.8rem;
+        border-radius:14px;
+        background:#fff;
+        border:1px solid rgba(17,24,39,0.08);
+    }
+
+    .event-dev-panel__item span {
+        display:block;
+        font-size:0.72rem;
+        text-transform:uppercase;
+        letter-spacing:0.06em;
+        color:#6b7280;
+        margin-bottom:0.2rem;
+    }
+
+    .event-dev-panel__item strong {
+        display:block;
+        color:#111827;
+        word-break:break-word;
+    }
+
     .event-upgrade-grid {
         display:grid;
         grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
@@ -810,6 +939,20 @@
     .event-upgrade-grid {
         grid-template-columns:1fr;
         gap:0.85rem;
+    }
+
+    .event-dev-toolbar {
+        flex-direction:column;
+        align-items:stretch;
+    }
+
+    .event-dev-toolbar__action .btn,
+    .event-dev-toolbar__action form {
+        width:100%;
+    }
+
+    .event-dev-panel__grid {
+        grid-template-columns:1fr;
     }
 
     .account-show-page .card-body {
