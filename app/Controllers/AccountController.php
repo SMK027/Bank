@@ -15,6 +15,7 @@ use App\Models\AccountAccess;
 use App\Models\DirectDebit;
 use App\Models\EventAccountUpgrade;
 use App\Models\EventSchedule;
+use App\Models\FeatureFlag;
 use App\Models\Guardianship;
 use App\Models\Mandate;
 use App\Models\PaymentCard;
@@ -150,7 +151,9 @@ class AccountController extends Controller
                 return;
             }
 
-            $this->requireSupervisorValidation('accounts.event_open');
+            if (!FeatureFlag::isEnabled('accounts.event_open')) {
+                $this->requireSupervisorValidation('accounts.event_open');
+            }
 
             $eventWindow = [
                 'title'    => (string) ($activeEvent['title'] ?? 'Événement'),

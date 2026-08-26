@@ -529,11 +529,15 @@ class SupervisorController extends Controller
             return 'Validation opération de modération';
         }
 
+        $fallbackLabels = [
+            'accounts.event_open' => 'Ouverture de compte événementiel',
+        ];
+
         if ($featureKey === self::EVENT_TYCOON_DEV_MODE_KEY) {
             return 'Mode développeur du tycoon';
         }
 
-        return $flag['label'] ?? $featureKey;
+        return $flag['label'] ?? ($fallbackLabels[$featureKey] ?? $featureKey);
     }
 
     /**
@@ -548,6 +552,7 @@ class SupervisorController extends Controller
         $habilitations = [
             self::ACCOUNT_CONTROL_STEPUP_KEY => 'Validation des opérations de modération',
             self::EVENT_TYCOON_DEV_MODE_KEY  => 'Mode développeur du tycoon événementiel',
+            'accounts.event_open'            => 'Ouverture de compte événementiel',
         ];
 
         foreach (FeatureFlag::getAllGrouped() as $flags) {
