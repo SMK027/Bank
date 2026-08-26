@@ -426,7 +426,7 @@
                             <i class="bi bi-arrow-up-circle"></i> Améliorer le niveau
                         </button>
 
-                        <div class="modal fade d-none" id="level-up-modal-<?= e($upgrade['key']) ?>" tabindex="-1" aria-labelledby="level-up-modal-label-<?= e($upgrade['key']) ?>" aria-hidden="true" style="display:none;">
+                        <div class="modal fade d-none event-level-modal" id="level-up-modal-<?= e($upgrade['key']) ?>" tabindex="-1" aria-labelledby="level-up-modal-label-<?= e($upgrade['key']) ?>" aria-hidden="true" style="display:none;">
                             <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable event-level-modal-dialog">
                                 <div class="modal-content event-level-modal-content">
                                     <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-upgrades/level">
@@ -674,6 +674,29 @@
         border-radius:18px;
     }
 
+    .event-level-modal {
+        display:none !important;
+    }
+
+    .event-level-modal.is-open {
+        display:flex !important;
+        position:fixed;
+        inset:0;
+        z-index:1055;
+        align-items:center;
+        justify-content:center;
+        padding:1rem;
+        background:rgba(15,23,42,0.58);
+        overflow:auto;
+    }
+
+    .event-level-modal.is-open .modal-dialog {
+        margin:0;
+        width:100%;
+        max-width:520px;
+        pointer-events:auto;
+    }
+
 @media (max-width: 767px) {
     .event-economy-banner {
         padding:0.85rem;
@@ -759,6 +782,15 @@
     .event-level-modal-dialog {
         margin:0.75rem;
         max-width: calc(100vw - 1.5rem);
+    }
+
+    .event-level-modal.is-open {
+        padding:0.75rem;
+    }
+
+    .event-level-modal.is-open .modal-content {
+        max-height: calc(100vh - 1.5rem);
+        overflow:auto;
     }
 
     .account-show-page .modal-body,
@@ -871,16 +903,9 @@ function openUpgradeModal(targetSelector) {
     }
 
     modal.classList.remove('d-none');
-    modal.style.display = 'block';
+    modal.classList.add('is-open');
+    modal.style.display = 'flex';
     modal.setAttribute('aria-hidden', 'false');
-
-    if (window.bootstrap && bootstrap.Modal) {
-        const modalInstance = bootstrap.Modal.getOrCreateInstance(modal);
-        modalInstance.show();
-    } else {
-        modal.classList.add('show');
-        modal.style.display = 'block';
-    }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -901,17 +926,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!modal) {
                 return;
             }
-            if (window.bootstrap && bootstrap.Modal) {
-                const modalInstance = bootstrap.Modal.getInstance(modal);
-                if (modalInstance) {
-                    modalInstance.hide();
-                }
-            } else {
-                modal.classList.remove('show');
-                modal.classList.add('d-none');
-                modal.style.display = 'none';
-                modal.setAttribute('aria-hidden', 'true');
-            }
+            modal.classList.remove('is-open');
+            modal.classList.add('d-none');
+            modal.style.display = 'none';
+            modal.setAttribute('aria-hidden', 'true');
         });
     });
 
