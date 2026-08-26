@@ -55,6 +55,23 @@ class Supervisor extends Model
         return $this->findOneBy(['supervisor_id' => $supervisorId]);
     }
 
+    /**
+     * Met à jour l'identifiant d'un superviseur.
+     *
+     * @throws \InvalidArgumentException si l'identifiant est déjà utilisé.
+     */
+    public function setSupervisorId(int $supervisorDbId, string $supervisorId): void
+    {
+        $normalizedId = mb_substr(trim($supervisorId), 0, 64);
+        $existing = $this->findBySupervisorId($normalizedId);
+
+        if ($existing !== null && (int) $existing['id'] !== $supervisorDbId) {
+            throw new \InvalidArgumentException('Cet identifiant de superviseur est déjà utilisé.');
+        }
+
+        $this->update($supervisorDbId, ['supervisor_id' => $normalizedId]);
+    }
+
     // ── Authentification ─────────────────────────────────────────────────────
 
     /**

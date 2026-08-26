@@ -66,6 +66,9 @@
                         </td>
                         <td class="text-small"><?= e(date('d/m/Y', strtotime($sv['created_at']))) ?></td>
                         <td style="text-align:right;white-space:nowrap;">
+                            <a href="/moderation/supervisors/<?= (int) $sv['id'] ?>/edit" class="btn btn-outline btn-sm" title="Modifier l'identifiant et le PIN">
+                                <i class="bi bi-pencil-square"></i> Identifiant/PIN
+                            </a>
                             <a href="/moderation/supervisors/<?= (int) $sv['id'] ?>/habilitations" class="btn btn-outline btn-sm" title="Modifier les habilitations">
                                 <i class="bi bi-sliders"></i> Habilitations
                             </a>

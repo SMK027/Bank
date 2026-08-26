@@ -209,7 +209,9 @@ $router->post('/moderation/events/{id}/update', ModerationController::class, 'up
 // --- Superviseurs ---
 $router->get('/moderation/supervisors',                 SupervisorController::class, 'index');
 $router->get('/moderation/supervisors/create',          SupervisorController::class, 'create');
+$router->get('/moderation/supervisors/{id}/edit',       SupervisorController::class, 'editCredentials');
 $router->post('/moderation/supervisors',                SupervisorController::class, 'store');
+$router->post('/moderation/supervisors/{id}/update',    SupervisorController::class, 'updateCredentials');
 $router->get('/moderation/supervisors/{id}/habilitations', SupervisorController::class, 'editHabilitations');
 $router->post('/moderation/supervisors/{id}/habilitations', SupervisorController::class, 'updateHabilitations');
 $router->post('/moderation/supervisors/{id}/toggle',    SupervisorController::class, 'toggleStatus');

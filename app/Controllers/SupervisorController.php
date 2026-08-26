@@ -134,6 +134,100 @@ class SupervisorController extends Controller
         $this->redirect('/moderation/supervisors');
     }
 
+    /**
+     * Formulaire de modification de l'identifiant et du PIN.
+     */
+    public function editCredentials(string $id): void
+    {
+        $this->requireModerator();
+
+        $supervisor = $this->supervisorModel->find((int) $id);
+        if (!$supervisor) {
+            $this->setFlash('danger', 'Superviseur introuvable.');
+            $this->redirect('/moderation/supervisors');
+            return;
+        }
+
+        $this->render('moderation/supervisors/edit_credentials', [
+            'title'      => 'Modifier identifiant et PIN',
+            'supervisor' => $supervisor,
+        ]);
+    }
+
+    /**
+     * Traitement de mise à jour de l'identifiant et/ou du PIN.
+     */
+    public function updateCredentials(string $id): void
+    {
+        $this->requireModerator();
+        $this->validateCSRF();
+
+        $supervisor = $this->supervisorModel->find((int) $id);
+        if (!$supervisor) {
+            $this->setFlash('danger', 'Superviseur introuvable.');
+            $this->redirect('/moderation/supervisors');
+            return;
+        }
+
+        $newSupervisorId = trim((string) ($_POST['supervisor_id'] ?? ''));
+        $newPin = trim((string) ($_POST['pin'] ?? ''));
+
+        if ($newSupervisorId === '') {
+            $this->setFlash('danger', 'L\'identifiant de supervision est obligatoire.');
+            $this->redirect('/moderation/supervisors/' . (int) $id . '/edit');
+            return;
+        }
+
+        if (!preg_match('/^[a-zA-Z0-9_\-]{3,64}$/', $newSupervisorId)) {
+            $this->setFlash('danger', 'L\'identifiant ne doit contenir que des lettres, chiffres, tirets ou underscores (3–64 caractères).');
+            $this->redirect('/moderation/supervisors/' . (int) $id . '/edit');
+            return;
+        }
+
+        if ($newPin !== '' && strlen($newPin) < 4) {
+            $this->setFlash('danger', 'Le code PIN doit comporter au moins 4 caractères.');
+            $this->redirect('/moderation/supervisors/' . (int) $id . '/edit');
+            return;
+        }
+
+        $identifierChanged = $newSupervisorId !== (string) ($supervisor['supervisor_id'] ?? '');
+        $pinChanged = $newPin !== '';
+
+        if (!$identifierChanged && !$pinChanged) {
+            $this->setFlash('info', 'Aucune modification détectée.');
+            $this->redirect('/moderation/supervisors');
+            return;
+        }
+
+        try {
+            if ($identifierChanged) {
+                $this->supervisorModel->setSupervisorId((int) $id, $newSupervisorId);
+            }
+        } catch (\InvalidArgumentException $e) {
+            $this->setFlash('danger', $e->getMessage());
+            $this->redirect('/moderation/supervisors/' . (int) $id . '/edit');
+            return;
+        }
+
+        if ($pinChanged) {
+            $this->supervisorModel->setPin((int) $id, $newPin);
+        }
+
+        AuditLog::log(
+            (int) $this->getCurrentUserId(),
+            AuditLog::ACTION_SUPERVISOR_CREDENTIALS_UPDATE,
+            [
+                'supervisor_db_id' => (int) $id,
+                'previous_supervisor_id' => (string) ($supervisor['supervisor_id'] ?? ''),
+                'new_supervisor_id' => $newSupervisorId,
+                'pin_changed' => $pinChanged,
+            ]
+        );
+
+        $this->setFlash('success', 'Identifiant de supervision et paramètres PIN mis à jour.');
+        $this->redirect('/moderation/supervisors');
+    }
+
     /** Traitement création. */
     public function store(): void
     {
