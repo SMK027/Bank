@@ -1,6 +1,10 @@
 <?php
 /** @var array|null $supervisor */
 $isEdit = $supervisor !== null;
+$habilitations = [
+    \App\Controllers\SupervisorController::ACCOUNT_CONTROL_STEPUP_KEY => 'Validation des opérations de modération',
+    \App\Controllers\SupervisorController::EVENT_TYCOON_DEV_MODE_KEY  => 'Mode développeur du tycoon événementiel',
+];
 ?>
 <div class="page-header">
     <div>
@@ -62,6 +66,24 @@ $isEdit = $supervisor !== null;
                        placeholder="<?= $isEdit ? 'Laisser vide = inchangé' : 'Vide = généré automatiquement' ?>">
                 <small class="text-muted">Minimum 4 caractères. Si vide : un PIN est généré et affiché une seule fois.</small>
             </div>
+
+            <?php if (!$isEdit): ?>
+            <div style="margin-bottom:1.25rem;">
+                <label class="form-label">Habilitations initiales</label>
+                <div style="display:grid;gap:0.5rem;">
+                    <?php foreach ($habilitations as $featureKey => $label): ?>
+                        <label style="display:flex;align-items:flex-start;gap:0.65rem;padding:0.75rem 0.85rem;border:1px solid var(--border-color);border-radius:12px;background:var(--surface-2);">
+                            <input type="checkbox" name="habilitations[]" value="<?= e($featureKey) ?>" style="margin-top:0.2rem;">
+                            <span>
+                                <strong><?= e($label) ?></strong><br>
+                                <small class="text-muted"><?= e($featureKey) ?></small>
+                            </span>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+                <small class="text-muted" style="display:block;margin-top:0.5rem;">Ces habilitations déterminent quelles fonctionnalités ce superviseur pourra débloquer via bypass.</small>
+            </div>
+            <?php endif; ?>
 
             <button type="submit" class="btn btn-primary">
                 <i class="bi bi-check-lg"></i>

@@ -8,6 +8,7 @@ use App\Core\Controller;
 use App\Core\Session;
 use App\Models\AuditLog;
 use App\Models\FeatureFlag;
+use App\Models\SupervisorHabilitation;
 use App\Models\Supervisor;
 
 /**
@@ -19,14 +20,16 @@ use App\Models\Supervisor;
  */
 class SupervisorController extends Controller
 {
-    protected const ACCOUNT_CONTROL_STEPUP_KEY = 'moderation.account_control_stepup';
+    public const ACCOUNT_CONTROL_STEPUP_KEY = 'moderation.account_control_stepup';
     public const EVENT_TYCOON_DEV_MODE_KEY = 'event.tycoon_dev_mode';
 
     private Supervisor $supervisorModel;
+    private SupervisorHabilitation $habilitationModel;
 
     public function __construct()
     {
         $this->supervisorModel = new Supervisor();
+        $this->habilitationModel = new SupervisorHabilitation();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -98,6 +101,12 @@ class SupervisorController extends Controller
                 $pin,
                 (int) $this->getCurrentUserId()
             );
+
+            foreach ($this->getAssignableHabilitations() as $featureKey => $_label) {
+                if (in_array($featureKey, (array) ($_POST['habilitations'] ?? []), true)) {
+                    $this->habilitationModel->grantAuthorization($newId, $featureKey);
+                }
+            }
         } catch (\InvalidArgumentException $e) {
             $this->setFlash('danger', $e->getMessage());
             $this->redirect('/moderation/supervisors/create');
@@ -299,6 +308,21 @@ class SupervisorController extends Controller
             $renderError('Identifiant ou code PIN incorrect.');
         }
 
+        if (!$this->habilitationModel->hasAuthorization((int) $supervisor['id'], $featureKey)) {
+            AuditLog::log(
+                null,
+                AuditLog::ACTION_SUPERVISOR_BYPASS_FAIL,
+                [
+                    'feature_key'        => $featureKey,
+                    'attempted_id'       => $supervisorId,
+                    'supervisor_db_id'    => (int) $supervisor['id'],
+                    'reason'             => 'unauthorized_feature',
+                    'ip'                 => $_SERVER['REMOTE_ADDR'] ?? '',
+                ]
+            );
+            $renderError('Echec authentification superviseur: fonctionnalité non autorisée');
+        }
+
         // Bypass accordé
         Supervisor::grantBypass($featureKey, (int) $supervisor['id']);
 
@@ -435,5 +459,16 @@ class SupervisorController extends Controller
         }
 
         return $flag['label'] ?? $featureKey;
+    }
+
+    /**
+     * Habilitations actuellement proposées à la création d'un superviseur.
+     */
+    private function getAssignableHabilitations(): array
+    {
+        return [
+            self::ACCOUNT_CONTROL_STEPUP_KEY => 'Validation des opérations de modération',
+            self::EVENT_TYCOON_DEV_MODE_KEY  => 'Mode développeur du tycoon événementiel',
+        ];
     }
 }
