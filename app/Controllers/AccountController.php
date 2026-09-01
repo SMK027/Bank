@@ -1257,7 +1257,7 @@ class AccountController extends Controller
             );
 
             $notifModel = new \App\Models\Notification();
-            $notifModel->createNotification(
+            $notifModel->notify(
                 $newOwnerId,
                 'account_transferred',
                 'Nouveau compte bancaire transféré',
