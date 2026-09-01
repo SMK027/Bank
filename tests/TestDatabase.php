@@ -40,19 +40,25 @@ class TestDatabase
             );
 
             CREATE TABLE IF NOT EXISTS users (
-                id              INTEGER PRIMARY KEY AUTOINCREMENT,
-                username        TEXT    NOT NULL,
-                email           TEXT    NOT NULL UNIQUE,
-                password        TEXT    NOT NULL,
-                global_role     TEXT    NOT NULL DEFAULT 'user',
-                status          TEXT    NOT NULL DEFAULT 'active',
-                suspended_until TEXT    DEFAULT NULL,
-                birth_date      TEXT    DEFAULT NULL,
-                is_professional INTEGER NOT NULL DEFAULT 0,
-                company_name    TEXT    DEFAULT NULL,
-                siret           TEXT    DEFAULT NULL,
-                created_at      TEXT,
-                updated_at      TEXT
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                username            TEXT    NOT NULL,
+                email               TEXT    NOT NULL UNIQUE,
+                password            TEXT    NOT NULL,
+                global_role         TEXT    NOT NULL DEFAULT 'user',
+                status              TEXT    NOT NULL DEFAULT 'active',
+                suspended_until     TEXT    DEFAULT NULL,
+                birth_date          TEXT    DEFAULT NULL,
+                is_professional     INTEGER NOT NULL DEFAULT 0,
+                company_name        TEXT    DEFAULT NULL,
+                siret               TEXT    DEFAULT NULL,
+                account_number      TEXT    DEFAULT NULL,
+                pin_hash            TEXT    DEFAULT NULL,
+                pin_must_change     INTEGER NOT NULL DEFAULT 0,
+                pos_suspended_at    TEXT    DEFAULT NULL,
+                pos_suspended_until TEXT    DEFAULT NULL,
+                pos_suspended_by    INTEGER DEFAULT NULL,
+                created_at          TEXT,
+                updated_at          TEXT
             );
 
             CREATE TABLE IF NOT EXISTS accounts (
@@ -178,6 +184,7 @@ class TestDatabase
                 amount                REAL    NOT NULL,
                 type                  TEXT    NOT NULL DEFAULT 'one_time',
                 interval_days         INTEGER DEFAULT NULL,
+                execution_day         INTEGER DEFAULT NULL,
                 status                TEXT    NOT NULL DEFAULT 'active',
                 created_by            INTEGER NOT NULL DEFAULT 0,
                 last_executed_at      TEXT    DEFAULT NULL,
@@ -263,6 +270,26 @@ class TestDatabase
                 updated_at  TEXT
             );
 
+            CREATE TABLE IF NOT EXISTS checkbooks (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     INTEGER NOT NULL DEFAULT 0,
+                account_id  INTEGER NOT NULL DEFAULT 0,
+                status      TEXT    NOT NULL DEFAULT 'active',
+                created_at  TEXT,
+                updated_at  TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS checks (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                checkbook_id INTEGER NOT NULL DEFAULT 0,
+                number       TEXT    NOT NULL,
+                status       TEXT    NOT NULL DEFAULT 'available',
+                amount       REAL    DEFAULT NULL,
+                payee        TEXT    DEFAULT NULL,
+                created_at   TEXT,
+                updated_at   TEXT
+            );
+
             CREATE TABLE IF NOT EXISTS api_clients (
                 id              INTEGER PRIMARY KEY AUTOINCREMENT,
                 name            TEXT    NOT NULL,
@@ -302,6 +329,73 @@ class TestDatabase
                 reason         TEXT    NOT NULL DEFAULT '',
                 updated_at     TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS loans (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id         INTEGER NOT NULL DEFAULT 0,
+                account_id      INTEGER DEFAULT NULL,
+                loan_type       TEXT    NOT NULL,
+                amount          REAL    NOT NULL,
+                months          INTEGER NOT NULL,
+                annual_rate     REAL    NOT NULL,
+                monthly_payment REAL    NOT NULL,
+                total_cost      REAL    NOT NULL,
+                total_interest  REAL    NOT NULL,
+                status          TEXT    NOT NULL DEFAULT 'pending',
+                credit_tx_id    INTEGER DEFAULT NULL,
+                refund_tx_id    INTEGER DEFAULT NULL,
+                cancel_tx_id    INTEGER DEFAULT NULL,
+                disburse_funds  INTEGER NOT NULL DEFAULT 1,
+                created_at      TEXT,
+                updated_at      TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS loan_installments (
+                id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+                loan_id            INTEGER NOT NULL DEFAULT 0,
+                installment_number INTEGER NOT NULL DEFAULT 1,
+                due_date           TEXT    NOT NULL,
+                amount             REAL    NOT NULL,
+                principal          REAL    NOT NULL DEFAULT 0,
+                interest           REAL    NOT NULL DEFAULT 0,
+                penalty            REAL    NOT NULL DEFAULT 0,
+                status             TEXT    NOT NULL DEFAULT 'pending',
+                transaction_id     INTEGER DEFAULT NULL,
+                refund_tx_id       INTEGER DEFAULT NULL,
+                created_at         TEXT,
+                updated_at         TEXT
+            );
+            CREATE TABLE IF NOT EXISTS feature_flags (
+                flag_key    TEXT PRIMARY KEY,
+                enabled     INTEGER NOT NULL DEFAULT 1,
+                label       TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                category    TEXT NOT NULL DEFAULT 'general',
+                updated_by  INTEGER DEFAULT NULL,
+                updated_at  TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS supervisors (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                first_name    TEXT NOT NULL,
+                last_name     TEXT NOT NULL,
+                supervisor_id TEXT NOT NULL UNIQUE,
+                pin_hash      TEXT NOT NULL,
+                status        TEXT NOT NULL DEFAULT 'active',
+                created_by    INTEGER DEFAULT NULL,
+                created_at    TEXT,
+                updated_at    TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS supervisor_habilitations (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                supervisor_id INTEGER NOT NULL,
+                feature_key   TEXT NOT NULL,
+                created_at    TEXT,
+                updated_at    TEXT,
+                UNIQUE (supervisor_id, feature_key)
+            );
+
             INSERT OR IGNORE INTO pos_status (id) VALUES (1);
         SQL;
     }

@@ -36,6 +36,7 @@ class AuditLog extends Model
     // Comptes bancaires
     public const ACTION_ACCOUNT_CREATE   = 'account.create';
     public const ACTION_ACCOUNT_DELETE   = 'account.delete';
+    public const ACTION_ACCOUNT_TRANSFER = 'account.transfer';
     public const ACTION_ACCOUNT_FREEZE   = 'account.freeze';
     public const ACTION_ACCOUNT_UNFREEZE = 'account.unfreeze';
     public const ACTION_ACCOUNT_DISABLE  = 'account.disable';
@@ -167,6 +168,7 @@ class AuditLog extends Model
         'auth.ip_blocked'                => 'IP bloquée (tentatives de connexion excessives)',
         'account.create'           => 'Création de compte',
         'account.delete'           => 'Suppression de compte',
+        'account.transfer'         => 'Transfert de compte bancaire',
         'account.freeze'           => 'Compte gelé',
         'account.unfreeze'         => 'Compte dégelé',
         'account.control_start'    => 'Prise de main compte activée',

@@ -138,6 +138,8 @@ $router->get('/accounts/{id}/statement', AccountController::class, 'statementFor
 $router->get('/accounts/{id}/statement/pdf', AccountController::class, 'generateStatement');
 $router->get('/accounts/{id}/edit', AccountController::class, 'editForm');
 $router->post('/accounts/{id}/edit', AccountController::class, 'edit');
+$router->get('/accounts/{id}/transfer', AccountController::class, 'transferForm');
+$router->post('/accounts/{id}/transfer', AccountController::class, 'transfer');
 $router->post('/accounts/{id}/disable', AccountController::class, 'disableAccount');
 $router->post('/accounts/{id}/enable', AccountController::class, 'enableAccount');
 $router->post('/accounts/{id}/toggle-hidden', AccountController::class, 'toggleHidden');

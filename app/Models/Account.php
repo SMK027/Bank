@@ -563,6 +563,42 @@ class Account extends Model
         return $account && (int) $account['user_id'] === $userId;
     }
 
+    /**
+     * Transfère la propriété d'un compte bancaire à un nouvel utilisateur.
+     * Met également à jour l'appartenance des cartes bancaires et chéquiers raccordés,
+     * et révoque d'éventuels accès partagés du nouveau propriétaire sur ce compte.
+     */
+    public function transferOwnership(int $accountId, int $newUserId): bool
+    {
+        $account = $this->find($accountId);
+        if (!$account) {
+            return false;
+        }
+
+        $pdo = $this->getPdo();
+        $pdo->beginTransaction();
+
+        try {
+            // Mettre à jour le propriétaire du compte
+            $this->update($accountId, ['user_id' => $newUserId]);
+
+            // Mettre à jour le propriétaire des cartes bancaires associées
+            (new PaymentCard())->transferAccountCards($accountId, $newUserId);
+
+            // Mettre à jour le propriétaire des chéquiers associés
+            (new Checkbook())->transferAccountCheckbooks($accountId, $newUserId);
+
+            // Supprimer d'éventuels accès partagés du nouveau propriétaire sur ce compte
+            (new AccountAccess())->revokeAccess($accountId, $newUserId);
+
+            $pdo->commit();
+            return true;
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            return false;
+        }
+    }
+
     public function hasAccess(int $accountId, int $userId): bool
     {
         $account = $this->find($accountId);

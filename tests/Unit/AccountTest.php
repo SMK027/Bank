@@ -10,6 +10,8 @@ use App\Models\Account;
 use App\Models\Transaction;
 use App\Models\AccountAccess;
 use App\Models\EventAccountUpgrade;
+use App\Models\PaymentCard;
+use App\Models\Checkbook;
 use App\Models\User;
 use Tests\TestDatabase;
 
@@ -147,6 +149,54 @@ class AccountTest extends TestCase
     {
         $id = $this->account->createAccount(1, 'Nouveau', 'EUR');
         $this->assertFalse($this->account->isFrozen($id));
+    }
+
+    public function testTransferOwnershipWithCardsAndCheckbooks(): void
+    {
+        $accId = $this->account->createAccount(1, 'Compte Transféré', 'EUR');
+
+        // Création carte et chéquier raccordés au compte pour l'utilisateur 1
+        $cardModel = new PaymentCard();
+        $cardId = $cardModel->create([
+            'user_id' => 1,
+            'account_id' => $accId,
+            'card_number' => '4242123412341234',
+            'last4' => '1234',
+            'label' => 'Carte 1',
+        ]);
+
+        $checkbookModel = new Checkbook();
+        $checkbookId = $checkbookModel->create([
+            'user_id' => 1,
+            'account_id' => $accId,
+            'status' => 'active',
+        ]);
+
+        // Ajout d'un accès partagé préalable pour l'utilisateur 2
+        $accessModel = new AccountAccess();
+        $accessModel->grantAccess($accId, 2, 'permanent');
+        $this->assertTrue($this->account->hasAccess($accId, 2));
+
+        // Transfert du compte de l'utilisateur 1 à l'utilisateur 2
+        $success = $this->account->transferOwnership($accId, 2);
+        $this->assertTrue($success);
+
+        // Vérification compte
+        $updatedAccount = $this->account->find($accId);
+        $this->assertEquals(2, $updatedAccount['user_id']);
+        $this->assertTrue($this->account->isOwner($accId, 2));
+        $this->assertFalse($this->account->isOwner($accId, 1));
+
+        // Vérification carte
+        $updatedCard = $cardModel->find($cardId);
+        $this->assertEquals(2, $updatedCard['user_id']);
+
+        // Vérification chéquier
+        $updatedCheckbook = $checkbookModel->find($checkbookId);
+        $this->assertEquals(2, $updatedCheckbook['user_id']);
+
+        // L'accès partagé de l'utilisateur 2 a été nettoyé
+        $this->assertFalse($accessModel->hasValidAccess($accId, 2));
     }
 
     // --- Tests allowed types avec statut professionnel ---

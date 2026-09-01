@@ -17,6 +17,11 @@ class TransactionTest extends TestCase
     {
         TestDatabase::make();
         $this->transaction = new Transaction();
+        $account = new \App\Models\Account();
+        $account->createAccount(1, 'Compte 1', 'EUR');
+        $account->createAccount(1, 'Compte 2', 'EUR');
+        $account->createAccount(1, 'Compte 3', 'EUR');
+        $account->createAccount(1, 'Compte 4', 'EUR');
     }
 
     protected function tearDown(): void

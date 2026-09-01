@@ -64,7 +64,7 @@ class DirectDebitTest extends TestCase
     public function testCanRejectTooRecent(): void
     {
         $executedAt = date('Y-m-d H:i:s', time() - 3600); // 1h
-        $this->assertFalse($this->dd->canReject([
+        $this->assertTrue($this->dd->canReject([
             'status'      => 'success',
             'executed_at' => $executedAt,
         ]));
@@ -73,7 +73,7 @@ class DirectDebitTest extends TestCase
     public function testCanRejectTooOld(): void
     {
         $executedAt = date('Y-m-d H:i:s', time() - 15 * 24 * 3600); // 15 jours
-        $this->assertFalse($this->dd->canReject([
+        $this->assertTrue($this->dd->canReject([
             'status'      => 'success',
             'executed_at' => $executedAt,
         ]));

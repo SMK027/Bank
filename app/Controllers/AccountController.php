@@ -1150,6 +1150,140 @@ class AccountController extends Controller
     }
 
     // -----------------------------------------------------------------------
+    // Transfert de propriété du compte
+    // -----------------------------------------------------------------------
+
+    public function transferForm(string $id): void
+    {
+        $this->requireAuth();
+        $this->requireFeature('accounts.transfer');
+        $accountId = (int) $id;
+        $userId    = $this->getCurrentUserId();
+
+        $account     = $this->accountModel->find($accountId);
+        $isOwner     = $account && $this->accountModel->isOwner($accountId, $userId);
+        $isModerator = $this->isModerator();
+
+        if (!$account || (!$isOwner && !$isModerator)) {
+            $this->setFlash('danger', 'Accès refusé.');
+            $this->redirect('/dashboard');
+            return;
+        }
+
+        if (Account::isInternal($account) && !$isModerator) {
+            $this->setFlash('danger', 'Les comptes internes ne peuvent pas être transférés par les utilisateurs.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $owner           = $this->userModel->find((int) $account['user_id']);
+        $cardsCount      = count($this->cardModel->getByAccount($accountId));
+        $checkbooksCount = count($this->checkbookModel->getByAccount($accountId));
+
+        $this->render('accounts/transfer', [
+            'title'           => 'Transférer le compte',
+            'account'         => $account,
+            'owner'           => $owner,
+            'cardsCount'      => $cardsCount,
+            'checkbooksCount' => $checkbooksCount,
+        ]);
+    }
+
+    public function transfer(string $id): void
+    {
+        $this->requireAuth();
+        $this->requireFeature('accounts.transfer');
+        $this->validateCSRF();
+        $accountId   = (int) $id;
+        $userId      = $this->getCurrentUserId();
+        $isOwner     = $this->accountModel->isOwner($accountId, $userId);
+        $isModerator = $this->isModerator();
+
+        $account = $this->accountModel->find($accountId);
+        if (!$account || (!$isOwner && !$isModerator)) {
+            $this->setFlash('danger', 'Accès refusé.');
+            $this->redirect('/dashboard');
+            return;
+        }
+
+        if (Account::isInternal($account) && !$isModerator) {
+            $this->setFlash('danger', 'Les comptes internes ne peuvent pas être transférés par les utilisateurs.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $recipient = trim((string) ($_POST['recipient'] ?? ''));
+        if ($recipient === '') {
+            $this->setFlash('danger', 'L’identifiant (email ou nom d’utilisateur) du nouveau propriétaire est requis.');
+            $this->redirect('/accounts/' . $accountId . '/transfer');
+            return;
+        }
+
+        $targetUser = $this->userModel->findByEmail($recipient) ?? $this->userModel->findByUsername($recipient);
+        if (!$targetUser) {
+            $this->setFlash('danger', 'Aucun utilisateur trouvé avec cet identifiant (email ou nom d’utilisateur).');
+            $this->redirect('/accounts/' . $accountId . '/transfer');
+            return;
+        }
+
+        if ((int) $targetUser['id'] === (int) $account['user_id']) {
+            $this->setFlash('danger', 'L’utilisateur sélectionné est déjà propriétaire de ce compte.');
+            $this->redirect('/accounts/' . $accountId . '/transfer');
+            return;
+        }
+
+        if (User::isMinorFromDate($targetUser['birth_date'] ?? null) && Account::isAdultOnlyAccount($account)) {
+            $typeLabel = Account::TYPES[$account['type']]['label'] ?? $account['type'];
+            $this->setFlash('danger', 'Le transfert à un mineur est interdit pour ce type de compte (' . $typeLabel . ').');
+            $this->redirect('/accounts/' . $accountId . '/transfer');
+            return;
+        }
+
+        $oldOwnerId = (int) $account['user_id'];
+        $newOwnerId = (int) $targetUser['id'];
+
+        if ($this->accountModel->transferOwnership($accountId, $newOwnerId)) {
+            AuditLog::log(
+                $userId,
+                AuditLog::ACTION_ACCOUNT_TRANSFER,
+                [
+                    'account_name'       => $account['name'],
+                    'old_owner_id'       => $oldOwnerId,
+                    'new_owner_id'       => $newOwnerId,
+                    'new_owner_username' => $targetUser['username'],
+                ],
+                targetUserId: $newOwnerId,
+                targetAccountId: $accountId
+            );
+
+            $notifModel = new \App\Models\Notification();
+            $notifModel->createNotification(
+                $newOwnerId,
+                'account_transferred',
+                'Nouveau compte bancaire transféré',
+                sprintf('Le compte « %s » vous a été transféré. Vos cartes bancaires et chéquiers raccordés ont également été mis à jour.', $account['name']),
+                '/accounts/' . $accountId
+            );
+
+            $this->setFlash('success', sprintf(
+                'Le compte « %s » et ses moyens de paiement (cartes et chéquiers) ont été transférés à %s avec succès.',
+                $account['name'],
+                $targetUser['username']
+            ));
+
+            if ($isModerator && !$isOwner) {
+                $this->redirect('/moderation');
+            } else {
+                $this->redirect('/dashboard');
+            }
+            return;
+        }
+
+        $this->setFlash('danger', 'Échec du transfert de compte.');
+        $this->redirect('/accounts/' . $accountId . '/transfer');
+    }
+
+    // -----------------------------------------------------------------------
     // Relevé de compte (PDF)
     // -----------------------------------------------------------------------
 

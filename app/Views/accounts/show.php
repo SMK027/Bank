@@ -128,6 +128,11 @@
         <?php if ($isOwner): ?>
             <a href="/accounts/<?= (int) $account['id'] ?>/edit" class="btn btn-warning btn-sm"><i class="bi bi-pencil"></i> Modifier</a>
         <?php endif; ?>
+        <?php if ($isOwner || $isModerator): ?>
+            <a href="/accounts/<?= (int) $account['id'] ?>/transfer" class="btn btn-outline btn-sm" title="Transférer le compte à un autre utilisateur">
+                <i class="bi bi-person-gear"></i> Transférer
+            </a>
+        <?php endif; ?>
         <?php if ($isGuardian): ?>
             <a href="/accounts/<?= (int) $account['id'] ?>/edit" class="btn btn-warning btn-sm"><i class="bi bi-pencil"></i> Modifier</a>
             <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/toggle-hidden" style="display:inline">

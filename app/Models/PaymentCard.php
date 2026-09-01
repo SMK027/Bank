@@ -176,6 +176,18 @@ class PaymentCard extends Model
     }
 
     /**
+     * Mettre à jour le propriétaire des cartes associées à un compte lors d'un transfert.
+     */
+    public function transferAccountCards(int $accountId, int $newUserId): int
+    {
+        $stmt = $this->getPdo()->prepare(
+            "UPDATE `payment_cards` SET `user_id` = ?, `updated_at` = ? WHERE `account_id` = ?"
+        );
+        $stmt->execute([$newUserId, date('Y-m-d H:i:s'), $accountId]);
+        return $stmt->rowCount();
+    }
+
+    /**
      * Total des débits différés en attente liés à cette carte depuis la dernière
      * remise à zéro. Utilisé pour vérifier que l'ajout d'un nouveau débit différé
      * ne dépasse pas le plafond.

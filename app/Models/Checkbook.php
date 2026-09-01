@@ -35,6 +35,18 @@ class Checkbook extends Model
     }
 
     /**
+     * Mettre à jour le propriétaire des chéquiers associés à un compte lors d'un transfert.
+     */
+    public function transferAccountCheckbooks(int $accountId, int $newUserId): int
+    {
+        $stmt = $this->getPdo()->prepare(
+            "UPDATE `{$this->table}` SET `user_id` = ?, `updated_at` = ? WHERE `account_id` = ?"
+        );
+        $stmt->execute([$newUserId, date('Y-m-d H:i:s'), $accountId]);
+        return $stmt->rowCount();
+    }
+
+    /**
      * Retourne uniquement les chéquiers actifs d'un compte.
      */
     public function getActiveByAccount(int $accountId): array
