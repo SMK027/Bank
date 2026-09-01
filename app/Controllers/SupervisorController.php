@@ -628,6 +628,7 @@ class SupervisorController extends Controller
 
         $fallbackLabels = [
             'accounts.event_open' => 'Ouverture de compte événementiel',
+            'accounts.transfer'   => 'Transfert de compte bancaire',
         ];
 
         if ($featureKey === self::EVENT_TYCOON_DEV_MODE_KEY) {
@@ -650,6 +651,7 @@ class SupervisorController extends Controller
             self::ACCOUNT_CONTROL_STEPUP_KEY => 'Validation des opérations de modération',
             self::EVENT_TYCOON_DEV_MODE_KEY  => 'Mode développeur du tycoon événementiel',
             'accounts.event_open'            => 'Ouverture de compte événementiel',
+            'accounts.transfer'              => 'Transfert de compte bancaire',
         ];
 
         foreach (FeatureFlag::getAllGrouped() as $flags) {
