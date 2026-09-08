@@ -270,11 +270,8 @@ class EventAccountUpgrade extends Model
         }
 
         $limit = (float) ($account['event_overdraft_limit'] ?? 0.0);
-        if ($this->isDeveloperModeActive()) {
-            return max(0.0, $limit);
-        }
 
-        return max(0.0, min(15000.0, $limit));
+        return max(0.0, $limit);
     }
 
     public function getEventOverdraftUnlockCost(): float
