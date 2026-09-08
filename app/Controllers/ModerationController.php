@@ -2727,7 +2727,7 @@ class ModerationController extends Controller
             return;
         }
 
-        $eventWindow = null;
+        $eventScheduleId = null;
         if ($type === 'event') {
             $activeEvent = $this->eventScheduleModel->findActiveAt();
             if ($activeEvent === null) {
@@ -2739,11 +2739,7 @@ class ModerationController extends Controller
             if (!FeatureFlag::isEnabled('accounts.event_open')) {
                 $this->requireSupervisorValidation('accounts.event_open');
             }
-            $eventWindow = [
-                'title'    => (string) ($activeEvent['title'] ?? 'Événement'),
-                'start_at' => (string) $activeEvent['start_at'],
-                'end_at'   => (string) $activeEvent['end_at'],
-            ];
+            $eventScheduleId = (int) $activeEvent['id'];
         }
 
         $overdraft = Account::typeAllowsOverdraft($type) ? abs((float) ($data['overdraft'] ?: 0)) : 0.0;
@@ -2760,7 +2756,7 @@ class ModerationController extends Controller
         }
 
         $moderatorId = $this->getCurrentUserId();
-        $accountId   = $this->accountModel->createAccount($targetUserId, $name, $currency, $overdraft, $type, $cap, false, $eventWindow);
+        $accountId   = $this->accountModel->createAccount($targetUserId, $name, $currency, $overdraft, $type, $cap, false, $eventScheduleId);
 
         if ($interestRate !== null) {
             $this->accountModel->update($accountId, ['interest_rate' => $interestRate]);
@@ -2836,7 +2832,7 @@ class ModerationController extends Controller
             return;
         }
 
-        $eventWindow = null;
+        $eventScheduleId = null;
         if ($type === 'event') {
             $activeEvent = $this->eventScheduleModel->findActiveAt();
             if ($activeEvent === null) {
@@ -2848,11 +2844,7 @@ class ModerationController extends Controller
             if (!FeatureFlag::isEnabled('accounts.event_open')) {
                 $this->requireSupervisorValidation('accounts.event_open');
             }
-            $eventWindow = [
-                'title'    => (string) ($activeEvent['title'] ?? 'Événement'),
-                'start_at' => (string) $activeEvent['start_at'],
-                'end_at'   => (string) $activeEvent['end_at'],
-            ];
+            $eventScheduleId = (int) $activeEvent['id'];
         }
 
         $overdraft = Account::typeAllowsOverdraft($type) ? abs((float) ($data['overdraft'] ?: 0)) : 0.0;
@@ -2874,7 +2866,7 @@ class ModerationController extends Controller
             $type,
             $cap,
             true, // internal = true
-            $eventWindow
+            $eventScheduleId
         );
 
         if ($interestRate !== null) {

@@ -142,7 +142,7 @@ class AccountController extends Controller
         $overdraft = Account::typeAllowsOverdraft($type) ? abs((float) ($data['overdraft'] ?: 0)) : 0.0;
         $cap       = Account::typeHasCap($type) && $data['cap'] !== '' ? abs((float) $data['cap']) : null;
 
-        $eventWindow = null;
+        $eventScheduleId = null;
         if ($type === 'event') {
             $activeEvent = $this->eventScheduleModel->findActiveAt();
             if ($activeEvent === null) {
@@ -155,11 +155,7 @@ class AccountController extends Controller
                 $this->requireSupervisorValidation('accounts.event_open');
             }
 
-            $eventWindow = [
-                'title'    => (string) ($activeEvent['title'] ?? 'Événement'),
-                'start_at' => (string) $activeEvent['start_at'],
-                'end_at'   => (string) $activeEvent['end_at'],
-            ];
+            $eventScheduleId = (int) $activeEvent['id'];
         }
 
         $accountId = $this->accountModel->createAccount(
@@ -170,7 +166,7 @@ class AccountController extends Controller
             $type,
             $cap,
             false,
-            $eventWindow
+            $eventScheduleId
         );
 
         AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_ACCOUNT_CREATE, ['name' => $data['name'], 'type' => $type], targetAccountId: $accountId);

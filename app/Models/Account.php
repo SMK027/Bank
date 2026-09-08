@@ -18,6 +18,109 @@ class Account extends Model
     protected string $table = 'accounts';
 
     /**
+     * SELECT commun : jointure vers `event_schedules` pour exposer de façon
+     * uniforme event_title / event_start_at / event_end_at (comptes non
+     * événementiels ou sans event_schedule_id lié → valeurs NULL).
+     */
+    private const EVENT_SCHEDULE_JOIN = '
+        LEFT JOIN `event_schedules` ON `event_schedules`.`id` = `accounts`.`event_schedule_id`';
+
+    private const EVENT_SCHEDULE_SELECT = '`accounts`.*,
+        `event_schedules`.`title`    AS `event_title`,
+        `event_schedules`.`start_at` AS `event_start_at`,
+        `event_schedules`.`end_at`   AS `event_end_at`';
+
+    private function validateColumn(string $name): string
+    {
+        if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $name)) {
+            throw new \InvalidArgumentException("Identifiant SQL invalide : {$name}");
+        }
+        return $name;
+    }
+
+    public function find(int $id): ?array
+    {
+        $stmt = $this->getPdo()->prepare(
+            'SELECT ' . self::EVENT_SCHEDULE_SELECT . '
+             FROM `accounts`' . self::EVENT_SCHEDULE_JOIN . '
+             WHERE `accounts`.`id` = ?'
+        );
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+        return $row !== false ? $row : null;
+    }
+
+    public function findAll(string $orderBy = 'id', string $direction = 'ASC'): array
+    {
+        $col = $this->validateColumn($orderBy);
+        $dir = strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC';
+        $stmt = $this->getPdo()->query(
+            'SELECT ' . self::EVENT_SCHEDULE_SELECT . '
+             FROM `accounts`' . self::EVENT_SCHEDULE_JOIN . "
+             ORDER BY `accounts`.`{$col}` {$dir}"
+        );
+        return $stmt->fetchAll();
+    }
+
+    public function findBy(array $criteria, string $orderBy = 'id', string $direction = 'ASC'): array
+    {
+        if (empty($criteria)) {
+            return $this->findAll($orderBy, $direction);
+        }
+
+        $col = $this->validateColumn($orderBy);
+        $dir = strtoupper($direction) === 'DESC' ? 'DESC' : 'ASC';
+
+        $conditions = [];
+        $params     = [];
+        foreach ($criteria as $key => $value) {
+            $c = $this->validateColumn($key);
+            if ($value === null) {
+                $conditions[] = "`accounts`.`{$c}` IS NULL";
+            } else {
+                $conditions[] = "`accounts`.`{$c}` = ?";
+                $params[]     = $value;
+            }
+        }
+        $where = implode(' AND ', $conditions);
+
+        $stmt = $this->getPdo()->prepare(
+            'SELECT ' . self::EVENT_SCHEDULE_SELECT . '
+             FROM `accounts`' . self::EVENT_SCHEDULE_JOIN . "
+             WHERE {$where}
+             ORDER BY `accounts`.`{$col}` {$dir}"
+        );
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
+    public function findOneBy(array $criteria): ?array
+    {
+        $conditions = [];
+        $params     = [];
+        foreach ($criteria as $key => $value) {
+            $c = $this->validateColumn($key);
+            if ($value === null) {
+                $conditions[] = "`accounts`.`{$c}` IS NULL";
+            } else {
+                $conditions[] = "`accounts`.`{$c}` = ?";
+                $params[]     = $value;
+            }
+        }
+        $where = implode(' AND ', $conditions);
+
+        $stmt = $this->getPdo()->prepare(
+            'SELECT ' . self::EVENT_SCHEDULE_SELECT . '
+             FROM `accounts`' . self::EVENT_SCHEDULE_JOIN . "
+             WHERE {$where}
+             LIMIT 1"
+        );
+        $stmt->execute($params);
+        $row = $stmt->fetch();
+        return $row !== false ? $row : null;
+    }
+
+    /**
      * Types de comptes : label + droit au découvert.
      */
     public const TYPES = [
@@ -298,7 +401,7 @@ class Account extends Model
         string $type = 'standard',
         ?float $cap = null,
         bool $internal = false,
-        ?array $eventWindow = null
+        ?int $eventScheduleId = null
     ): int
     {
         if (!self::typeAllowsOverdraft($type)) {
@@ -317,10 +420,8 @@ class Account extends Model
             'internal'  => $internal ? 1 : 0,
         ];
 
-        if ($eventWindow !== null && self::isEventType($type)) {
-            $row['event_title']    = mb_substr((string) ($eventWindow['title'] ?? ''), 0, 180);
-            $row['event_start_at'] = (string) ($eventWindow['start_at'] ?? '');
-            $row['event_end_at']   = (string) ($eventWindow['end_at'] ?? '');
+        if ($eventScheduleId !== null && self::isEventType($type)) {
+            $row['event_schedule_id'] = $eventScheduleId;
         }
 
         $accountId = $this->create($row);
