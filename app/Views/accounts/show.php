@@ -521,9 +521,9 @@
                         </div>
                         <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-upgrades/buy" style="margin-top:0.85rem;"
                               data-upgrade-form="<?= e($upgrade['key']) ?>"
-                              data-base-cost="<?= (float) $upgrade['cost'] ?>"
+                              data-base-cost="<?= (float) (\App\Models\EventAccountUpgrade::UPGRADES[$upgrade['key']]['cost'] ?? 0.0) ?>"
                               data-owned="<?= (int) $upgrade['owned'] ?>"
-                              data-growth="0.65">
+                              data-growth="<?= \App\Models\EventAccountUpgrade::getPriceGrowth() ?>">
                             <?= csrf_field() ?>
                             <input type="hidden" name="upgrade_key" value="<?= e($upgrade['key']) ?>">
                             <div class="event-upgrade-card__qty-row">
@@ -1153,8 +1153,7 @@
 </style>
 
 <script>
-function computeUpgradeCost(baseCost, ownedQuantity, qty) {
-    const growth = 0.65;
+function computeUpgradeCost(baseCost, ownedQuantity, qty, growth) {
     let total = 0;
     for (let i = 0; i < qty; i++) {
         const nextOwned = ownedQuantity + i;
@@ -1184,13 +1183,14 @@ function attachUpgradeTotalCalculation() {
 
         const baseCost = Number(form.dataset.baseCost || 0);
         const owned = Number(form.dataset.owned || 0);
+        const growth = Number(form.dataset.growth || 0);
         const unitPriceLabel = document.querySelector('.event-upgrade-unit-price[data-upgrade-key="' + key + '"]');
         const totalLabel = document.querySelector('.event-upgrade-total[data-upgrade-key="' + key + '"]');
 
         const update = () => {
             const qty = Math.max(1, Number(input.value || 1));
-            const currentUnitCost = baseCost * (1 + ((owned + (qty - 1)) * 0.65));
-            const total = computeUpgradeCost(baseCost, owned, qty);
+            const currentUnitCost = baseCost * (1 + ((owned + (qty - 1)) * growth));
+            const total = computeUpgradeCost(baseCost, owned, qty, growth);
 
             if (unitPriceLabel) {
                 unitPriceLabel.textContent = formatCurrency(currentUnitCost);
