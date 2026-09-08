@@ -449,6 +449,42 @@ class AccountController extends Controller
         $this->redirect('/accounts/' . $accountId);
     }
 
+    public function buyEventIncomeBoost(string $accountId): void
+    {
+        $this->requireAuth();
+        $this->validateCSRF();
+        $accountId = (int) $accountId;
+        $userId = $this->getCurrentUserId();
+
+        $account = $this->accountModel->find($accountId);
+        if (!$account || !$this->accountModel->isOwner($accountId, $userId)) {
+            $this->setFlash('danger', 'Vous ne pouvez pas lancer de campagne marketing pour ce compte.');
+            $this->redirect('/dashboard');
+            return;
+        }
+
+        if (($account['type'] ?? '') !== 'event') {
+            $this->setFlash('danger', 'Cette action n’est disponible que pour les comptes événementiels.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $packKey = trim((string) ($_POST['pack'] ?? ''));
+        $developerMode = $this->eventAccountUpgradeModel->isDeveloperModeActive();
+
+        if ($packKey === '' || !$this->eventAccountUpgradeModel->buyIncomeBoost($accountId, $packKey)) {
+            $this->setFlash('danger', 'Campagne impossible : fonds insuffisants, campagne déjà active, versement automatique suspendu, ou offre invalide.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
+        $label = EventAccountUpgrade::BOOST_PACKS[$packKey]['label'] ?? 'Campagne marketing';
+        $this->setFlash('success', $developerMode
+            ? sprintf('%s lancée gratuitement en mode développeur !', $label)
+            : sprintf('%s lancée avec succès !', $label));
+        $this->redirect('/accounts/' . $accountId);
+    }
+
     public function upgradeEventUpgradeLevel(string $accountId): void
     {
         $this->requireAuth();

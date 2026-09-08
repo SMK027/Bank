@@ -278,6 +278,7 @@
     $eventPassiveIncome = (new \App\Models\EventAccountUpgrade())->getPassiveIncome((int) $account['id']);
     $eventEconomySummary = (new \App\Models\EventAccountUpgrade())->getEventEconomySummary((int) $account['id']);
     $eventOverdraftLimit = (new \App\Models\EventAccountUpgrade())->getEventOverdraftLimit((int) $account['id']);
+    $eventActiveBoost = (new \App\Models\EventAccountUpgrade())->getActiveBoost((int) $account['id']);
     $eventDevModeBypassUrl = '/supervisor/bypass?feature=' . urlencode(\App\Controllers\SupervisorController::EVENT_TYCOON_DEV_MODE_KEY) . '&redirect=' . urlencode($_SERVER['REQUEST_URI'] ?? '/accounts/' . (int) $account['id']);
 ?>
 <div class="card mb-3" style="border-left:4px solid #0f766e;background:linear-gradient(135deg, rgba(15,118,110,0.08), rgba(16,185,129,0.04));">
@@ -334,6 +335,11 @@
                 <span class="event-kpi-card__label">Améliorations</span>
                 <strong class="event-kpi-card__value"><?= (int) $eventEconomySummary['owned_upgrades_count'] ?></strong>
                 <span class="event-kpi-card__hint">Objets déjà achetés</span>
+            </div>
+            <div class="event-kpi-card">
+                <span class="event-kpi-card__label">Bonus de fidélité</span>
+                <strong class="event-kpi-card__value">+<?= number_format((float) $eventEconomySummary['loyalty_bonus_percentage'], 2, ',', ' ') ?>%</strong>
+                <span class="event-kpi-card__hint">+2% de revenus / 10 améliorations (max 40%)</span>
             </div>
         </div>
 
@@ -417,6 +423,47 @@
                     </form>
                 </div>
             </div>
+        <?php endif; ?>
+
+        <div class="event-status-panel <?= !empty($eventActiveBoost['active']) ? 'event-status-panel--active' : '' ?>">
+            <div class="event-status-panel__body">
+                <div class="event-status-panel__label">Campagne marketing</div>
+                <div class="event-status-panel__text">
+                    <?php if (!empty($eventActiveBoost['active'])): ?>
+                        <strong><?= e((string) $eventActiveBoost['label']) ?></strong> active
+                        (x<?= number_format((float) $eventActiveBoost['multiplier'], 2, ',', ' ') ?> revenus)
+                        jusqu’au <?= e(date('d/m/Y à H\hi', (int) $eventActiveBoost['expires_at'])) ?>.
+                    <?php else: ?>
+                        Lancez une campagne pour booster temporairement vos revenus passifs. Une seule campagne active à la fois.
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
+        <?php if (empty($eventActiveBoost['active'])): ?>
+        <div class="event-upgrade-grid" style="margin-top:0.75rem;">
+            <?php foreach (\App\Models\EventAccountUpgrade::BOOST_PACKS as $packKey => $pack): ?>
+                <div class="card event-upgrade-card" style="border:1px solid rgba(15,118,110,0.2);background:rgba(255,255,255,0.8);">
+                    <div class="card-body" style="padding:1rem;">
+                        <strong><?= e($pack['label']) ?></strong>
+                        <div class="event-upgrade-card__description"><?= e($pack['description']) ?></div>
+                        <div class="event-upgrade-card__pricing" style="margin-top:0.5rem;">
+                            <span class="event-upgrade-card__price-line">
+                                <strong><?= fmt_amount_smart((float) $pack['cost']) ?></strong>
+                            </span>
+                            <span class="text-success">x<?= number_format((float) $pack['multiplier'], 2, ',', ' ') ?> pendant <?= (int) $pack['duration_minutes'] ?> min</span>
+                        </div>
+                        <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/event-income-boost/buy" style="margin-top:0.75rem;">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="pack" value="<?= e($packKey) ?>">
+                            <button type="submit" class="btn btn-sm btn-primary" style="width:100%;">
+                                <i class="bi bi-megaphone"></i> Lancer la campagne
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
         <?php endif; ?>
 
         <?php if ($eventDeveloperMode): ?>

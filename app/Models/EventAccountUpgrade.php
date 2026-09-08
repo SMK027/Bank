@@ -63,6 +63,65 @@ class EventAccountUpgrade extends Model
             'income_per_hour' => 1820.0,
             'description' => 'Une zone gastronomie complète multiplie les achats et la durée de présence sur site.',
         ],
+        'artist_lineup' => [
+            'label' => 'Programmation d’artistes',
+            'cost' => 2500.0,
+            'income_per_hour' => 2550.0,
+            'description' => 'Des têtes d’affiche renommées attirent un public bien plus nombreux et fidèle.',
+        ],
+        'fireworks_show' => [
+            'label' => 'Feu d’artifice',
+            'cost' => 3300.0,
+            'income_per_hour' => 3450.0,
+            'description' => 'Un final pyrotechnique marque les esprits et prolonge la présence du public sur site.',
+        ],
+        'vip_lounge_deluxe' => [
+            'label' => 'Lounge VIP deluxe',
+            'cost' => 4300.0,
+            'income_per_hour' => 4650.0,
+            'description' => 'Un espace exclusif avec service personnalisé fait grimper les dépenses des clients premium.',
+        ],
+        'festival_app' => [
+            'label' => 'Application officielle',
+            'cost' => 5600.0,
+            'income_per_hour' => 6300.0,
+            'description' => 'Billetterie, offres personnalisées et notifications in-app boostent les ventes en continu.',
+        ],
+        'global_broadcast' => [
+            'label' => 'Diffusion mondiale',
+            'cost' => 7200.0,
+            'income_per_hour' => 8350.0,
+            'description' => 'Un streaming international transforme l’événement en phénomène mondial.',
+        ],
+    ];
+
+    /**
+     * Campagnes marketing : boost de revenus temporaire, achetable par tout
+     * propriétaire de compte événementiel (indépendant du mode développeur).
+     * Un seul boost actif à la fois par compte.
+     */
+    public const BOOST_PACKS = [
+        'local' => [
+            'label' => 'Campagne locale',
+            'cost' => 300.0,
+            'multiplier' => 1.25,
+            'duration_minutes' => 30,
+            'description' => 'Affichage dans le quartier : +25 % de revenus pendant 30 minutes.',
+        ],
+        'regional' => [
+            'label' => 'Campagne régionale',
+            'cost' => 900.0,
+            'multiplier' => 1.5,
+            'duration_minutes' => 60,
+            'description' => 'Spots radio régionaux : +50 % de revenus pendant 1 heure.',
+        ],
+        'national' => [
+            'label' => 'Campagne nationale',
+            'cost' => 2500.0,
+            'multiplier' => 2.0,
+            'duration_minutes' => 120,
+            'description' => 'Couverture presse nationale : revenus doublés pendant 2 heures.',
+        ],
     ];
 
     public static function getDefinitions(): array
@@ -128,6 +187,12 @@ class EventAccountUpgrade extends Model
 
     public static function getPrestigeTier(float $totalIncomePerMinute): string
     {
+        if ($totalIncomePerMinute >= 300.0) {
+            return 'Empire du divertissement';
+        }
+        if ($totalIncomePerMinute >= 150.0) {
+            return 'Icône internationale';
+        }
         if ($totalIncomePerMinute >= 40.0) {
             return 'Événement légendaire';
         }
@@ -142,6 +207,16 @@ class EventAccountUpgrade extends Model
         }
 
         return 'Démarrage';
+    }
+
+    /**
+     * Bonus de fidélité permanent : +2% de revenus par tranche de 10
+     * améliorations possédées (toutes installations confondues), plafonné à +40%.
+     */
+    public static function getLoyaltyBonusMultiplier(int $totalOwnedUpgrades): float
+    {
+        $bonus = min(0.40, floor(max(0, $totalOwnedUpgrades) / 10) * 0.02);
+        return round(1.0 + $bonus, 4);
     }
 
     public function isDeveloperModeActive(): bool
@@ -389,6 +464,106 @@ class EventAccountUpgrade extends Model
         return round(min(0.25, max(0.10, $reduction)), 4);
     }
 
+    /**
+     * Retourne l'état du boost marketing en cours (ou neutre s'il n'y en a pas/plus).
+     * Nettoie paresseusement le boost en base s'il est expiré.
+     */
+    public function getActiveBoost(int $accountId): array
+    {
+        $neutral = ['active' => false, 'multiplier' => 1.0, 'label' => null, 'expires_at' => null];
+
+        $account = (new Account())->find($accountId);
+        if (!$account || !Account::isEventType((string) ($account['type'] ?? ''))) {
+            return $neutral;
+        }
+
+        $multiplier = (float) ($account['income_boost_multiplier'] ?? 1.0);
+        $expiresRaw = $account['income_boost_expires_at'] ?? null;
+
+        if ($multiplier <= 1.0 || $expiresRaw === null) {
+            return $neutral;
+        }
+
+        $expiresAt = strtotime((string) $expiresRaw);
+        if ($expiresAt === false || $expiresAt <= time()) {
+            (new Account())->update($accountId, [
+                'income_boost_multiplier' => 1.0,
+                'income_boost_expires_at' => null,
+                'income_boost_label' => null,
+            ]);
+            return $neutral;
+        }
+
+        return [
+            'active' => true,
+            'multiplier' => round($multiplier, 4),
+            'label' => (string) ($account['income_boost_label'] ?? ''),
+            'expires_at' => $expiresAt,
+        ];
+    }
+
+    /**
+     * Achète une campagne marketing (boost de revenus temporaire).
+     * Un seul boost actif à la fois : il faut attendre son expiration pour
+     * en acheter un nouveau.
+     */
+    public function buyIncomeBoost(int $accountId, string $packKey): bool
+    {
+        if (!isset(self::BOOST_PACKS[$packKey])) {
+            return false;
+        }
+
+        $account = (new Account())->find($accountId);
+        if (!$account || !Account::isEventType((string) ($account['type'] ?? ''))) {
+            return false;
+        }
+
+        if ($this->isPassiveIncomePaused($accountId) && !$this->isDeveloperModeActive()) {
+            return false;
+        }
+
+        if ($this->getActiveBoost($accountId)['active']) {
+            return false;
+        }
+
+        $pack = self::BOOST_PACKS[$packKey];
+        $cost = (float) $pack['cost'];
+
+        if (!$this->isDeveloperModeActive()) {
+            $balance = (float) (new Account())->getBalance($accountId);
+            $overdraftLimit = $this->getEventOverdraftLimit($accountId);
+            if (($balance - $cost) < -$overdraftLimit) {
+                return false;
+            }
+        } else {
+            $cost = 0.0;
+        }
+
+        $expiresAt = date('Y-m-d H:i:s', time() + ((int) $pack['duration_minutes'] * 60));
+
+        (new Account())->update($accountId, [
+            'income_boost_multiplier' => (float) $pack['multiplier'],
+            'income_boost_expires_at' => $expiresAt,
+            'income_boost_label' => (string) $pack['label'],
+        ]);
+
+        if ($cost > 0.0) {
+            (new Transaction())->create([
+                'account_id' => $accountId,
+                'user_id' => (int) $account['user_id'],
+                'type' => 'expense',
+                'amount' => $cost,
+                'category' => 'Marketing événementiel',
+                'comment' => 'Campagne : ' . $pack['label'],
+                'scheduled_at' => null,
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+        }
+
+        return true;
+    }
+
     public function getShopState(int $accountId): array
     {
         $account = (new Account())->find($accountId);
@@ -459,6 +634,8 @@ class EventAccountUpgrade extends Model
             $nextUpgrade = end($shop) ?: null;
         }
 
+        $loyaltyMultiplier = self::getLoyaltyBonusMultiplier($ownedUpgradesCount);
+
         return [
             'total_income_per_minute' => round($totalIncomePerMinute, 4),
             'total_income_per_hour' => round($totalIncomePerMinute * 60.0, 2),
@@ -468,6 +645,7 @@ class EventAccountUpgrade extends Model
             'next_upgrade_key' => $nextUpgrade['key'] ?? null,
             'next_upgrade_label' => $nextUpgrade['label'] ?? null,
             'next_upgrade_cost' => (float) ($nextUpgrade['next_cost'] ?? 0.0),
+            'loyalty_bonus_percentage' => round(($loyaltyMultiplier - 1.0) * 100.0, 2),
         ];
     }
 
@@ -591,8 +769,20 @@ class EventAccountUpgrade extends Model
     public function getPassiveIncome(int $accountId): float
     {
         $total = 25.0;
+        $ownedCount = 0;
         foreach ($this->getShopState($accountId) as $upgrade) {
             $total += (float) ($upgrade['total_income_per_minute'] ?? 0.0);
+            $ownedCount += (int) ($upgrade['owned'] ?? 0);
+        }
+
+        $loyaltyMultiplier = self::getLoyaltyBonusMultiplier($ownedCount);
+        if ($loyaltyMultiplier !== 1.0) {
+            $total *= $loyaltyMultiplier;
+        }
+
+        $boost = $this->getActiveBoost($accountId);
+        if (!empty($boost['active']) && (float) $boost['multiplier'] !== 1.0) {
+            $total *= (float) $boost['multiplier'];
         }
 
         $devState = $this->getDeveloperState($accountId);
