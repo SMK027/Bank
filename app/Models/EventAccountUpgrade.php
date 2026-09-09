@@ -660,6 +660,12 @@ class EventAccountUpgrade extends Model
                 continue;
             }
 
+            // Comptes internes de test exclus, et seuls les comptes liés à
+            // un événement actuellement actif sont classés.
+            if (!empty($account['internal']) || !Account::isOperationalNow($account)) {
+                continue;
+            }
+
             $summary = $this->getEventEconomySummary($accountId);
             $rows[] = [
                 'account_id' => $accountId,

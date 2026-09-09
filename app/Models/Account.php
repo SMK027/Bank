@@ -768,9 +768,45 @@ class Account extends Model
         return $this->update($accountId, ['disabled_at' => date('Y-m-d H:i:s')]);
     }
 
+    /**
+     * Réactive un compte désactivé (annule la résiliation). Les comptes
+     * événementiels ne sont jamais reconductibles : une fois désactivés
+     * (manuellement ou automatiquement à la fin de l'événement), ils ne
+     * peuvent plus être réactivés et attendent la purge du cron mensuel.
+     */
     public function enableAccount(int $accountId): bool
     {
+        $account = $this->find($accountId);
+        if ($account !== null && self::isEventType((string) ($account['type'] ?? ''))) {
+            return false;
+        }
+
         return $this->update($accountId, ['disabled_at' => null]);
+    }
+
+    /**
+     * Comptes événementiels non internes dont l'événement lié est terminé et
+     * qui ne sont pas encore désactivés : à clôturer automatiquement
+     * (résiliation irréversible), avant suppression définitive par le cron
+     * mensuel des comptes en résiliation.
+     */
+    public function getExpiredEventAccountsToClose(): array
+    {
+        // Comparaison via l'heure PHP courante (fuseau applicatif, ex. Europe/Paris)
+        // plutôt que NOW() SQL (fuseau serveur DB, potentiellement différent) —
+        // pour rester cohérent avec Account::isOperationalNow() qui détermine déjà
+        // si un compte événementiel est hors période côté application.
+        $stmt = $this->getPdo()->prepare(
+            "SELECT `accounts`.*
+               FROM `accounts`
+               JOIN `event_schedules` ON `event_schedules`.`id` = `accounts`.`event_schedule_id`
+              WHERE `accounts`.`type` = 'event'
+                AND `accounts`.`internal` = 0
+                AND `accounts`.`disabled_at` IS NULL
+                AND `event_schedules`.`end_at` < ?"
+        );
+        $stmt->execute([date('Y-m-d H:i:s')]);
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 
     /**

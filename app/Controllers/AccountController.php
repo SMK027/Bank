@@ -1175,7 +1175,12 @@ class AccountController extends Controller
             return;
         }
 
-        $this->accountModel->enableAccount($accountId);
+        if (!$this->accountModel->enableAccount($accountId)) {
+            $this->setFlash('danger', 'Les comptes événementiels ne peuvent pas être réactivés.');
+            $this->redirect('/accounts/' . $accountId);
+            return;
+        }
+
         AuditLog::log($userId, AuditLog::ACTION_ACCOUNT_ENABLE, ['name' => $account['name'] ?? '?'], targetAccountId: $accountId);
         $this->setFlash('success', 'Compte réactivé avec succès.');
         $this->redirect('/accounts/' . $accountId);

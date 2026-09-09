@@ -763,6 +763,39 @@ if ($passiveIncomeCount > 0) {
 }
 
 /* ─────────────────────────────────────────────────────────────────
+   6bis. Clôture automatique des comptes événementiels dont l'événement
+         est terminé. Résiliation irréversible (voir Account::enableAccount) :
+         le compte sera définitivement supprimé par le cron mensuel de
+         clôture (process_account_closures.php). Les comptes internes de
+         test sont exclus.
+   ───────────────────────────────────────────────────────────────── */
+foreach ($accountModel->getExpiredEventAccountsToClose() as $expiredEventAccount) {
+    $expiredAccountId = (int) $expiredEventAccount['id'];
+    $expiredAccountName = $expiredEventAccount['name'] ?? ('Compte #' . $expiredAccountId);
+
+    $accountModel->disableAccount($expiredAccountId);
+    AuditLog::log(
+        0,
+        AuditLog::ACTION_ACCOUNT_DISABLE,
+        ['name' => $expiredAccountName, 'reason' => 'event_ended'],
+        targetUserId: (int) $expiredEventAccount['user_id'],
+        targetAccountId: $expiredAccountId
+    );
+    $notifModel->notify(
+        (int) $expiredEventAccount['user_id'],
+        'event_account_closed',
+        'Compte événementiel « ' . $expiredAccountName . ' » clôturé',
+        'L’événement associé à ce compte est terminé. Le compte a été résilié et sera définitivement supprimé en fin de mois.',
+        '/accounts/' . $expiredAccountId
+    );
+    $executed++;
+    echo sprintf(
+        "[%s] Compte événementiel #%d « %s » clôturé automatiquement (événement terminé).\n",
+        date('Y-m-d H:i:s'), $expiredAccountId, $expiredAccountName
+    );
+}
+
+/* ─────────────────────────────────────────────────────────────────
    7. Rétro-compatibilité : transactions planifiées sans virement
    ───────────────────────────────────────────────────────────────── */
 // Collecter les IDs de transactions déjà traitées via les virements et prélèvements

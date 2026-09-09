@@ -166,6 +166,9 @@
                 </button>
             <?php endif; ?>
             <?php if ($isDisabled): ?>
+                <?php if (($account['type'] ?? '') === 'event'): ?>
+                    <span class="badge bg-secondary" title="Les comptes événementiels ne peuvent pas être réactivés.">Résiliation définitive</span>
+                <?php else: ?>
                 <form method="POST" action="/moderation/accounts/<?= (int) $account['id'] ?>/enable" style="display:inline">
                     <?= csrf_field() ?>
                     <button type="submit" class="btn btn-success btn-sm"
@@ -173,6 +176,7 @@
                         <i class="bi bi-arrow-counterclockwise"></i> Réactiver
                     </button>
                 </form>
+                <?php endif; ?>
             <?php else: ?>
                 <form method="POST" action="/moderation/accounts/<?= (int) $account['id'] ?>/disable" style="display:inline">
                     <?= csrf_field() ?>
@@ -239,7 +243,9 @@
         Désactivé le <?= date('d/m/Y', strtotime($account['disabled_at'] ?? '')) ?>.
         Aucune nouvelle opération ne peut être enregistrée. Les virements sortants sont bloqués.
         La réception de virements reste possible. Ce compte sera définitivement supprimé à la fin du mois.
-        <?php if ($isOwner && !$isModerator): ?>
+        <?php if (($account['type'] ?? '') === 'event'): ?>
+            <span style="margin-left:0.75rem;font-style:italic;">Les comptes événementiels ne peuvent pas être réactivés.</span>
+        <?php elseif ($isOwner && !$isModerator): ?>
         <form method="POST" action="/accounts/<?= (int) $account['id'] ?>/enable" style="display:inline;margin-left:0.75rem;">
             <?= csrf_field() ?>
             <button type="submit" class="btn btn-success btn-sm"
@@ -4035,8 +4041,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 <p class="text-small text-muted" style="margin:0">
                     Désactivé le <?= date('d/m/Y à H:i', strtotime($account['disabled_at'] ?? '')) ?>.
                     Ce compte sera définitivement supprimé à la fin du mois.
+                    <?php if (($account['type'] ?? '') === 'event'): ?>
+                        Les comptes événementiels ne peuvent pas être réactivés.
+                    <?php endif; ?>
                 </p>
             </div>
+            <?php if (($account['type'] ?? '') !== 'event'): ?>
             <form method="POST" action="/<?= $isModerator ? 'moderation/' : '' ?>accounts/<?= (int) $account['id'] ?>/enable">
                 <?= csrf_field() ?>
                 <button type="submit" class="btn btn-success btn-sm"
@@ -4044,6 +4054,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <i class="bi bi-arrow-counterclockwise"></i> Annuler la résiliation
                 </button>
             </form>
+            <?php endif; ?>
         </div>
         <?php else: ?>
         <div class="d-flex justify-between align-center flex-wrap gap-1">

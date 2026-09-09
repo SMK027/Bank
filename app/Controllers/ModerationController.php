@@ -743,7 +743,12 @@ class ModerationController extends Controller
             return;
         }
 
-        $this->accountModel->enableAccount($accountId);
+        if (!$this->accountModel->enableAccount($accountId)) {
+            $this->setFlash('danger', 'Les comptes événementiels ne peuvent pas être réactivés.');
+            $this->redirect(isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '/moderation');
+            return;
+        }
+
         AuditLog::log($this->getCurrentUserId(), AuditLog::ACTION_ACCOUNT_ENABLE, ['name' => $account['name']], targetUserId: (int) $account['user_id'], targetAccountId: $accountId);
         $this->notifyAccountOwner(
             (int) $account['user_id'],
